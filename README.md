@@ -1,4 +1,4 @@
-html2pdf
+dompdf
 ===========
 
 <!-- [主页](https://html2canvas.hertzen.com) | [下载](https://github.com/niklasvh/html2canvas/releases) | [问题](https://github.com/niklasvh/html2canvas/discussions/categories/q-a)
@@ -54,13 +54,13 @@ html2pdf
 
 ### 使用方法
 
-html2pdf 库使用 `Promise` 并期望它们在全局上下文中可用。如果您希望支持不原生支持 `Promise` 的[较旧浏览器](http://caniuse.com/#search=promise)，请在引入 `html2pdf` 之前包含一个 polyfill，比如 [es6-promise](https://github.com/jakearchibald/es6-promise)。
+dompdf 库使用 `Promise` 并期望它们在全局上下文中可用。如果您希望支持不原生支持 `Promise` 的[较旧浏览器](http://caniuse.com/#search=promise)，请在引入 `dompdf` 之前包含一个 polyfill，比如 [es6-promise](https://github.com/jakearchibald/es6-promise)。
 
-要使用 html2pdf 渲染一个 `element`，只需调用：
+要使用 dompdf 渲染一个 `element`，只需调用：
 
 
 ```js
-    html2pdf(document.body, 
+    dompdf(document.body, 
     {
         useCORS: true,//是否允许跨域
         scale: 1,//缩放比例
@@ -84,7 +84,7 @@ html2pdf 库使用 `Promise` 并期望它们在全局上下文中可用。如果
 
 克隆 git 仓库：
 
-    $ git clone git@github.com:lmn1919/html2pdf.git
+    $ git clone git@github.com:lmn1919/dompdf.git
 
 安装依赖：
 

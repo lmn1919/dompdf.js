@@ -1,0 +1,30 @@
+<div id="content" style="width: 600px; padding: 20px; border: 1px solid #ccc;">
+    <h1>Hello, World!</h1>
+    <p>This is a sample HTML content.</p>
+  </div>
+  <button id="generate-pdf">Generate PDF</button>
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script>
+    document.getElementById('generate-pdf').addEventListener('click', function () {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    // 设置边框样式
+    doc.setDrawColor('#dd2526'); // 边框颜色（黑色）
+    doc.setLineWidth(1); // 边框宽度
+
+    // 绘制边框
+    doc.rect(10, 10, 190, 100); // (x, y, width, height)
+    doc.stroke(); // 描边
+
+    // 添加文本
+    doc.setFontSize(12);
+    doc.text('This is a PDF with a border.', 20, 20);
+
+    // 保存 PDF
+    doc.save('document-with-border.pdf');
+  });
+  </script>
+  

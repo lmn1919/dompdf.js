@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title></title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <style>
+        .byte-icon,
+        .code-block-extension-foldBtn {
+            height: 10px;
+            width: 10px;
+        }
+
+        div {
+            padding: 20px;
+            margin: 0 auto;
+            /* border:5px solid black; */
+        }
+
+        h1 {
+            /* border-bottom:2px solid white; */
+            border: 1px solid red;
+            /* border-bottom: 2px solid red;
+            border-top: 1px solid #ddd;
+            border-left: 1px solid #ddd;
+            border-right: 1px solid #ddd;
+            font-size: 24px;
+            border-top-left-radius: 5px;
+            border-top-right-radius: 5px;
+            border-bottom-left-radius: 10px;
+            border-bottom-right-radius: 2px; */
+            background: #12c96b;
+            border-bottom-left-radius: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.8);
+            /* border-radius: 20px; */
+
+            /* border-radius: 20px; */
+            /* background: #dd2526; */
+            overflow: hidden;
+
+        }
+
+        h2 {
+            background: #efefef;
+            padding: 10px;
+        }
+
+        .text-center {
+
+            /* box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.5); */
+            /* text-align: center; */
+            border-top: 1px solid #dd2526;
+        }
+
+        .red-text {
+            color: red;
+
+        }
+
+        .img-center {
+            width: 40%;
+        }
+
+        .hljs {
+            background: #2b2b2b;
+            color: #f8f8f2;
+        }
+
+        code {
+            margin: 12px 0 !important;
+            border-radius: 3px;
+            font-size: 15px;
+            padding: 16px 12px;
+            word-break: normal;
+            display: block;
+            overflow-x: auto;
+            color: #333;
+            background: #f7f7f7;
+        }
+
+        .code-block-extension-codeLine {
+            display: block;
+            padding: 0 12px;
+            margin: 0;
+            line-height: 1.5;
+            font-size: 14px;
+            color: #333;
+            background: #f7f7f7;
+
+
+        }
+
+    </style>
+</head>
+
+<body>
+    <div class="content" id="content">
+        <h1>开篇词 —— 深入理解中文分词的原理及实现的意义</h1>
+        <!-- <h1>my name is lifacai</h1> -->
+
+
+        <!-- <ul>
+            <li>词法分析：分词、词性标注、实体识别</li>
+            <li class="red-text">词向量表示：语义挖掘、词义相似度</li>
+            <li>文本相似度：计算两个短文本之间的语义相似度，实现推荐和排序</li>
+            <li>依存句法分析：自动分析文本中的依存句法结构信息</li>
+            <li>DNN语言模型：判断一句话是否符合语言表达习惯</li>
+        </ul>
+        <p>这类的开源工具绝大多数情况下，只需要按照说明文档使用，基本可以做到开箱即用，极大的简化了相关工作的复杂性。</p>
+        <p>但这样的便捷也很容易导致大家忽视其背后的原理及实现，只是知其然而不知其所以然。</p>
+        <p>但是真要用在企业级应用我们需要考虑全部的复杂性，你至少要吃透官方文档的大部分内容，
+            最好是写几个稍微复杂点的Demo，光是吃透文档就需要至少10小时以上的成本你才能彻底在企业级应用all in tailwind，如果你的团队有10名前端同学，
+            你们将会付出100个小时的代价，这些代价不光是个人的，更是企业的损失，而花了这100小时掌握之后能够靠那一点点便捷提速弥补损失吗？不能。或许100小时早就用以前的方式写完了全部样式。团队还会扩大，新招进来的同学还得培训一下。
+        </p>
+        <p class="text-center">不过，通常情况下这样做也没有什么大问题，只要能够满足需求就可以了，毕竟现在的开源工具如此之多，如果每个开源工具都去深入了解，那么对时间和精力也是一个巨大的消耗。</p>
+
+
+        <h2>学生信息表</h2>
+        <table border="1" style="width: 100%; border-collapse: collapse;">
+            <tr style="background-color: #f2f2f2;">
+                <th style="padding: 10px;">姓名</th>
+                <th style="padding: 10px;">性别</th>
+                <th style="padding: 10px;">年龄</th>
+                <th style="padding: 10px;">电话</th>
+                <th style="padding: 10px;">家庭住址</th>
+            </tr>
+            <tr>
+                <td style="padding: 10px;">张三</td>
+                <td style="padding: 10px;">男</td>
+                <td style="padding: 10px;">18</td>
+                <td style="padding: 10px;">13800138000</td>
+                <td style="padding: 10px;">北京市海淀区中关村大街1号</td>
+            </tr>
+            <tr style="background-color: #f9f9f9;">
+                <td style="padding: 10px;">李四</td>
+                <td style="padding: 10px;">女</td>
+                <td style="padding: 10px;">19</td>
+                <td style="padding: 10px;">13900139000</td>
+                <td style="padding: 10px;">上海市浦东新区陆家嘴环路1000号</td>
+            </tr>
+            <tr>
+                <td style="padding: 10px;">王五</td>
+                <td style="padding: 10px;">男</td>
+                <td style="padding: 10px;">20</td>
+                <td style="padding: 10px;">13700137000</td>
+                <td style="padding: 10px;">广州市天河区珠江新城华夏路10号</td>
+            </tr>
+        </table>
+
+<h2>复杂数据统计表</h2>
+<table border="1" style="width: 100%; border-collapse: collapse;">
+    <thead>
+        <tr style="background-color: #4CAF50; color: white;">
+            <th rowspan="2" style="padding: 15px;">部门</th>
+            <th colspan="3" style="padding: 15px;">销售业绩（万元）</th>
+            <th colspan="2" style="padding: 15px;">人员情况</th>
+            <th rowspan="2" style="padding: 15px;">完成率</th>
+        </tr>
+        <tr style="background-color: #81C784; color: white;">
+            <th style="padding: 15px;">第一季度</th>
+            <th style="padding: 15px;">第二季度</th>
+            <th style="padding: 15px;">合计</th>
+            <th style="padding: 15px;">在职人数</th>
+            <th style="padding: 15px;">离职人数</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr style="background-color: #f9f9f9;">
+            <td style="padding: 12px;">华东区</td>
+            <td style="padding: 12px; text-align: right;">1,280</td>
+            <td style="padding: 12px; text-align: right;">1,420</td>
+            <td style="padding: 12px; text-align: right;">2,700</td>
+            <td style="padding: 12px; text-align: center;">45</td>
+            <td style="padding: 12px; text-align: center;">3</td>
+            <td style="padding: 12px; text-align: center;">95%</td>
+            </tr>
+            <tr>
+                <td style="padding: 12px;">华南区</td>
+                <td style="padding: 12px; text-align: right;">980</td>
+                <td style="padding: 12px; text-align: right;">1,150</td>
+                <td style="padding: 12px; text-align: right;">2,130</td>
+                <td style="padding: 12px; text-align: center;">38</td>
+                <td style="padding: 12px; text-align: center;">2</td>
+                <td style="padding: 12px; text-align: center;">88%</td>
+            </tr>
+            <tr style="background-color: #f9f9f9;">
+                <td style="padding: 12px;">华北区</td>
+                <td style="padding: 12px; text-align: right;">1,350</td>
+                <td style="padding: 12px; text-align: right;">1,480</td>
+                <td style="padding: 12px; text-align: right;">2,830</td>
+                <td style="padding: 12px; text-align: center;">52</td>
+                <td style="padding: 12px; text-align: center;">4</td>
+                <td style="padding: 12px; text-align: center;">98%</td>
+            </tr>
+            </tbody>
+            <tfoot>
+                <tr style="background-color: #E8F5E9; font-weight: bold;">
+                    <td style="padding: 12px;">总计</td>
+                    <td style="padding: 12px; text-align: right;">3,610</td>
+                    <td style="padding: 12px; text-align: right;">4,050</td>
+                    <td style="padding: 12px; text-align: right;">7,660</td>
+                    <td style="padding: 12px; text-align: center;">135</td>
+                    <td style="padding: 12px; text-align: center;">9</td>
+                    <td style="padding: 12px; text-align: center;">94%</td>
+                </tr>
+            </tfoot>
+            </table> -->
+
+
+        <!-- <div>
+
+            <img class="img-center"
+                src="https://p6-xtjj-sign.byteimg.com/tos-cn-i-73owjymdk6/ac51faa493a04c49842cd9e4a512944d~tplv-73owjymdk6-jj-mark-v1:0:0:0:0:5o6Y6YeR5oqA5pyv56S-5Yy6IEAg5Lic5Lic5ou_6ZOB:q75.awebp?rk3s=f64ab15b&x-expires=1737388428&x-signature=DOJ1M%2B9B1tY9Ejh1ehm6q0OGDjc%3D"
+                alt="">
+        </div> -->
+        <!-- <canvas class="img-center" id="myCanvas" width="400" height="200">
+
+
+        </canvas> -->
+
+
+
+    </div>
+    <script type="text/javascript" src="../dist/dompdf.js"></script>
+    <script type="text/javascript" src="./SourceHanSansSC-Normal-Min-normal.js"></script>
+    <script src="https://unpkg.com/jspdf@latest/dist/jspdf.umd.min.js"></script>
+    <!-- dompdf -->
+
+    <!-- 引入html2canvas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/dompdf.js/0.10.1/dompdf.bundle.min.js"></script> -->
+    <script type="text/javascript">
+        // var {
+        //     jsPDF
+        // } = window.jspdf;
+        // var doc = new jsPDF();
+
+
+
+
+
+
+
+        // 等待字体加载并执行转换
+        async function convertToPDF() {
+            console.log(window.fontBase64,'window.fontBase64')
+            document.getElementById('content').style.display = 'none';
+            dompdf(document.getElementById('content'), {
+                useCORS: true,
+                scale: 1,
+                foreignObjectRendering: false,
+                fontConfig: {
+                    // fontFamily: 'SourceHanSansSC-Normal-Min',
+                    // fontBase64: window.fontBase64,
+                    fontUrl: '',
+                    fontWeight: 400,
+                    fontStyle: 'normal',
+                },
+                pdfFileName: 'my-document.pdf' // 指定 PDF 文件名
+            }).then(function (canvas) {
+                // console.log(window.fontBase64, 'window.fontBase64');
+                document.body.appendChild(canvas);
+            });
+        }
+
+        convertToPDF();
+
+    </script>
+
+</body>
+
+</html>

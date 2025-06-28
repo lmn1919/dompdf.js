@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title></title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <style>
+        .code-block-extension-headerLeft>.code-block-extension-foldBtn {
+            height: 18px;
+            width: 18px;
+        }
+        .code-block-extension-header{
+            display: flex;
+            justify-content:space-between;
+            align-items:center;
+            color: #999;
+            padding: 10px;
+            font-size: 13px;
+        }
+        .code-block-extension-headerRight{
+            display: flex;
+            justify-content:space-between;
+            align-items:center;
+        }
+
+    </style>
+</head>
+
+<body>
+
+    <div data-v-9261cc5e="" class="section-page book-section-view">
+        <!---->
+        <div data-v-9261cc5e="" class="article-content">
+            <div class="markdown-body">
+                <style>
+                    .markdown-body {
+                        word-break: break-word;
+                        line-height: 1.75;
+                        font-weight: 400;
+                        font-size: 16px;
+                        overflow-x: hidden;
+                        color: #252933
+                    }
+
+                    .markdown-body h1,
+                    .markdown-body h2,
+                    .markdown-body h3,
+                    .markdown-body h4,
+                    .markdown-body h5,
+                    .markdown-body h6 {
+                        line-height: 1.5;
+                        margin-top: 35px;
+                        margin-bottom: 10px;
+                        padding-bottom: 5px
+                    }
+
+                    .markdown-body h1 {
+                        font-size: 24px;
+                        line-height: 38px;
+                        margin-bottom: 5px
+                    }
+
+                    .markdown-body h2 {
+                        font-size: 22px;
+                        line-height: 34px;
+                        padding-bottom: 12px;
+                        border-bottom: 1px solid #ececec
+                    }
+
+                    .markdown-body h3 {
+                        font-size: 20px;
+                        line-height: 28px
+                    }
+
+                    .markdown-body h4 {
+                        font-size: 18px;
+                        line-height: 26px
+                    }
+
+                    .markdown-body h5 {
+                        font-size: 17px;
+                        line-height: 24px
+                    }
+
+                    .markdown-body h6 {
+                        font-size: 16px;
+                        line-height: 24px
+                    }
+
+                    .markdown-body p {
+                        line-height: inherit;
+                        margin-top: 22px;
+                        margin-bottom: 22px
+                    }
+
+                    .markdown-body img {
+                        max-width: 100%
+                    }
+
+                    .markdown-body hr {
+                        border: none;
+                        border-top: 1px solid #ddd;
+                        margin-top: 32px;
+                        margin-bottom: 32px
+                    }
+
+                    .markdown-body code {
+                        word-break: break-word;
+                        border-radius: 2px;
+                        overflow-x: auto;
+                        background-color: #fff5f5;
+                        color: #ff502c;
+                        font-size: .87em;
+                        padding: .065em .4em
+                    }
+
+                    .markdown-body code,
+                    .markdown-body pre {
+                        font-family: Menlo, Monaco, Consolas, Courier New, monospace
+                    }
+
+                    .markdown-body pre {
+                        overflow: auto;
+                        position: relative;
+                        line-height: 1.75
+                    }
+
+                    .markdown-body pre>code {
+                        font-size: 12px;
+                        padding: 15px 12px;
+                        margin: 0;
+                        word-break: normal;
+                        display: block;
+                        overflow-x: auto;
+                        color: #333;
+                        background: #f8f8f8
+                    }
+
+                    .markdown-body a {
+                        text-decoration: none;
+                        color: #0269c8;
+                        border-bottom: 1px solid #d1e9ff
+                    }
+
+                    .markdown-body a:active,
+                    .markdown-body a:hover {
+                        color: #275b8c
+                    }
+
+                    .markdown-body table {
+                        display: inline-block !important;
+                        font-size: 12px;
+                        width: auto;
+                        max-width: 100%;
+                        overflow: auto;
+                        border: 1px solid #f6f6f6
+                    }
+
+                    .markdown-body thead {
+                        background: #f6f6f6;
+                        color: #000;
+                        text-align: left
+                    }
+
+                    .markdown-body tr:nth-child(2n) {
+                        background-color: #fcfcfc
+                    }
+
+                    .markdown-body td,
+                    .markdown-body th {
+                        padding: 12px 7px;
+                        line-height: 24px
+                    }
+
+                    .markdown-body td {
+                        min-width: 120px
+                    }
+
+                    .markdown-body blockquote {
+                        color: #666;
+                        padding: 1px 23px;
+                        margin: 22px 0;
+                        border-left: 4px solid #cbcbcb;
+                        background-color: #f8f8f8
+                    }
+
+                    .markdown-body blockquote:after {
+                        display: block;
+                        content: ""
+                    }
+
+                    .markdown-body blockquote>p {
+                        margin: 10px 0
+                    }
+
+                    .markdown-body ol,
+                    .markdown-body ul {
+                        padding-left: 28px
+                    }
+
+                    .markdown-body ol li,
+                    .markdown-body ul li {
+                        margin-bottom: 0;
+                        list-style: inherit
+                    }
+
+                    .markdown-body ol li .task-list-item,
+                    .markdown-body ul li .task-list-item {
+                        list-style: none
+                    }
+
+                    .markdown-body ol li .task-list-item ol,
+                    .markdown-body ol li .task-list-item ul,
+                    .markdown-body ul li .task-list-item ol,
+                    .markdown-body ul li .task-list-item ul {
+                        margin-top: 0
+                    }
+
+                    .markdown-body ol ol,
+                    .markdown-body ol ul,
+                    .markdown-body ul ol,
+                    .markdown-body ul ul {
+                        margin-top: 3px
+                    }
+
+                    .markdown-body ol li {
+                        padding-left: 6px
+                    }
+
+                    .markdown-body .contains-task-list {
+                        padding-left: 0
+                    }
+
+                    .markdown-body .task-list-item {
+                        list-style: none
+                    }
+
+                    @media (max-width:720px) {
+                        .markdown-body h1 {
+                            font-size: 24px
+                        }
+
+                        .markdown-body h2 {
+                            font-size: 20px
+                        }
+
+                        .markdown-body h3 {
+                            font-size: 18px
+                        }
+                    }
+
+                </style>
+                <style data-highlight="" data-highlight-key="juejin">
+                    .markdown-body pre,
+                    .markdown-body pre>code.hljs {
+                        color: #333;
+                        background: #f8f8f8
+                    }
+
+                    .hljs-comment,
+                    .hljs-quote {
+                        color: #998;
+                        font-style: italic
+                    }
+
+                    .hljs-keyword,
+                    .hljs-selector-tag,
+                    .hljs-subst {
+                        color: #333;
+                        font-weight: 700
+                    }
+
+                    .hljs-literal,
+                    .hljs-number,
+                    .hljs-tag .hljs-attr,
+                    .hljs-template-variable,
+                    .hljs-variable {
+                        color: teal
+                    }
+
+                    .hljs-doctag,
+                    .hljs-string {
+                        color: #d14
+                    }
+
+                    .hljs-section,
+                    .hljs-selector-id,
+                    .hljs-title {
+                        color: #900;
+                        font-weight: 700
+                    }
+
+                    .hljs-subst {
+                        font-weight: 400
+                    }
+
+                    .hljs-class .hljs-title,
+                    .hljs-type {
+                        color: #458;
+                        font-weight: 700
+                    }
+
+                    .hljs-attribute,
+                    .hljs-name,
+                    .hljs-tag {
+                        color: navy;
+                        font-weight: 400
+                    }
+
+                    .hljs-link,
+                    .hljs-regexp {
+                        color: #009926
+                    }
+
+                    .hljs-bullet,
+                    .hljs-symbol {
+                        color: #990073
+                    }
+
+                    .hljs-built_in,
+                    .hljs-builtin-name {
+                        color: #0086b3
+                    }
+
+                    .hljs-meta {
+                        color: #999;
+                        font-weight: 700
+                    }
+
+                    .hljs-deletion {
+                        background: #fdd
+                    }
+
+                    .hljs-addition {
+                        background: #dfd
+                    }
+
+                    .hljs-emphasis {
+                        font-style: italic
+                    }
+
+                    .hljs-strong {
+                        font-weight: 700
+                    }
+
+                </style>
+                <h1 data-id="heading-0">开篇词 —— 深入理解中文分词的原理及实现的意义</h1>
+                <p>大家一旦开始接触到NLP相关工作时，必然会遇到需要中文分词的情况，那么最简单的方式就是直接使用开源的中文分词工具，如：<a
+                        href="https://link.juejin.cn?target=https%3A%2F%2Fgithub.com%2Ffxsjy%2Fjieba" target="_blank"
+                        rel="nofollow noopener noreferrer" title="https://github.com/fxsjy/jieba"
+                        ref="nofollow noopener noreferrer">jieba</a>。</p>
+                <p>这类的开源工具绝大多数情况下，只需要按照说明文档使用，基本可以做到开箱即用，极大的简化了相关工作的复杂性。</p>
+                <p>但这样的便捷也很容易导致大家忽视其背后的原理及实现，只是知其然而不知其所以然。</p>
+                <p>不过，通常情况下这样做也没有什么大问题，只要能够满足需求就可以了，毕竟现在的开源工具如此之多，如果每个开源工具都去深入了解，那么对时间和精力也是一个巨大的消耗。</p>
+                <p>与此同时，现在很多技术的过时速度非常快，投资回报率很低，按照经济学的角度来看，你损失的不仅仅是这门技术被淘汰了，而是没有利用同等的时间去学习那些更有生命力、更有价值的技术，来提升自己的核心竞争力。
+                </p>
+                <p>那么问题就来了，到底值不值去深入理解中文分词的原理及实现呢？</p>
+                <h2 data-id="heading-1">背景</h2>
+                <p>在回答上面的问题之前，还是有必要简单的介绍一下NLP，让大家有一个较全面的认知，方便理解后面的内容。</p>
+                <p>众所周知，互联网上有着海量的文本数据，同时各家互联网公司又各自拥有大量独有的文本数据，而要处理如此量级的非结构化数据，是一项极具挑战性的工作，虽然人可以轻易地从非结构化数据中学习，但效率有限，而计算机只能直接从结构化数据中学习。
+                </p>
+                <ul>
+                    <li>结构化数据，如：关系型数据</li>
+                    <li>半结构化数据，如：XML数据</li>
+                    <li>非结构化数据，如：Word、PDF、文本、日志</li>
+                </ul>
+                <p>能胜任这样挑战的技术除了大数据，就是NLP了。NLP的全称是<strong>N</strong>atural <strong>L</strong>anguage
+                    <strong>P</strong>rocessing，中文意思是自然语言处理，是各种相关技术的集合，也是人工智能的一个重要方向。</p>
+                <p>NLP的应用场景非常丰富，我梳理了一下，主要包括两大部分：</p>
+                <h3 data-id="heading-2">自然语言处理基础技术</h3>
+                <ul>
+                    <li>词法分析：分词、词性标注、实体识别</li>
+                    <li>词向量表示：语义挖掘、词义相似度</li>
+                    <li>文本相似度：计算两个短文本之间的语义相似度，实现推荐和排序</li>
+                    <li>依存句法分析：自动分析文本中的依存句法结构信息</li>
+                    <li>DNN语言模型：判断一句话是否符合语言表达习惯</li>
+                </ul>
+                <h3 data-id="heading-3">自然语言处理应用技术</h3>
+                <ul>
+                    <li>文本纠错：识别文本中的错别字，给出提示及正确的建议</li>
+                    <li>情感倾向分析：对包含主观信息的文本进行情感倾向性判断</li>
+                    <li>评论观点抽取：分析评论关注点和观点，输出标签及观点极性</li>
+                    <li>对话情绪识别：识别会话者所表现出的情绪类别及置信度</li>
+                    <li>文本标签：输出能够反映文章关键信息的多维度标签</li>
+                    <li>文章分类：输出文章的主题分类及对应的置信度</li>
+                    <li>新闻摘要：抽取关键信息并生成指定长度的新闻摘要</li>
+                    <li>文本审核：对敏感内容进行识别和过滤</li>
+                    <li>文本翻译：通用翻译、语音翻译、拍照翻译</li>
+                </ul>
+                <p>只要对NLP稍有了解就不难发现，分词是NLP基础中的基础，很多的NLP任务都是依赖着分词的结果，因此也就影响着最终结果的质量，可见分词的重要性。</p>
+                <h2 data-id="heading-4">深度学习对NLP的影响</h2>
+                <p>随着Word2vec、BERT等开源项目的诞生，大力推动了NLP的发展，在很多细分领域取得了巨大的进步，所以有人会对分词的重要性产生疑问。</p>
+                <pre><div class="code-block-extension-header" style="background-color: rgb(248, 248, 248);"><div class="code-block-extension-headerLeft"><div class="code-block-extension-foldBtn"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M16.924 9.617A1 1 0 0 0 16 9H8a1 1 0 0 0-.707 1.707l4 4a1 1 0 0 0 1.414 0l4-4a1 1 0 0 0 .217-1.09z" data-name="Down"></path></svg></div></div><div class="code-block-extension-headerRight"><span class="code-block-extension-lang">!</span><div class="code-block-extension-copyCodeBtn">复制代码</div></div></div><code class="hljs language-! code-block-extension-codeShowNum"><span class="code-block-extension-codeLine" data-line-num="1">Word2vec：是Google在2013年开源的一款用于词向量计算的工具，所谓的词向量就是将人所使用词汇用向量的形式表示，让机器可以直接计算。</span>
+</code></pre>
+                <pre><div class="code-block-extension-header" style="background-color: rgb(248, 248, 248);"><div class="code-block-extension-headerLeft"><div class="code-block-extension-foldBtn"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M16.924 9.617A1 1 0 0 0 16 9H8a1 1 0 0 0-.707 1.707l4 4a1 1 0 0 0 1.414 0l4-4a1 1 0 0 0 .217-1.09z" data-name="Down"></path></svg></div></div><div class="code-block-extension-headerRight"><span class="code-block-extension-lang">!</span><div class="code-block-extension-copyCodeBtn">复制代码</div></div></div><code class="hljs language-! code-block-extension-codeShowNum"><span class="code-block-extension-codeLine" data-line-num="1">BERT：是Google在2018年开源的又一款词向量工具，本质上可以把其看作是Word2vec的升级版，采用了表达能力更强的网络结构训练词向量（在中文场景里更准确的表达应该是字向量）。</span>
+</code></pre>
+                <p>介于篇幅有限，这里就不展开说明了，后面章节涉及到词向量的时候，再给大家详细说明。</p>
+                <p>是否有了Word2vec、BERT等开源项目就可以直接对NLP任务进行端到端的学习，而不必再关心原来的基础知识了呢？</p>
+                <pre><div class="code-block-extension-header" style="background-color: rgb(248, 248, 248);"><div class="code-block-extension-headerLeft"><div class="code-block-extension-foldBtn"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M16.924 9.617A1 1 0 0 0 16 9H8a1 1 0 0 0-.707 1.707l4 4a1 1 0 0 0 1.414 0l4-4a1 1 0 0 0 .217-1.09z" data-name="Down"></path></svg></div></div><div class="code-block-extension-headerRight"><span class="code-block-extension-lang">!</span><div class="code-block-extension-copyCodeBtn">复制代码</div></div></div><code class="hljs language-! code-block-extension-codeShowNum"><span class="code-block-extension-codeLine" data-line-num="1">端到端的学习，是指在深度学习里只要定义好了网络结构，准备好训练数据，那么其它一切事情就可以交给计算机搞定。像识别手写数字就是很好的端到端学习的例子，输入的是图像的矩阵数据，输出的是预测的数字类别的概率，中间的学习过程完全由计算机搞定。</span>
+</code></pre>
+                <p>但实际上在很多的业务场景里，无法简单地将文本以向量化的方式直接输入给计算机进行学习，就可以获得想要的结果。这个捷径就被堵死了，我总结了三点原因：</p>
+                <ul>
+                    <li>首先，海量的文本内容全部向量化输入给计算机进行处理，那么耗时将是一个天文数字，倒是可以期待一下量子计算机</li>
+                    <li>其次，如果是监督学习需要大量的训练数据，那么获取大量的高质量训练数据的成本也是巨大的，甚至是几乎无法实现的</li>
+                    <li>最后，如果是无监督学习，那么前期就需要很多的人工处理，比如：关键词、主题词挖掘就依赖中文分词的准确性等</li>
+                </ul>
+                <p>目前，在NLP领域里还没有一种大小问题通吃的工具，所以深入理解NLP的相关基础原理及实现就很有必要了，这样在面对各种棘手的问题时，才能从容应对，而且背后涉及到的知识点和解决问题的思想受用终生。</p>
+                <h2 data-id="heading-5">中文分词的难</h2>
+                <p>中文可以说是世界上最难学习的语言了，不仅发音丰富，而且一词多义的情况还特别多，同时由于是象形文字，不像拉丁文那样可以用空格自然分词。</p>
+                <blockquote>
+                    <p>good good study, day day up</p>
+                    <p>好好学习，天天向上</p>
+                </blockquote>
+                <p>这就给需要处理中文内容的工程师带来了巨大的困难。</p>
+                <p>虽然现在已经有了很多优秀的开源中文分词工具，例如：jieba、ik等，可以一定程度上解决部分问题，但是一旦涉及到高质量、特殊化，那么这些中文分词工具就会立刻捉襟见肘，漏洞百出。</p>
+                <p>原因很简单，因为这些开源的中文分词工具都是基于通用语料标注得到的词典，那么必然在领域、时效方面存在缺陷。</p>
+                <p>这里展开说明一下：</p>
+                <h3 data-id="heading-6">领域方面</h3>
+                <p>开源的中文分词工具，大多使用的也都是开源的语料库，如：人民日报，这样综合性的语料库，好处自然是比较全面，但缺点也比较突出，就是缺少大量的专有词汇。</p>
+                <p>这些专有词汇的种类非常丰富，例如：小说人物名、品牌、机构、地点、特殊的道具、专业词汇等等。像杨天凡（小说人物名）、韩都衣舍（品牌）这样的词汇就不能切出来。</p>
+                <h3 data-id="heading-7">时效方面</h3>
+                <p>大家都能切身感受到身边每天都会产生大量的新词，是之前从来没有出现过的，但这些词的热度却非常高，对业务的价值非常大。</p>
+                <p>可以举几个例子，让大家感受一下，当然可能大家看到的时候这些词已经不是什么新词了。</p>
+                <ul>
+                    <li>穷秃毕见</li>
+                    <li>老鹿蹒跚</li>
+                    <li>纸性恋</li>
+                </ul>
+                <p>一些中文分词工具的开发者，也考虑到了这种未登录词出现的情况，并尝试利用像HMM这类的模型去自动识别未登录词，但实际效果确并不理想。</p>
+                <p>综上所述，针对于中文分词，目前不存在像其它开源项目（Django）那样一站式解决所有问题的工具，能够让开发者可以忽略掉原理和内部实现的细节，也同样可以开发出满足需求的系统。</p>
+                <p>致力于从事NLP相关工作的开发者，就必须熟悉中文分词的原理及实现，才能够根据自己的实际业务需要，灵活运用，开发出更有针对性的系统，满足个性化的需求。</p>
+                <h2 data-id="heading-8">总结</h2>
+                <p>中文分词不仅对NLP来说非常重要，其背后的原理涉及到的知识面也非常广，而且这些知识的实用性非常高，可以为很多问题提供解决思路。</p>
+                <p>这里罗列一下涉及到的知识点，后面的章节我会由浅入深的详细说明，让大家深入地理解这些知识点。</p>
+                <ul>
+                    <li>统计学，主要涉及最大概率、凝固度等</li>
+                    <li>信息论，主要涉及信息熵、交叉熵等</li>
+                    <li>图模型，主要涉及有向无环图的计算、HMM模型、CRF模型等</li>
+                    <li>数据结构，主要涉及到Trie树、图结构等</li>
+                    <li>线性代数，主要涉及到余弦相似度等</li>
+                    <li>深度学习，主要涉及到神经网络、词向量训练及使用</li>
+                    <li>开发技巧，主要涉及到一些业务案例的开发技巧及思路</li>
+                </ul>
+                <p>授人以鱼不如授人以渔，我也会尽自己最大的努力，将所有复杂的概念用简单易懂的方式解释清楚，让大家能够扫清知识盲点。只要大家坚持到最后，将这些环环相扣的知识点深入理解，定会有一种打通任督二脉的感觉，会发现之前无法解决的问题都有了清晰的思路和解决的方法，可以自己亲自动手打造专属的中文分词工具。
+                </p>
+                <p>我们一同努力！</p>
+            </div>
+        </div>
+        <!---->
+        <section data-v-9261cc5e="" class="book-comments">
+            <div data-v-9261cc5e="" class="box-title">留言</div>
+            <div data-v-1ad183ff="" data-v-9261cc5e="" data-jj-helper="comment-container" class="container">
+                <div data-v-5c4c4c94="" data-v-1ad183ff="" class="comment-form comment-form hasborder"
+                    jj-helper-item-id="6844733812102922247" jj-helper-item-type="12">
+                    <div data-v-5c4c4c94="" class="avatar-box"><img data-v-55b483d2="" data-v-071f0fdd=""
+                            data-v-5c4c4c94=""
+                            src="https://p3-passport.byteimg.com/img/user-avatar/921f5d202e8c774e3e0fd697af8dd57a~100x100.awebp"
+                            alt="" class="lazy avatar avatar" loading="lazy"></div>
+                    <div data-v-5c4c4c94="" class="form-box">
+                        <div data-v-54d0b292="" data-v-5c4c4c94="" class="auth-card">
+                            <!---->
+                            <div data-v-5c4c4c94="" data-v-54d0b292="" class="input-box">
+                                <div data-v-5c4c4c94="" data-v-54d0b292="" contenteditable="true" spellcheck="false"
+                                    placeholder="输入评论（Enter换行，Ctrl + Enter发送）" disabled="disabled"
+                                    class="rich-input empty"></div>
+                                <!---->
+                            </div>
+                        </div>
+                        <div data-v-5c4c4c94="" class="action-box">
+                            <div data-v-122e5658="" data-v-5c4c4c94="" class="emoji-container emoji-btn"
+                                style="display: none;">
+                                <div data-v-122e5658="" class="emoji-box"><svg data-v-122e5658="" width="16" height="16"
+                                        viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" class="icon">
+                                        <path data-v-122e5658="" fill-rule="evenodd" clip-rule="evenodd"
+                                            d="M8.00002 0.666504C12.0501 0.666504 15.3334 3.94975 15.3334 7.99984C15.3334 12.0499 12.0501 15.3332 8.00002 15.3332C3.94993 15.3332 0.666687 12.0499 0.666687 7.99984C0.666687 3.94975 3.94993 0.666504 8.00002 0.666504ZM8 2C4.68629 2 2 4.68629 2 8C2 11.3137 4.68629 14 8 14C11.3137 14 14 11.3137 14 8C14 4.68629 11.3137 2 8 2ZM10.6667 5.66667V7.66667H9.33333V5.66667H10.6667ZM6.66667 5.66667V7.66667H5.33333V5.66667H6.66667ZM10.0767 9.33333H11.0495C11.1804 9.33333 11.2866 9.43951 11.2866 9.57048C11.2866 9.60754 11.2779 9.64409 11.2612 9.67718L11.244 9.71053C10.6294 10.8739 9.40726 11.6667 7.99998 11.6667C6.61523 11.6667 5.40977 10.8991 4.7859 9.76612L4.73786 9.67593C4.67845 9.56052 4.72385 9.4188 4.83926 9.35939C4.87253 9.34226 4.90941 9.33333 4.94683 9.33333H5.92347C6.02396 9.33332 6.11908 9.37865 6.18238 9.4567C6.26207 9.55496 6.32833 9.62955 6.38117 9.68046C6.80074 10.0847 7.37133 10.3333 7.99998 10.3333C8.63289 10.3333 9.20694 10.0814 9.62728 9.67224C9.67791 9.62296 9.74135 9.55121 9.8176 9.45698C9.88089 9.37877 9.97611 9.33333 10.0767 9.33333Z">
+                                        </path>
+                                    </svg> <span data-v-122e5658="">表情</span></div>
+                                <!---->
+                            </div>
+                            <div data-v-5c4c4c94="" class="image-btn" style="display: none;"><svg data-v-5c4c4c94=""
+                                    width="16" height="16" viewBox="0 0 16 16" fill="none"
+                                    xmlns="http://www.w3.org/2000/svg" class="icon">
+                                    <path data-v-5c4c4c94="" fill-rule="evenodd" clip-rule="evenodd"
+                                        d="M14 1.3335C14.3514 1.3335 14.6394 1.60546 14.6648 1.95041L14.6666 2.00016V14.0002C14.6666 14.3516 14.3947 14.6396 14.0497 14.665L14 14.6668H1.99998C1.64853 14.6668 1.36059 14.3949 1.33514 14.0499L1.33331 14.0002V2.00016C1.33331 1.64871 1.60527 1.36077 1.95023 1.33532L1.99998 1.3335H14ZM13.3333 2.66618H2.66664V13.3328H13.3333V2.66618ZM11.9219 6.7879C11.9719 6.83791 12 6.90574 12 6.97647V11.7993C12 11.9098 11.9104 11.9993 11.8 11.9993H6.81615C6.7975 11.9993 6.77945 11.9968 6.76232 11.992L3.91042 11.9847C3.79996 11.9844 3.71063 11.8947 3.7109 11.7842C3.71102 11.7313 3.73209 11.6807 3.76948 11.6433L6.52468 8.88807C6.62882 8.78393 6.79766 8.78393 6.9018 8.88807L8.17297 10.1593L11.5447 6.7879C11.6489 6.68376 11.8177 6.68376 11.9219 6.7879ZM5.99997 3.99951V5.99951H3.99997V3.99951H5.99997Z">
+                                    </path>
+                                </svg> <span data-v-5c4c4c94="">图片</span></div>
+                            <div data-v-5c4c4c94="" class="submit"><span data-v-5c4c4c94="" style="display: none;">Ctrl
+                                    + Enter</span> <button data-v-5c4c4c94="" disabled="disabled" class="submit-btn">
+                                    发表评论
+                                </button></div>
+                        </div>
+                    </div> <input data-v-5c4c4c94="" type="file" class="hidden">
+                </div>
+                <!---->
+            
+            </div>
+        </section>
+    </div>
+    <script type="text/javascript" src="../dist/html2canvas.js"></script>
+    <script type="text/javascript">
+        html2canvas(document.body,{width:1047}).then(function (canvas) {
+            document.body.appendChild(canvas);
+        });
+
+    </script>
+</body>
+
+</html>
