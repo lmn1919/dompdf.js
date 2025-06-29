@@ -89,13 +89,19 @@
 
 
         }
-
+       
     </style>
 </head>
 
 <body>
     <div class="content" id="content">
         <h1>开篇词 —— 深入理解中文分词的原理及实现的意义</h1>
+        <div class="logo-item">
+            <span>D</span>
+            <span>O</span>
+            <span>M</span>
+            PDF.js
+        </div>
         <!-- <h1>my name is lifacai</h1> -->
 
 
@@ -244,14 +250,14 @@
         // 等待字体加载并执行转换
         async function convertToPDF() {
             console.log(window.fontBase64,'window.fontBase64')
-            document.getElementById('content').style.display = 'none';
+            // document.getElementById('content').style.display = 'none';
             dompdf(document.getElementById('content'), {
                 useCORS: true,
                 scale: 1,
                 foreignObjectRendering: false,
                 fontConfig: {
-                    // fontFamily: 'SourceHanSansSC-Normal-Min',
-                    // fontBase64: window.fontBase64,
+                    fontFamily: 'SourceHanSansSC-Normal-Min',
+                    fontBase64: window.fontBase64,
                     fontUrl: '',
                     fontWeight: 400,
                     fontStyle: 'normal',
