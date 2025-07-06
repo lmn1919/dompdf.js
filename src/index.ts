@@ -134,15 +134,14 @@ const renderElement = async (element: HTMLElement, opts: Partial<Options>): Prom
     if (foreignObjectRendering) {
         context.logger.debug(`Document cloned, using foreign object rendering`);
         const renderer = new ForeignObjectRenderer(context, renderOptions);
-        console.log('clonedElement', clonedElement,context,renderOptions)
         canvas = await renderer.render(clonedElement);
     } else {
         context.logger.debug(
             `Document cloned, element located at ${left},${top} with size ${width}x${height} using computed rendering`
         );
 
-        context.logger.debug(`Starting DOM parsing dome解析`,context, clonedElement);
-        let root = parseTree(context, clonedElement);
+        context.logger.debug(`Starting DOM parsing`,context, clonedElement);
+        let root =await parseTree(context, clonedElement);
 
 
 

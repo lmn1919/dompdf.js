@@ -18,6 +18,8 @@ export class ElementContainer {
     readonly elements: ElementContainer[] = [];
     bounds: Bounds;
     flags = 0;
+    foreignobjectrendering = false;
+    parentforeignobjectrendering=false;
 
     constructor(protected readonly context: Context, element: Element) {
         if (isDebugging(element, DebuggerType.PARSE)) {

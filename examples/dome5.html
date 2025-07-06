@@ -89,23 +89,29 @@
 
 
         }
-       
+
+        .logo-item{
+            color: #000;
+            -webkit-text-stroke: 1px #dd2526 ;
+            text-stroke: 1px #dd2526;
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+        }
+
     </style>
 </head>
 
 <body>
     <div class="content" id="content">
-        <h1>开篇词 —— 深入理解中文分词的原理及实现的意义</h1>
+        <h1 foreignobjectrendering>开篇词 —— 深入理解中文分词的原理及实现的意义</h1>
         <div class="logo-item">
-            <span>D</span>
-            <span>O</span>
-            <span>M</span>
-            PDF.js
+            DOMPDF.js
         </div>
         <!-- <h1>my name is lifacai</h1> -->
 
 
-        <!-- <ul>
+        <ul>
             <li>词法分析：分词、词性标注、实体识别</li>
             <li class="red-text">词向量表示：语义挖掘、词义相似度</li>
             <li>文本相似度：计算两个短文本之间的语义相似度，实现推荐和排序</li>
@@ -154,7 +160,7 @@
         </table>
 
 <h2>复杂数据统计表</h2>
-<table border="1" style="width: 100%; border-collapse: collapse;">
+<table border="1" foreignobjectrendering style="width: 100%; border-collapse: collapse;">
     <thead>
         <tr style="background-color: #4CAF50; color: white;">
             <th rowspan="2" style="padding: 15px;">部门</th>
@@ -210,7 +216,7 @@
                     <td style="padding: 12px; text-align: center;">94%</td>
                 </tr>
             </tfoot>
-            </table> -->
+            </table>
 
 
         <!-- <div>
@@ -249,7 +255,7 @@
 
         // 等待字体加载并执行转换
         async function convertToPDF() {
-            console.log(window.fontBase64,'window.fontBase64')
+            //console.log(window.fontBase64,'window.fontBase64')
             // document.getElementById('content').style.display = 'none';
             dompdf(document.getElementById('content'), {
                 useCORS: true,
@@ -263,9 +269,26 @@
                     fontStyle: 'normal',
                 },
                 pdfFileName: 'my-document.pdf' // 指定 PDF 文件名
-            }).then(function (canvas) {
+            }).then(function (blob) {
                 // console.log(window.fontBase64, 'window.fontBase64');
-                document.body.appendChild(canvas);
+                // document.body.appendChild(blob);
+
+
+
+
+                
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = "example.pdf";
+                document.body.appendChild(a);
+                a.click();
+
+                // 清理
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 100);
             });
         }
 

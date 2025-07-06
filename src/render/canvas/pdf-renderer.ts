@@ -16,12 +16,12 @@ import { LIST_STYLE_TYPE } from '../../css/property-descriptors/list-style-type'
 import { PAINT_ORDER_LAYER } from '../../css/property-descriptors/paint-order'; // 绘制顺序层
 import { TEXT_ALIGN } from '../../css/property-descriptors/text-align'; // 文本对齐
 import { TEXT_DECORATION_LINE } from '../../css/property-descriptors/text-decoration-line'; // 文本装饰线
-import { TextShadow } from '../../css/property-descriptors/text-shadow'; // 文本阴影
+// import { TextShadow } from '../../css/property-descriptors/text-shadow'; // 文本阴影
 import { isDimensionToken } from '../../css/syntax/parser'; // 维度标记判断
 import { asString, Color, isTransparent, } from '../../css/types/color'; // 颜色相关工具
-import { calculateGradientDirection, calculateRadius, processColorStops } from '../../css/types/functions/gradient'; // 渐变计算
+// import { calculateGradientDirection, calculateRadius, processColorStops } from '../../css/types/functions/gradient'; // 渐变计算
 import { CSSImageType, CSSURLImage, isLinearGradient, isRadialGradient } from '../../css/types/image'; // 图片类型
-import { FIFTY_PERCENT, getAbsoluteValue } from '../../css/types/length-percentage'; // 长度百分比
+import {  getAbsoluteValue } from '../../css/types/length-percentage'; // 长度百分比FIFTY_PERCENT,
 import { ElementContainer, FLAGS } from '../../dom/element-container'; // 元素容器
 import { SelectElementContainer } from '../../dom/elements/select-element-container'; // Select元素容器
 import { TextareaElementContainer } from '../../dom/elements/textarea-element-container'; // Textarea元素容器
@@ -104,8 +104,7 @@ export class CanvasRenderer extends Renderer {
         const pageWidth = pxToPt(options.width);
         const pageHeight = pxToPt(options.height);
 
-        console.log('pageWidth', pageWidth)
-        console.log('pageHeight', pageHeight)
+    
 
         // 初始化 jsPDF
         this.jspdfCtx = new jsPDF({
@@ -137,16 +136,20 @@ export class CanvasRenderer extends Renderer {
         this.pxToPt = pxToPt;
 
         if (!options.canvas) {
-            this.canvas.width = Math.floor(options.width * options.scale);
-            this.canvas.height = Math.floor(options.height * options.scale);
-            this.canvas.style.width = `${options.width}px`;
-            this.canvas.style.height = `${options.height}px`;
+            this.canvas.width = 10;
+            this.canvas.height = 10;
+            this.canvas.style.width = `10px`;
+            this.canvas.style.height = `10px`;
         }
 
         this.fontMetrics = new FontMetrics(document);
-        this.ctx.scale(this.options.scale, this.options.scale);
-        this.ctx.translate(-options.x, -options.y);
-        this.ctx.textBaseline = 'bottom';
+        // this.ctx.scale(this.options.scale, this.options.scale);
+        // this.ctx.translate(-options.x, -options.y);
+
+        // this.ctx.textBaseline = 'bottom';
+
+
+        this.context2dCtx.textBaseline = 'bottom';
         this._activeEffects = [];
 
         this.context.logger.debug(
@@ -219,8 +222,10 @@ export class CanvasRenderer extends Renderer {
     // 应用单个效果
     applyEffect(effect: IElementEffect): void {
         this.ctx.save();
+        // this.context2dCtx.save()
         if (isOpacityEffect(effect)) {
             this.ctx.globalAlpha = effect.opacity;
+            // this.context2dCtx.globalAlpha = effect.opacity
         }
 
         if (isTransformEffect(effect)) {
@@ -234,11 +239,23 @@ export class CanvasRenderer extends Renderer {
                 effect.matrix[5]
             );
             this.ctx.translate(-effect.offsetX, -effect.offsetY);
+
+            // this.context2dCtx.translate(effect.offsetX, effect.offsetY);
+            // this.context2dCtx.transform(
+            //     effect.matrix[0],
+            //     effect.matrix[1],
+            //     effect.matrix[2],
+            //     effect.matrix[3],
+            //     effect.matrix[4],
+            //     effect.matrix[5]
+            // );
+            // this.context2dCtx.translate(-effect.offsetX, -effect.offsetY);
         }
 
         if (isClipEffect(effect)) {
             this.path(effect.path);
             this.ctx.clip();
+            // this.context2dCtx.clip()
         }
 
         this._activeEffects.push(effect);
@@ -247,7 +264,11 @@ export class CanvasRenderer extends Renderer {
     // 移除最后应用的效果
     popEffect(): void {
         this._activeEffects.pop();
-        this.ctx.restore();
+        // this.ctx.restore();
+        this.context2dCtx.restore()
+        if (this.options.fontConfig && this.options.fontConfig.fontFamily) {
+            this.jspdfCtx.setFont(this.options.fontConfig.fontFamily);
+        }
     }
 
     // 渲染堆叠上下文
@@ -257,7 +278,7 @@ export class CanvasRenderer extends Renderer {
         if (styles.isVisible()) {
             await this.renderStackContent(stack);
         } else {
-            console.log('不渲染', styles.isVisible())
+            // console.log('不渲染', styles.isVisible())
         }
     }
 
@@ -279,12 +300,12 @@ export class CanvasRenderer extends Renderer {
     renderTextWithLetterSpacing(text: TextBounds, letterSpacing: number, baseline: number): void {
         // console.log(text, letterSpacing,)
         if (letterSpacing === 0) {
-            this.ctx.fillText(text.text, text.bounds.left, text.bounds.top + baseline);
+            // this.ctx.fillText(text.text, text.bounds.left, text.bounds.top + baseline);
             this.context2dCtx.fillText(text.text, text.bounds.left - leftMargin, text.bounds.top + baseline - topMargin);
         } else {
             const letters = segmentGraphemes(text.text);
             letters.reduce((left, letter) => {
-                this.ctx.fillText(letter, left, text.bounds.top + baseline);
+                // this.ctx.fillText(letter, left, text.bounds.top + baseline);
                 this.context2dCtx.fillText(letter, left - leftMargin, text.bounds.top + baseline - topMargin);
                 return left + this.ctx.measureText(letter).width;
             }, text.bounds.left);
@@ -326,159 +347,22 @@ export class CanvasRenderer extends Renderer {
         return asString(color);
     }
 
-    // 渲染文本节点
-    // async renderTextNode(text: TextContainer, styles: CSSParsedDeclaration): Promise<void> {
-    //     const [font, fontFamily, fontSize] = this.createFontStyle(styles);
-
-    //     this.ctx.font = font;
-
-    //     console.log('绘制文字', text, styles)
-     
-
-    //     const fontSizePt = styles.fontSize.number;
-    //     this.jspdfCtx.setFontSize(fontSizePt);
-
-    //     this.ctx.direction = styles.direction === DIRECTION.RTL ? 'rtl' : 'ltr';
-    //     this.ctx.textAlign = 'left';
-    //     this.ctx.textBaseline = 'alphabetic';
-    //     this.context2dCtx.direction = styles.direction === DIRECTION.RTL ? 'rtl' : 'ltr';
-    //     this.context2dCtx.textAlign = 'left';
-    //     this.context2dCtx.textBaseline = 'alphabetic';
-    //     const { baseline, middle } = this.fontMetrics.getMetrics(fontFamily, fontSize);
-    //     const paintOrder = styles.paintOrder;
-    //     // console.log(text.textBounds)
-    //     let newTextBounds: any = []
-    //     text.textBounds.forEach((text) => {
-
-    //         let hasText = newTextBounds.filter((el: any) => el.bounds.top == text.bounds.top)
-    //         if (hasText.length > 0) {
-    //             hasText[0].text += text.text
-    //         } else {
-    //             newTextBounds = [...newTextBounds, text]
-    //         }
-    //     })
-    //     text.textBounds = newTextBounds
-    //     // console.log(newTextBounds)
-    //     text.textBounds.forEach((text) => {
-
-    //         paintOrder.forEach((paintOrderLayer) => {
-
-    //             switch (paintOrderLayer) {
-
-    //                 case PAINT_ORDER_LAYER.FILL:
-    //                     // console.log('PAINT_ORDER_LAYER.FILL',paintOrderLayer,PAINT_ORDER_LAYER.FILL)
-    //                     // console.log('text.text颜色',styles.color,asString(styles.color))
-    //                     this.ctx.fillStyle = this.convertColor(styles.color);
-    //                     this.context2dCtx.fillStyle = this.convertColor(styles.color);
-    //                     this.jspdfCtx.setTextColor(this.convertColor(styles.color)); // 设置颜色
-    //                     this.renderTextWithLetterSpacing(text, styles.letterSpacing, baseline);
-    //                     const textShadows: TextShadow = styles.textShadow;
-
-    //                     if (textShadows.length && text.text.trim().length) {
-    //                         textShadows
-    //                             .slice(0)
-    //                             .reverse()
-    //                             .forEach((textShadow) => {
-
-    //                                 this.ctx.shadowColor = this.convertColor(textShadow.color);
-    //                                 this.ctx.shadowOffsetX = textShadow.offsetX.number * this.options.scale;
-    //                                 this.ctx.shadowOffsetY = textShadow.offsetY.number;
-    //                                 this.ctx.shadowBlur = textShadow.blur.number;
-
-                
-
-    //                                 // this.context2dCtx.shadowColor = this.convertColor(textShadow.color);
-    //                                 // this.context2dCtx.shadowOffsetX = textShadow.offsetX.number * this.options.scale;
-    //                                 // this.context2dCtx.shadowOffsetY = textShadow.offsetY.number;
-    //                                 // this.context2dCtx.shadowBlur = textShadow.blur.number;
-
-    //                                 this.renderTextWithLetterSpacing(text, styles.letterSpacing, baseline);
-    //                                 this.jspdfCtx.setTextColor(this.convertColor(textShadow.color)); // 设置颜色
-    //                             });
-
-    //                         this.ctx.shadowColor = '';
-    //                         this.ctx.shadowOffsetX = 0;
-    //                         this.ctx.shadowOffsetY = 0;
-    //                         this.ctx.shadowBlur = 0;
-    //                         //  this.context2dCtx.shadowColor = '';
-    //                         // this.context2dCtx.shadowOffsetX = 0;
-    //                         // this.context2dCtx.shadowOffsetY = 0;
-    //                         // this.context2dCtx.shadowBlur = 0;
-    //                     }
-
-    //                     if (styles.textDecorationLine.length) {
-    //                         this.ctx.fillStyle = this.convertColor(styles.textDecorationColor || styles.color);
-    //                         styles.textDecorationLine.forEach((textDecorationLine) => {
-    //                             switch (textDecorationLine) {
-    //                                 case TEXT_DECORATION_LINE.UNDERLINE:
-    //                                     // Draws a line at the baseline of the font
-    //                                     // TODO As some browsers display the line as more than 1px if the font-size is big,
-    //                                     // need to take that into account both in position and size
-    //                                     this.ctx.fillRect(
-    //                                         text.bounds.left,
-    //                                         Math.round(text.bounds.top + baseline),
-    //                                         text.bounds.width,
-    //                                         1
-    //                                     );
-
-    //                                     break;
-    //                                 case TEXT_DECORATION_LINE.OVERLINE:
-    //                                     this.ctx.fillRect(
-    //                                         text.bounds.left,
-    //                                         Math.round(text.bounds.top),
-    //                                         text.bounds.width,
-    //                                         1
-    //                                     );
-    //                                     break;
-    //                                 case TEXT_DECORATION_LINE.LINE_THROUGH:
-    //                                     // TODO try and find exact position for line-through
-    //                                     this.ctx.fillRect(
-    //                                         text.bounds.left,
-    //                                         Math.ceil(text.bounds.top + middle),
-    //                                         text.bounds.width,
-    //                                         1
-    //                                     );
-    //                                     break;
-    //                             }
-    //                         });
-    //                     }
-    //                     break;
-    //                 case PAINT_ORDER_LAYER.STROKE:
-    //                     // console.log('PAINT_ORDER_LAYER.STROKE',paintOrderLayer,PAINT_ORDER_LAYER.STROKE)
-    //                     if (styles.webkitTextStrokeWidth && text.text.trim().length) {
-    //                         this.ctx.strokeStyle = this.convertColor(styles.webkitTextStrokeColor);
-    //                         this.ctx.lineWidth = styles.webkitTextStrokeWidth;
-    //                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    //                         this.ctx.lineJoin = !!(window as any).chrome ? 'miter' : 'round';
-    //                         this.ctx.strokeText(text.text, text.bounds.left, text.bounds.top + baseline);
-    //                     }
-    //                     this.ctx.strokeStyle = '';
-    //                     this.ctx.lineWidth = 0;
-    //                     this.ctx.lineJoin = 'miter';
-    //                     break;
-    //             }
-    //         });
-    //     });
-
-    //     // this.jspdfCtx.save("a4.pdf");
-    // }
-
     async renderTextNode(text: TextContainer, styles: CSSParsedDeclaration): Promise<void> {
         const [font, fontFamily, fontSize] = this.createFontStyle(styles);
-        
+        // ,
 
         // 设置 CanvasRenderingContext2D 的字体样式
         this.ctx.font = font;
         // 设置 jsPDF context2d 的字体样式 (如果需要，jsPDF 通常会自动同步)
-        // this.context2dCtx.font = font; // 通常不需要显式设置，jsPDF 会处理
+        this.context2dCtx.font = this.options.fontConfig.fontFamily; // 通常不需要显式设置，jsPDF 会处理
 
         this.ctx.direction = styles.direction === DIRECTION.RTL ? 'rtl' : 'ltr';
-        // this.context2dCtx.direction = styles.direction === DIRECTION.RTL ? 'rtl' : 'ltr'; // 根据 jsPDF API 调整
+        this.context2dCtx.direction = styles.direction === DIRECTION.RTL ? 'rtl' : 'ltr'; // 根据 jsPDF API 调整
 
         this.ctx.textAlign = 'left';
-        // this.context2dCtx.textAlign = 'left'; // 根据 jsPDF API 调整
+        this.context2dCtx.textAlign = 'left'; // 根据 jsPDF API 调整
 
-        this.ctx.textBaseline = 'alphabetic';
+        // this.ctx.textBaseline = 'alphabetic';
 
         const fontSizePt = styles.fontSize.number;
         this.jspdfCtx.setFontSize(fontSizePt);
@@ -492,48 +376,15 @@ export class CanvasRenderer extends Renderer {
                 switch (paintOrderLayer) {
                     case PAINT_ORDER_LAYER.FILL:
                         // 设置 CanvasRenderingContext2D 的填充样式
-                        this.ctx.fillStyle = asString(styles.color);
+                        // this.ctx.fillStyle = asString(styles.color);
                         // 设置 jsPDF context2d 的填充样式
                         this.context2dCtx.fillStyle = asString(styles.color);
 
                         this.renderTextWithLetterSpacing(textItem, styles.letterSpacing, baseline);
-                        const textShadows: TextShadow = styles.textShadow;
-
-                        if (textShadows.length && textItem.text.trim().length) {
-                            textShadows
-                                .slice(0)
-                                .reverse()
-                                .forEach((textShadow) => {
-                                    // 设置 CanvasRenderingContext2D 的阴影
-                                    this.ctx.shadowColor = asString(textShadow.color);
-                                    this.ctx.shadowOffsetX = textShadow.offsetX.number * this.options.scale;
-                                    this.ctx.shadowOffsetY = textShadow.offsetY.number * this.options.scale;
-                                    this.ctx.shadowBlur = textShadow.blur.number;
-
-                                    // 设置 jsPDF context2d 的阴影 (注意：jsPDF context2d 对阴影的支持可能有限或API不同)
-                                    // this.context2dCtx.shadowColor = asString(textShadow.color);
-                                    // this.context2dCtx.shadowOffsetX = textShadow.offsetX.number * this.options.scale; 
-                                    // this.context2dCtx.shadowOffsetY = textShadow.offsetY.number * this.options.scale;
-                                    // this.context2dCtx.shadowBlur = textShadow.blur.number;
-
-                                    this.renderTextWithLetterSpacing(textItem, styles.letterSpacing, baseline);
-                                });
-                            // 清除 CanvasRenderingContext2D 的阴影
-                            this.ctx.shadowColor = '';
-                            this.ctx.shadowOffsetX = 0;
-                            this.ctx.shadowOffsetY = 0;
-                            this.ctx.shadowBlur = 0;
-                            
-                            // 清除 jsPDF context2d 的阴影
-                            // this.context2dCtx.shadowColor = ''; 
-                            // this.context2dCtx.shadowOffsetX = 0;
-                            // this.context2dCtx.shadowOffsetY = 0;
-                            // this.context2dCtx.shadowBlur = 0;
-                        }
 
                         if (styles.textDecorationLine.length) {
                             // 设置 CanvasRenderingContext2D 的填充样式
-                            this.ctx.fillStyle = asString(styles.textDecorationColor || styles.color);
+                            // this.ctx.fillStyle = asString(styles.textDecorationColor || styles.color);
                             // 设置 jsPDF context2d 的填充样式
                             this.context2dCtx.fillStyle = asString(styles.textDecorationColor || styles.color);
 
@@ -547,15 +398,15 @@ export class CanvasRenderer extends Renderer {
 
                                 switch (textDecorationLine) {
                                     case TEXT_DECORATION_LINE.UNDERLINE:
-                                        this.ctx.fillRect(x, y_underline, width, thickness);
+                                        // this.ctx.fillRect(x, y_underline, width, thickness);
                                         this.context2dCtx.fillRect(x - leftMargin, y_underline - topMargin, width, thickness);
                                         break;
                                     case TEXT_DECORATION_LINE.OVERLINE:
-                                        this.ctx.fillRect(x, y_overline, width, thickness);
+                                        // this.ctx.fillRect(x, y_overline, width, thickness);
                                         this.context2dCtx.fillRect(x - leftMargin, y_overline - topMargin, width, thickness);
                                         break;
                                     case TEXT_DECORATION_LINE.LINE_THROUGH:
-                                        this.ctx.fillRect(x, y_line_through, width, thickness);
+                                        // this.ctx.fillRect(x, y_line_through, width, thickness);
                                         this.context2dCtx.fillRect(x - leftMargin, y_line_through - topMargin, width, thickness);
                                         break;
                                 }
@@ -565,34 +416,35 @@ export class CanvasRenderer extends Renderer {
                     case PAINT_ORDER_LAYER.STROKE:
                         if (styles.webkitTextStrokeWidth && textItem.text.trim().length) {
                             // 设置 CanvasRenderingContext2D 的描边样式
-                            this.ctx.strokeStyle = asString(styles.webkitTextStrokeColor);
-                            this.ctx.lineWidth = styles.webkitTextStrokeWidth;
-                            this.ctx.lineJoin = !!(window as any).chrome ? 'miter' : 'round';
-                            
+                            // this.ctx.strokeStyle = asString(styles.webkitTextStrokeColor);
+                            // this.ctx.lineWidth = styles.webkitTextStrokeWidth;
+                            // this.ctx.lineJoin = !!(window as any).chrome ? 'miter' : 'round';
+
                             // 设置 jsPDF context2d 的描边样式
                             this.context2dCtx.strokeStyle = asString(styles.webkitTextStrokeColor);
                             this.context2dCtx.lineWidth = styles.webkitTextStrokeWidth;
                             // this.context2dCtx.lineJoin = ...; // 根据 jsPDF API 调整
 
                             // CanvasRenderingContext2D 描边
-                            this.ctx.strokeText(textItem.text, textItem.bounds.left, textItem.bounds.top + baseline);
+                            // this.ctx.strokeText(textItem.text, textItem.bounds.left, textItem.bounds.top + baseline);
                             // jsPDF context2d 描边
                             this.context2dCtx.strokeText(textItem.text, textItem.bounds.left - leftMargin, textItem.bounds.top + baseline - topMargin);
                         }
                         // 清除 CanvasRenderingContext2D 的描边样式
-                        this.ctx.strokeStyle = '';
-                        this.ctx.lineWidth = 0;
-                        this.ctx.lineJoin = 'miter';
+                        // this.ctx.strokeStyle = '';
+                        // this.ctx.lineWidth = 0;
+                        // this.ctx.lineJoin = 'miter';
 
                         // 清除 jsPDF context2d 的描边样式
-                        // this.context2dCtx.strokeStyle = ''; 
-                        // this.context2dCtx.lineWidth = 0;
-                        // this.context2dCtx.lineJoin = 'miter';
+                        this.context2dCtx.strokeStyle = ''; 
+                        this.context2dCtx.lineWidth = 0;
+                        this.context2dCtx.lineJoin = 'miter';
                         break;
                 }
             });
         });
     }
+
 
 
 
@@ -619,6 +471,22 @@ export class CanvasRenderer extends Renderer {
                 box.height
             );
             this.ctx.restore();
+
+
+            // this.context2dCtx.save();
+            // this.context2dCtx.clip();
+            // this.context2dCtx.drawImage(
+            //     image,
+            //     0,
+            //     0,
+            //     container.intrinsicWidth,
+            //     container.intrinsicHeight,
+            //     box.left,
+            //     box.top,
+            //     box.width,
+            //     box.height
+            // );
+            // this.context2dCtx.restore();
         }
     }
 
@@ -649,7 +517,7 @@ export class CanvasRenderer extends Renderer {
                 const image = await this.context.cache.match(container.src);
                 // 渲染到 Canvas
                 this.renderReplacedElement(container, curves, image);
-                
+
                 // 添加到 PDF
                 try {
                     // 计算图片在 PDF 中的位置和尺寸
@@ -658,14 +526,14 @@ export class CanvasRenderer extends Renderer {
                     const y = this.pxToPt(bounds.top - topMargin);
                     const width = this.pxToPt(bounds.width);
                     const height = this.pxToPt(bounds.height);
-                    
+
                     // 将图片添加到 PDF
                     this.jspdfCtx.addImage(
-                        image, 
+                        image,
                         'JPEG', // 默认使用 JPEG 格式
-                        x, 
-                        y, 
-                        width, 
+                        x,
+                        y,
+                        width,
                         height
                     );
                 } catch (err) {
@@ -679,7 +547,7 @@ export class CanvasRenderer extends Renderer {
         if (container instanceof CanvasElementContainer) {
             // 渲染到 Canvas
             this.renderReplacedElement(container, curves, container.canvas);
-            
+
             // 添加到 PDF
             try {
                 // 计算 Canvas 在 PDF 中的位置和尺寸
@@ -688,17 +556,17 @@ export class CanvasRenderer extends Renderer {
                 const y = this.pxToPt(bounds.top - topMargin);
                 const width = this.pxToPt(bounds.width);
                 const height = this.pxToPt(bounds.height);
-                
+
                 // 将 Canvas 转换为 dataURL
                 const dataURL = container.canvas.toDataURL('image/jpeg', 0.95);
-                
+
                 // 将 Canvas 添加到 PDF
                 this.jspdfCtx.addImage(
-                    dataURL, 
-                    'JPEG', 
-                    x, 
-                    y, 
-                    width, 
+                    dataURL,
+                    'JPEG',
+                    x,
+                    y,
+                    width,
                     height
                 );
             } catch (err) {
@@ -711,7 +579,7 @@ export class CanvasRenderer extends Renderer {
                 const image = await this.context.cache.match(container.svg);
                 // 渲染到 Canvas
                 this.renderReplacedElement(container, curves, image);
-                
+
                 // 添加到 PDF
                 try {
                     // 计算 SVG 在 PDF 中的位置和尺寸
@@ -720,7 +588,7 @@ export class CanvasRenderer extends Renderer {
                     const y = this.pxToPt(bounds.top - topMargin);
                     const width = this.pxToPt(bounds.width);
                     const height = this.pxToPt(bounds.height);
-                    
+
                     // 创建临时 Canvas 来转换 SVG 为图片格式
                     const canvas = document.createElement('canvas');
                     canvas.width = container.intrinsicWidth || image.width;
@@ -729,20 +597,20 @@ export class CanvasRenderer extends Renderer {
                     if (ctx) {
                         // 设置白色背景或保持透明
                         ctx.clearRect(0, 0, canvas.width, canvas.height);
-                        
+
                         // 绘制SVG图像
                         ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-                        
+
                         // 使用PNG格式而不是JPEG，保留透明度
                         const dataURL = canvas.toDataURL('image/png');
-                        
+
                         // 将 SVG 添加到 PDF
                         this.jspdfCtx.addImage(
-                            dataURL, 
-                            'PNG', 
-                            x, 
-                            y, 
-                            width, 
+                            dataURL,
+                            'PNG',
+                            x,
+                            y,
+                            width,
                             height
                         );
                     }
@@ -750,7 +618,7 @@ export class CanvasRenderer extends Renderer {
                     this.context.logger.error(`Error adding SVG to PDF: ${err}`);
                 }
             } catch (e) {
-                this.context.logger.error(`Error loading svg ${container.svg.substring(0, 255)}`);
+                this.context.logger.error(`Error loading svg ${e}`);
             }
         }
 
@@ -769,17 +637,17 @@ export class CanvasRenderer extends Renderer {
 
             const canvas = await iframeRenderer.render(container.tree);
             if (container.width && container.height) {
-                this.ctx.drawImage(
-                    canvas,
-                    0,
-                    0,
-                    container.width,
-                    container.height,
-                    container.bounds.left,
-                    container.bounds.top,
-                    container.bounds.width,
-                    container.bounds.height
-                );
+                // this.ctx.drawImage(
+                //     canvas,
+                //     0,
+                //     0,
+                //     container.width,
+                //     container.height,
+                //     container.bounds.left,
+                //     container.bounds.top,
+                //     container.bounds.width,
+                //     container.bounds.height
+                // );
                 this.context2dCtx.drawImage(
                     canvas,
                     0,
@@ -801,7 +669,7 @@ export class CanvasRenderer extends Renderer {
             // 渲染复选框
             if (container.type === CHECKBOX) {
                 if (container.checked) {
-                    this.ctx.save();
+                    // this.ctx.save();
                     this.context2dCtx.save();
                     this.path([
                         new Vector(container.bounds.left + size * 0.39363, container.bounds.top + size * 0.79),
@@ -813,9 +681,9 @@ export class CanvasRenderer extends Renderer {
                         new Vector(container.bounds.left + size * 0.39363, container.bounds.top + size * 0.79)
                     ]);
 
-                    this.ctx.fillStyle = this.convertColor(INPUT_COLOR);
-                    this.ctx.fill();
-                    this.ctx.restore();
+                    // this.ctx.fillStyle = this.convertColor(INPUT_COLOR);
+                    // this.ctx.fill();
+                    // this.ctx.restore();
                     this.context2dCtx.fillStyle = this.convertColor(INPUT_COLOR);
                     this.context2dCtx.fill();
                     this.context2dCtx.restore();
@@ -828,20 +696,20 @@ export class CanvasRenderer extends Renderer {
             // 渲染单选框
             else if (container.type === RADIO) {
                 if (container.checked) {
-                    this.ctx.save();
-                    this.ctx.beginPath();
+                    // this.ctx.save();
+                    // this.ctx.beginPath();
 
-                    this.ctx.arc(
-                        container.bounds.left + size / 2,
-                        container.bounds.top + size / 2,
-                        size / 4,
-                        0,
-                        Math.PI * 2,
-                        true
-                    );
-                    this.ctx.fillStyle = this.convertColor(INPUT_COLOR);
-                    this.ctx.fill();
-                    this.ctx.restore();
+                    // this.ctx.arc(
+                    //     container.bounds.left + size / 2,
+                    //     container.bounds.top + size / 2,
+                    //     size / 4,
+                    //     0,
+                    //     Math.PI * 2,
+                    //     true
+                    // );
+                    // this.ctx.fillStyle = this.convertColor(INPUT_COLOR);
+                    // this.ctx.fill();
+                    // this.ctx.restore();
 
                     this.context2dCtx.save();
                     this.context2dCtx.beginPath();
@@ -868,13 +736,13 @@ export class CanvasRenderer extends Renderer {
             const [fontFamily, fontSize] = this.createFontStyle(styles);
             const { baseline } = this.fontMetrics.getMetrics(fontFamily, fontSize);
 
-            this.ctx.font = fontFamily;
-            this.ctx.fillStyle = this.convertColor(styles.color);
-            this.context2dCtx.font = fontFamily;
+            // this.ctx.font = fontFamily;
+            // this.ctx.fillStyle = this.convertColor(styles.color);
+            // this.context2dCtx.font = fontFamily;
             this.context2dCtx.fillStyle = this.convertColor(styles.color);
 
-            this.ctx.textBaseline = 'alphabetic';
-            this.ctx.textAlign = canvasTextAlign(container.styles.textAlign);
+            // this.ctx.textBaseline = 'alphabetic';
+            // this.ctx.textAlign = canvasTextAlign(container.styles.textAlign);
             this.context2dCtx.textBaseline = 'alphabetic';
             this.context2dCtx.textAlign = canvasTextAlign(container.styles.textAlign);
 
@@ -894,7 +762,7 @@ export class CanvasRenderer extends Renderer {
 
             const textBounds = bounds.add(x, 0, 0, -bounds.height / 2 + 1);
 
-            this.ctx.save();
+            // this.ctx.save();
             this.context2dCtx.save();
             this.path([
                 new Vector(bounds.left, bounds.top),
@@ -903,16 +771,16 @@ export class CanvasRenderer extends Renderer {
                 new Vector(bounds.left, bounds.top + bounds.height)
             ]);
 
-            this.ctx.clip();
+            // this.ctx.clip();
             this.context2dCtx.clip();
             this.renderTextWithLetterSpacing(
                 new TextBounds(container.value, textBounds),
                 styles.letterSpacing,
                 baseline
             );
-            this.ctx.restore();
-            this.ctx.textBaseline = 'alphabetic';
-            this.ctx.textAlign = 'left';
+            // this.ctx.restore();
+            // this.ctx.textBaseline = 'alphabetic';
+            // this.ctx.textAlign = 'left';
             this.context2dCtx.restore();
             this.context2dCtx.textBaseline = 'alphabetic';
             this.context2dCtx.textAlign = 'left';
@@ -928,7 +796,7 @@ export class CanvasRenderer extends Renderer {
                     const url = (img as CSSURLImage).url;
                     try {
                         image = await this.context.cache.match(url);
-                        this.ctx.drawImage(image, container.bounds.left - (image.width + 10), container.bounds.top);
+                        // this.ctx.drawImage(image, container.bounds.left - (image.width + 10), container.bounds.top);
                         this.context2dCtx.drawImage(image, container.bounds.left - (image.width + 10), container.bounds.top);
 
                     } catch (e) {
@@ -940,13 +808,13 @@ export class CanvasRenderer extends Renderer {
             else if (paint.listValue && container.styles.listStyleType !== LIST_STYLE_TYPE.NONE) {
                 const [fontFamily] = this.createFontStyle(styles);
 
-                this.ctx.font = fontFamily;
-                this.ctx.fillStyle = this.convertColor(styles.color);
+                // this.ctx.font = fontFamily;
+                // this.ctx.fillStyle = this.convertColor(styles.color);
                 this.context2dCtx.font = fontFamily;
                 this.context2dCtx.fillStyle = this.convertColor(styles.color);
 
-                this.ctx.textBaseline = 'middle';
-                this.ctx.textAlign = 'right';
+                // this.ctx.textBaseline = 'middle';
+                // this.ctx.textAlign = 'right';
                 this.context2dCtx.textBaseline = 'middle';
                 this.context2dCtx.textAlign = 'right';
                 const bounds = new Bounds(
@@ -961,8 +829,8 @@ export class CanvasRenderer extends Renderer {
                     styles.letterSpacing,
                     computeLineHeight(styles.lineHeight, styles.fontSize.number) / 2 + 2
                 );
-                this.ctx.textBaseline = 'bottom';
-                this.ctx.textAlign = 'left';
+                // this.ctx.textBaseline = 'bottom';
+                // this.ctx.textAlign = 'left';
                 this.context2dCtx.textBaseline = 'bottom';
                 this.context2dCtx.textAlign = 'left';
             }
@@ -978,8 +846,7 @@ export class CanvasRenderer extends Renderer {
         if (contains(stack.element.container.flags, FLAGS.DEBUG_RENDER)) {
             debugger;
         }
-
-        console.log('renderStackContent', stack)
+     
         // https://www.w3.org/TR/css-position-3/#painting-order
         // 1. the background and borders of the element forming the stacking context.
         await this.renderNodeBackgroundAndBorders(stack.element);
@@ -1038,20 +905,20 @@ export class CanvasRenderer extends Renderer {
 
     // 创建遮罩
     mask(paths: Path[]): void {
-        this.ctx.beginPath();
-        this.ctx.moveTo(0, 0);
-        this.ctx.lineTo(this.canvas.width, 0);
-        this.ctx.lineTo(this.canvas.width, this.canvas.height);
-        this.ctx.lineTo(0, this.canvas.height);
-        this.ctx.lineTo(0, 0);
-        this.formatPath(paths.slice(0).reverse());
-        this.ctx.closePath();
+        // this.ctx.beginPath();
+        // this.ctx.moveTo(0, 0);
+        // this.ctx.lineTo(this.canvas.width, 0);
+        // this.ctx.lineTo(this.canvas.width, this.canvas.height);
+        // this.ctx.lineTo(0, this.canvas.height);
+        // this.ctx.lineTo(0, 0);
+        // this.formatPath(paths.slice(0).reverse());
+        // this.ctx.closePath();
 
         this.context2dCtx.beginPath();
         this.context2dCtx.moveTo(0, 0);
-        this.context2dCtx.lineTo(this.canvas.width, 0);
-        this.context2dCtx.lineTo(this.canvas.width, this.canvas.height);
-        this.context2dCtx.lineTo(0, this.canvas.height);
+        this.context2dCtx.lineTo(this.options.width, 0);
+        this.context2dCtx.lineTo(this.options.width, this.options.height);
+        this.context2dCtx.lineTo(0, this.options.height);
         this.context2dCtx.lineTo(0, 0);
         this.formatPath(paths.slice(0).reverse());
         this.context2dCtx.closePath();
@@ -1059,9 +926,9 @@ export class CanvasRenderer extends Renderer {
 
     // 创建路径
     path(paths: Path[]): void {
-        this.ctx.beginPath();
-        this.formatPath(paths);
-        this.ctx.closePath();
+        // this.ctx.beginPath();
+        // this.formatPath(paths);
+        // this.ctx.closePath();
         this.context2dCtx.beginPath();
         this.formatPath(paths);
         this.context2dCtx.closePath();
@@ -1073,22 +940,22 @@ export class CanvasRenderer extends Renderer {
         paths.forEach((point, index) => {
             const start: Vector = isBezierCurve(point) ? point.start : point;
             if (index === 0) {
-                this.ctx.moveTo(start.x, start.y);
+                // this.ctx.moveTo(start.x, start.y);
                 this.context2dCtx.moveTo(start.x - leftMargin, start.y - topMargin);
             } else {
-                this.ctx.lineTo(start.x, start.y);
+                // this.ctx.lineTo(start.x, start.y);
                 this.context2dCtx.lineTo(start.x - leftMargin, start.y - topMargin);
             }
 
             if (isBezierCurve(point)) {
-                this.ctx.bezierCurveTo(
-                    point.startControl.x,
-                    point.startControl.y,
-                    point.endControl.x,
-                    point.endControl.y,
-                    point.end.x,
-                    point.end.y
-                );
+                // this.ctx.bezierCurveTo(
+                //     point.startControl.x,
+                //     point.startControl.y,
+                //     point.endControl.x,
+                //     point.endControl.y,
+                //     point.end.x,
+                //     point.end.y
+                // );
                 this.context2dCtx.bezierCurveTo(
                     point.startControl.x - leftMargin,
                     point.startControl.y - topMargin,
@@ -1106,9 +973,14 @@ export class CanvasRenderer extends Renderer {
     renderRepeat(path: Path[], pattern: CanvasPattern | CanvasGradient, offsetX: number, offsetY: number): void {
         this.path(path);
         this.ctx.fillStyle = pattern;
-        this.ctx.translate(offsetX, offsetY);
-        this.ctx.fill();
-        this.ctx.translate(-offsetX, -offsetY);
+        // this.ctx.translate(offsetX, offsetY);
+        // this.ctx.fill();
+        // this.ctx.translate(-offsetX, -offsetY);
+
+        //    this.context2dCtx.fillStyle =this.convertColor(pattern) ;
+        this.context2dCtx.translate(offsetX, offsetY);
+        this.context2dCtx.fill();
+        this.context2dCtx.translate(-offsetX, -offsetY);
     }
 
     // 调整图片大小
@@ -1156,6 +1028,7 @@ export class CanvasRenderer extends Renderer {
                     const yPt = this.pxToPt(y - topMargin);
                     const widthPt = this.pxToPt(width);
                     const heightPt = this.pxToPt(height);
+                    // console.log('绘制背景图片', xPt, yPt, image)
                     this.jspdfCtx.addImage(
                         image,
                         'JPEG',
@@ -1166,67 +1039,196 @@ export class CanvasRenderer extends Renderer {
                     );
                 }
             } else if (isLinearGradient(backgroundImage)) {
-                const [path, x, y, width, height] = calculateBackgroundRendering(container, index, [null, null, null]);
-                const [lineLength, x0, x1, y0, y1] = calculateGradientDirection(backgroundImage.angle, width, height);
+                // const [path, x, y, width, height] = calculateBackgroundRendering(container, index, [null, null, null]);
+                // const [lineLength, x0, x1, y0, y1] = calculateGradientDirection(backgroundImage.angle, width, height);
 
-                const canvas = document.createElement('canvas');
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
-                const gradient = ctx.createLinearGradient(x0, y0, x1, y1);
+                // const canvas = document.createElement('canvas');
+                // canvas.width = width;
+                // canvas.height = height;
+                // const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
+                // const gradient = ctx.createLinearGradient(x0, y0, x1, y1);
 
-                processColorStops(backgroundImage.stops, lineLength).forEach((colorStop) =>
-                    gradient.addColorStop(colorStop.stop, this.convertColor(colorStop.color))
-                );
+                // processColorStops(backgroundImage.stops, lineLength).forEach((colorStop) =>
+                //     gradient.addColorStop(colorStop.stop, this.convertColor(colorStop.color))
+                // );
 
-                ctx.fillStyle = gradient;
-                ctx.fillRect(0, 0, width, height);
-                if (width > 0 && height > 0) {
-                    const pattern = this.ctx.createPattern(canvas, 'repeat') as CanvasPattern;
-                    this.renderRepeat(path, pattern, x, y);
-                }
+                // ctx.fillStyle = gradient;
+                // ctx.fillRect(0, 0, width, height);
+                // if (width > 0 && height > 0) {
+                //     const pattern = this.ctx.createPattern(canvas, 'repeat') as CanvasPattern;
+                //     this.renderRepeat(path, pattern, x, y);
+                // }
             } else if (isRadialGradient(backgroundImage)) {
-                const [path, left, top, width, height] = calculateBackgroundRendering(container, index, [
-                    null,
-                    null,
-                    null
-                ]);
-                const position = backgroundImage.position.length === 0 ? [FIFTY_PERCENT] : backgroundImage.position;
-                const x = getAbsoluteValue(position[0], width);
-                const y = getAbsoluteValue(position[position.length - 1], height);
+                // const [path, left, top, width, height] = calculateBackgroundRendering(container, index, [
+                //     null,
+                //     null,
+                //     null
+                // ]);
+                // const position = backgroundImage.position.length === 0 ? [FIFTY_PERCENT] : backgroundImage.position;
+                // const x = getAbsoluteValue(position[0], width);
+                // const y = getAbsoluteValue(position[position.length - 1], height);
 
-                const [rx, ry] = calculateRadius(backgroundImage, x, y, width, height);
-                if (rx > 0 && ry > 0) {
-                    const radialGradient = this.ctx.createRadialGradient(left + x, top + y, 0, left + x, top + y, rx);
+                // const [rx, ry] = calculateRadius(backgroundImage, x, y, width, height);
+                // if (rx > 0 && ry > 0) {
+                //     const radialGradient = this.ctx.createRadialGradient(left + x, top + y, 0, left + x, top + y, rx);
 
-                    processColorStops(backgroundImage.stops, rx * 2).forEach((colorStop) =>
-                        radialGradient.addColorStop(colorStop.stop, this.convertColor(colorStop.color))
-                    );
+                //     processColorStops(backgroundImage.stops, rx * 2).forEach((colorStop) =>
+                //         radialGradient.addColorStop(colorStop.stop, this.convertColor(colorStop.color))
+                //     );
 
-                    this.path(path);
-                    this.ctx.fillStyle = radialGradient;
-                    if (rx !== ry) {
-                        // transforms for elliptical radial gradient
-                        const midX = container.bounds.left + 0.5 * container.bounds.width;
-                        const midY = container.bounds.top + 0.5 * container.bounds.height;
-                        const f = ry / rx;
-                        const invF = 1 / f;
+                //     this.path(path);
+                //     this.ctx.fillStyle = radialGradient;
+                //     this.context2dCtx.fillStyle = this.convertColor(radialGradient);
+                //     if (rx !== ry) {
+                //         // transforms for elliptical radial gradient
+                //         const midX = container.bounds.left + 0.5 * container.bounds.width;
+                //         const midY = container.bounds.top + 0.5 * container.bounds.height;
+                //         const f = ry / rx;
+                //         const invF = 1 / f;
 
-                        this.ctx.save();
-                        this.ctx.translate(midX, midY);
-                        this.ctx.transform(1, 0, 0, f, 0, 0);
-                        this.ctx.translate(-midX, -midY);
+                //         // this.ctx.save();
+                //         // this.ctx.translate(midX, midY);
+                //         // this.ctx.transform(1, 0, 0, f, 0, 0);
+                //         // this.ctx.translate(-midX, -midY);
 
-                        this.ctx.fillRect(left, invF * (top - midY) + midY, width, height * invF);
-                        this.ctx.restore();
-                    } else {
-                        this.ctx.fill();
-                    }
-                }
+                //         // this.ctx.fillRect(left, invF * (top - midY) + midY, width, height * invF);
+                //         // this.ctx.restore();
+
+
+                //         this.context2dCtx.save();
+                //         this.context2dCtx.translate(midX, midY);
+                //         this.context2dCtx.transform(1, 0, 0, f, 0, 0);
+                //         this.context2dCtx.translate(-midX, -midY);
+
+                //         this.context2dCtx.fillRect(left, invF * (top - midY) + midY, width, height * invF);
+                //         this.context2dCtx.restore();
+                //     } else {
+                //         // this.ctx.fill();
+                //         this.context2dCtx.fill()
+                //     }
+                // }
             }
             index--;
         }
     }
+
+
+    // // 渲染背景图片
+    // async renderBackgroundImage(container: ElementContainer): Promise<void> {
+    //     let index = container.styles.backgroundImage.length - 1;
+    //     for (const backgroundImage of container.styles.backgroundImage.slice(0).reverse()) {
+    //         if (backgroundImage.type === CSSImageType.URL) {
+    //             let image;
+    //             const url = (backgroundImage as CSSURLImage).url;
+    //             try {
+    //                 image = await this.context.cache.match(url);
+    //             } catch (e) {
+    //                 this.context.logger.error(`Error loading background-image ${url}`);
+    //             }
+
+    //             if (image) {
+    //                 // path
+    //                 const [ x, y, width, height] = calculateBackgroundRendering(container, index, [
+    //                     image.width,
+    //                     image.height,
+    //                     image.width / image.height
+    //                 ]);
+                    
+    //                 // 注释掉 Canvas 相关代码
+    //                 // const pattern = this.ctx.createPattern(
+    //                 //     this.resizeImage(image, width, height),
+    //                 //     'repeat'
+    //                 // ) as CanvasPattern;
+    //                 // this.renderRepeat(path, pattern, x, y);
+
+    //                 // 使用 jsPDF 绘制 PDF 背景图片
+    //                 const xPt = x;
+    //                 const yPt = y
+    //                 const widthPt = width;
+    //                 const heightPt = height;
+
+    //                 console.log('绘制背景图片',xPt,yPt,image)
+                    
+    //                 // 添加背景图片到 PDF
+    //                 this.jspdfCtx.addImage(
+    //                     image,
+    //                     'JPEG',
+    //                     xPt,
+    //                     yPt,
+    //                     widthPt,
+    //                     heightPt
+    //                 );
+    //             }
+    //         } else if (isLinearGradient(backgroundImage)) {
+    //             // const [path, x, y, width, height] = calculateBackgroundRendering(container, index, [null, null, null]);
+    //             // const [lineLength, x0, x1, y0, y1] = calculateGradientDirection(backgroundImage.angle, width, height);
+
+    //             // 注释掉 Canvas 渐变相关代码
+    //             // const canvas = document.createElement('canvas');
+    //             // canvas.width = width;
+    //             // canvas.height = height;
+    //             // const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
+    //             // const gradient = ctx.createLinearGradient(x0, y0, x1, y1);
+
+    //             // processColorStops(backgroundImage.stops, lineLength).forEach((colorStop) =>
+    //             //     gradient.addColorStop(colorStop.stop, this.convertColor(colorStop.color))
+    //             // );
+
+    //             // ctx.fillStyle = gradient;
+    //             // ctx.fillRect(0, 0, width, height);
+    //             // if (width > 0 && height > 0) {
+    //             //     const pattern = this.ctx.createPattern(canvas, 'repeat') as CanvasPattern;
+    //             //     this.renderRepeat(path, pattern, x, y);
+    //             // }
+                
+    //             // TODO: 使用 jsPDF 实现线性渐变背景（jsPDF 对渐变支持有限）
+    //             // 可以考虑将渐变转换为图片后再添加到 PDF
+    //         } else if (isRadialGradient(backgroundImage)) {
+    //             // const [path, left, top, width, height] = calculateBackgroundRendering(container, index, [
+    //             //     null,
+    //             //     null,
+    //             //     null
+    //             // ]);
+    //             // const position = backgroundImage.position.length === 0 ? [FIFTY_PERCENT] : backgroundImage.position;
+    //             // const x = getAbsoluteValue(position[0], width);
+    //             // const y = getAbsoluteValue(position[position.length - 1], height);
+
+    //             // const [rx, ry] = calculateRadius(backgroundImage, x, y, width, height);
+    //             // if (rx > 0 && ry > 0) {
+    //                 // 注释掉 Canvas 径向渐变相关代码
+    //                 // const radialGradient = this.ctx.createRadialGradient(left + x, top + y, 0, left + x, top + y, rx);
+
+    //                 // processColorStops(backgroundImage.stops, rx * 2).forEach((colorStop) =>
+    //                 //     radialGradient.addColorStop(colorStop.stop, this.convertColor(colorStop.color))
+    //                 // );
+
+    //                 // this.path(path);
+    //                 // this.ctx.fillStyle = radialGradient;
+    //                 // if (rx !== ry) {
+    //                 //     // transforms for elliptical radial gradient
+    //                 //     const midX = container.bounds.left + 0.5 * container.bounds.width;
+    //                 //     const midY = container.bounds.top + 0.5 * container.bounds.height;
+    //                 //     const f = ry / rx;
+    //                 //     const invF = 1 / f;
+
+    //                 //     this.ctx.save();
+    //                 //     this.ctx.translate(midX, midY);
+    //                 //     this.ctx.transform(1, 0, 0, f, 0, 0);
+    //                 //     this.ctx.translate(-midX, -midY);
+
+    //                 //     this.ctx.fillRect(left, invF * (top - midY) + midY, width, height * invF);
+    //                 //     this.ctx.restore();
+    //                 // } else {
+    //                 //     this.ctx.fill();
+    //                 // }
+                    
+    //                 // TODO: 使用 jsPDF 实现径向渐变背景（jsPDF 对渐变支持有限）
+    //                 // 可以考虑将渐变转换为图片后再添加到 PDF
+    //             // }
+    //         }
+    //         index--;
+    //     }
+    // }
 
     /**
      * 渲染实线边框
@@ -1239,12 +1241,12 @@ export class CanvasRenderer extends Renderer {
         // 解析边框路径
         this.path(parsePathForBorder(curvePoints, side));
         // 设置填充颜色
-        this.ctx.fillStyle = this.convertColor(color);
+        // this.ctx.fillStyle = this.convertColor(color);
         this.context2dCtx.fillStyle = this.convertColor(color);
 
         // 填充路径
-        this.ctx.fill();
-        this.jspdfCtx.fill();
+        // this.ctx.fill();
+        // this.jspdfCtx.fill();
         this.context2dCtx.fill()
     }
 
@@ -1259,20 +1261,24 @@ export class CanvasRenderer extends Renderer {
 
         const outerPaths = parsePathForBorderDoubleOuter(curvePoints, side);
         this.path(outerPaths);
-        this.ctx.fillStyle = this.convertColor(color);
-        this.ctx.fill();
+        // this.ctx.fillStyle = this.convertColor(color);
+        // this.ctx.fill();
+        this.context2dCtx.fillStyle = this.convertColor(color);
+        this.context2dCtx.fill();
         const innerPaths = parsePathForBorderDoubleInner(curvePoints, side);
         this.path(innerPaths);
-        this.ctx.fill();
+        // this.ctx.fill();
+        this.context2dCtx.fill();
     }
 
     // 渲染节点的背景和边框
     async renderNodeBackgroundAndBorders(paint: ElementPaint): Promise<void> {
         // 应用背景和边框的效果
 
-        console.log(paint,'paint')
+   
         this.applyEffects(paint.getEffects(EffectTarget.BACKGROUND_BORDERS));
         const styles = paint.container.styles;
+     
         // 检查是否有背景色或背景图片
         const hasBackground = !isTransparent(styles.backgroundColor) || styles.backgroundImage.length;
 
@@ -1291,28 +1297,33 @@ export class CanvasRenderer extends Renderer {
         );
 
         if (hasBackground || styles.boxShadow.length) {
+            let foreignobjectrendering=paint.container.foreignobjectrendering
+            // console.log(paint,foreignobjectrendering, 'paint边框')
+      
             // 在 save 之前确保字体设置正确
             if (this.options.fontConfig && this.options.fontConfig.fontFamily) {
                 this.jspdfCtx.setFont(this.options.fontConfig.fontFamily);
             }
-
-            this.context2dCtx.save();
-            this.path(backgroundPaintingArea);
-            this.context2dCtx.clip();
-            this.ctx.save();
-            this.path(backgroundPaintingArea);
-            this.ctx.clip();
-
-            if (!isTransparent(styles.backgroundColor)) {
-                this.ctx.fillStyle = asString(styles.backgroundColor);
-                this.ctx.fill();
-                this.context2dCtx.fillStyle = this.convertColor(styles.backgroundColor);
-                this.context2dCtx.fill();
+            if(!foreignobjectrendering){
+                this.context2dCtx.save();
+                this.path(backgroundPaintingArea);
+                this.context2dCtx.clip();
+                // this.ctx.save();
+                // this.path(backgroundPaintingArea);
+                // this.ctx.clip();
+    
+                if (!isTransparent(styles.backgroundColor)) {
+                    // this.ctx.fillStyle = asString(styles.backgroundColor);
+                    // this.ctx.fill();
+                    this.context2dCtx.fillStyle = this.convertColor(styles.backgroundColor);
+                    this.context2dCtx.fill();
+                }
             }
+          
 
             await this.renderBackgroundImage(paint.container);
 
-            this.ctx.restore();
+            // this.ctx.restore();
             this.context2dCtx.restore();
 
             // 在 restore 之后重新设置字体
@@ -1322,7 +1333,7 @@ export class CanvasRenderer extends Renderer {
 
         }
 
-
+        if(!true){
         let side = 0;
         for (const border of borders) {
             if (border.style !== BORDER_STYLE.NONE && !isTransparent(border.color) && border.width > 0) {
@@ -1351,7 +1362,7 @@ export class CanvasRenderer extends Renderer {
             side++;
         }
 
-
+    }
     }
 
 
@@ -1365,8 +1376,9 @@ export class CanvasRenderer extends Renderer {
         curvePoints: BoundCurves,  // 边框曲线点
         style: BORDER_STYLE    // 边框样式(DASHED或DOTTED)
     ): Promise<void> {
-        this.ctx.save();  // 保存当前画布状态
-        this.jspdfCtx.saveGraphicsState(); // 保存PDF绘图状态
+        // this.ctx.save();  // 保存当前画布状态
+        // this.jspdfCtx.saveGraphicsState(); // 保存PDF绘图状态
+          this.context2dCtx.save()
 
         // 获取边框的路径信息
         const strokePaths = parsePathForBorderStroke(curvePoints, side);
@@ -1375,9 +1387,10 @@ export class CanvasRenderer extends Renderer {
         // 如果是虚线边框,需要先裁剪路径
         if (style === BORDER_STYLE.DASHED) {
             this.path(boxPaths);
-            this.ctx.clip();
-            // PDF裁剪路径
-            this.jspdfCtx.clip();
+            // this.ctx.clip();
+            // // PDF裁剪路径
+            // this.jspdfCtx.clip();
+            this.context2dCtx.clip()
         }
 
         // 获取边框起点和终点坐标
@@ -1406,7 +1419,9 @@ export class CanvasRenderer extends Renderer {
         }
 
         // 开始绘制路径
-        this.ctx.beginPath();
+        // this.ctx.beginPath();
+
+        this.context2dCtx.beginPath()
         this.jspdfCtx.setDrawColor(this.convertColor(color)); // 设置PDF绘制颜色
 
         if (style === BORDER_STYLE.DOTTED) {
@@ -1444,28 +1459,28 @@ export class CanvasRenderer extends Renderer {
         // 设置虚线样式
         if (useLineDash) {
             if (style === BORDER_STYLE.DOTTED) {
-                this.ctx.setLineDash([0, dashLength + spaceLength]);
+                // this.ctx.setLineDash([0, dashLength + spaceLength]);
                 this.jspdfCtx.setLineDashPattern([0, dashLength + spaceLength], 0); // PDF虚线样式
             } else {
-                this.ctx.setLineDash([dashLength, spaceLength]);
+                // this.ctx.setLineDash([dashLength, spaceLength]);
                 this.jspdfCtx.setLineDashPattern([dashLength, spaceLength], 0); // PDF虚线样式
             }
         }
 
         // 设置线条样式并绘制
         if (style === BORDER_STYLE.DOTTED) {
-            this.ctx.lineCap = 'round';
-            this.ctx.lineWidth = width;
+            // this.ctx.lineCap = 'round';
+            // this.ctx.lineWidth = width;
             this.jspdfCtx.setLineCap('round'); // PDF线帽样式
             this.jspdfCtx.setLineWidth(width);
         } else {
-            this.ctx.lineWidth = width * 2 + 1.1;
+            // this.ctx.lineWidth = width * 2 + 1.1;
             this.jspdfCtx.setLineWidth(width * 2 + 1.1);
         }
-        this.ctx.strokeStyle = this.convertColor(color);
-        this.ctx.stroke();
+        // this.ctx.strokeStyle = this.convertColor(color);
+        // this.ctx.stroke();
         this.jspdfCtx.stroke(); // PDF绘制线条
-        this.ctx.setLineDash([]);
+        // this.ctx.setLineDash([]);
         this.jspdfCtx.setLineDashPattern([], 0); // 重置PDF虚线样式
 
         // 处理虚线边框的圆角连接处
@@ -1490,22 +1505,24 @@ export class CanvasRenderer extends Renderer {
             if (isBezierCurve(boxPaths[1])) {
                 const path1 = boxPaths[1] as BezierCurve;
                 const path2 = boxPaths[2] as BezierCurve;
-                this.ctx.beginPath();
-                this.formatPath([new Vector(path1.end.x, path1.end.y), new Vector(path2.start.x, path2.start.y)]);
-                this.ctx.stroke();
+                // this.ctx.beginPath();
+                // this.formatPath([new Vector(path1.end.x, path1.end.y), new Vector(path2.start.x, path2.start.y)]);
+                // this.ctx.stroke();
                 this.jspdfCtx.lines([[path1.end.x, path1.end.y, path2.start.x, path2.start.y]], path1.end.x, path1.end.y); // PDF绘制连接线
                 this.jspdfCtx.stroke();
             }
         }
 
-        this.ctx.restore(); // 恢复画布状态
+        // this.ctx.restore(); // 恢复画布状态
         this.jspdfCtx.restoreGraphicsState(); // 恢复PDF绘图状态
     }
 
     async render(element: ElementContainer): Promise<HTMLCanvasElement> {
         if (this.options.backgroundColor) {
-            this.ctx.fillStyle = this.convertColor(this.options.backgroundColor);
-            this.ctx.fillRect(this.options.x, this.options.y, this.options.width, this.options.height);
+            // this.ctx.fillStyle = this.convertColor(this.options.backgroundColor);
+            // this.ctx.fillRect(this.options.x, this.options.y, this.options.width, this.options.height);
+            this.jspdfCtx.setFillColor(this.convertColor(this.options.backgroundColor)); // PDF填充背景颜色
+            this.jspdfCtx.rect(this.options.x, this.options.y, this.options.width, this.options.height, 'F'); // PDF绘制矩形
         }
 
         const stack = parseStackingContexts(element);
@@ -1514,10 +1531,11 @@ export class CanvasRenderer extends Renderer {
         this.applyEffects([]);
 
         // 使用配置的文件名或默认名称
-        const fileName = this.options.pdfFileName || 'output.pdf';
-        this.jspdfCtx.save(fileName);
-
-        return this.canvas;
+        // const fileName = this.options.pdfFileName || 'output.pdf';
+        // this.jspdfCtx.save(fileName);
+        const pdfBlob = this.jspdfCtx.output('blob');  
+        return pdfBlob;
+        // return this.canvas;
     }
 }
 

@@ -1,7 +1,7 @@
 import {Context} from '../../core/context';
 
 export class Bounds {
-    constructor(readonly left: number, readonly top: number, readonly width: number, readonly height: number) {}
+    constructor(public left: number, public top: number, public width: number, public height: number) {}
 
     add(x: number, y: number, w: number, h: number): Bounds {
         return new Bounds(this.left + x, this.top + y, this.width + w, this.height + h);

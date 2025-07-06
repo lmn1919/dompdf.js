@@ -1,51 +1,66 @@
-import {CSSParsedDeclaration} from '../css';
-import {ElementContainer, FLAGS} from './element-container';
-import {TextContainer} from './text-container';
-import {ImageElementContainer} from './replaced-elements/image-element-container';
-import {CanvasElementContainer} from './replaced-elements/canvas-element-container';
-import {SVGElementContainer} from './replaced-elements/svg-element-container';
-import {LIElementContainer} from './elements/li-element-container';
-import {OLElementContainer} from './elements/ol-element-container';
-import {InputElementContainer} from './replaced-elements/input-element-container';
-import {SelectElementContainer} from './elements/select-element-container';
-import {TextareaElementContainer} from './elements/textarea-element-container';
-import {IFrameElementContainer} from './replaced-elements/iframe-element-container';
-import {Context} from '../core/context';
+import { CSSParsedDeclaration } from '../css';
+import { ElementContainer, FLAGS } from './element-container';
+import { TextContainer } from './text-container';
+import { ImageElementContainer } from './replaced-elements/image-element-container';
+import { CanvasElementContainer } from './replaced-elements/canvas-element-container';
+import { SVGElementContainer } from './replaced-elements/svg-element-container';
+import { LIElementContainer } from './elements/li-element-container';
+import { OLElementContainer } from './elements/ol-element-container';
+import { InputElementContainer } from './replaced-elements/input-element-container';
+import { SelectElementContainer } from './elements/select-element-container';
+import { TextareaElementContainer } from './elements/textarea-element-container';
+import { IFrameElementContainer } from './replaced-elements/iframe-element-container';
+import { Context } from '../core/context';
+import { snapdom } from '@zumer/snapdom';
 
 const LIST_OWNERS = ['OL', 'UL', 'MENU'];
-
-const parseNodeTree = (context: Context, node: Node, parent: ElementContainer, root: ElementContainer) => {
+// let foreignObjectRendererList: any = []
+const parseNodeTree = (context: Context, node: Node, parent: ElementContainer, root: ElementContainer, foreignObjectRendererList: Element[]) => {
     for (let childNode = node.firstChild, nextNode; childNode; childNode = nextNode) {
         nextNode = childNode.nextSibling;
 
         if (isTextNode(childNode) && childNode.data.trim().length > 0) {
             parent.textNodes.push(new TextContainer(context, childNode, parent.styles));
+            if (isElementNode(node) && node.hasAttribute('foreignobjectrendering')) {
+                foreignObjectRendererList.push(node);
+                
+            }
         } else if (isElementNode(childNode)) {
             if (isSlotElement(childNode) && childNode.assignedNodes) {
-                childNode.assignedNodes().forEach((childNode) => parseNodeTree(context, childNode, parent, root));
+                childNode.assignedNodes().forEach((childNode) => parseNodeTree(context, childNode, parent, root,foreignObjectRendererList));
             } else {
                 const container = createContainer(context, childNode);
+                // 检查当前节点或其祖先节点是否有foreignobjectrendering属性
+               
                 if (container.styles.isVisible()) {
                     if (createsRealStackingContext(childNode, container, root)) {
                         container.flags |= FLAGS.CREATES_REAL_STACKING_CONTEXT;
                     } else if (createsStackingContext(container.styles)) {
                         container.flags |= FLAGS.CREATES_STACKING_CONTEXT;
                     }
-
+                    if (isElementNode(childNode) && (childNode.hasAttribute('foreignobjectrendering') || parent.foreignobjectrendering)) {
+                        container.foreignobjectrendering = true;
+                    }
                     if (LIST_OWNERS.indexOf(childNode.tagName) !== -1) {
                         container.flags |= FLAGS.IS_LIST_OWNER;
                     }
-
+                    if (isElementNode(node) && node.hasAttribute('foreignobjectrendering')) {
+                   
+                        foreignObjectRendererList.push(node);
+                    }
+                    // if (parent.foreignobjectrendering){
+                    //     container.foreignobjectrendering = true;
+                    // }
                     parent.elements.push(container);
                     childNode.slot;
                     if (childNode.shadowRoot) {
-                        parseNodeTree(context, childNode.shadowRoot, container, root);
+                        parseNodeTree(context, childNode.shadowRoot, container, root,foreignObjectRendererList);
                     } else if (
                         !isTextareaElement(childNode) &&
                         !isSVGElement(childNode) &&
                         !isSelectElement(childNode)
                     ) {
-                        parseNodeTree(context, childNode, container, root);
+                        parseNodeTree(context, childNode, container, root,foreignObjectRendererList);
                     }
                 }
             }
@@ -93,13 +108,13 @@ const createContainer = (context: Context, element: Element): ElementContainer =
     return new ElementContainer(context, element);
 };
 
-export const parseTree = (context: Context, element: HTMLElement): ElementContainer => {
-    const container = createContainer(context, element);
-    container.flags |= FLAGS.CREATES_REAL_STACKING_CONTEXT;
-    console.log(element,'nodedom解析')
-    parseNodeTree(context, element, container, container);
-    return container;
-};
+// export const parseTree = (context: Context, element: HTMLElement): ElementContainer => {
+//     const container = createContainer(context, element);
+//     container.flags |= FLAGS.CREATES_REAL_STACKING_CONTEXT;
+//     console.log(element,'nodedom解析')
+//     parseNodeTree(context, element, container, container);
+//     return container;
+// };
 
 const createsRealStackingContext = (node: Element, container: ElementContainer, root: ElementContainer): boolean => {
     return (
@@ -109,6 +124,175 @@ const createsRealStackingContext = (node: Element, container: ElementContainer, 
         (isBodyElement(node) && root.styles.isTransparent())
     );
 };
+
+// 修复1：移除全局变量，改为局部变量
+export const parseTree = async (context: Context, element: HTMLElement): Promise<ElementContainer> => {
+    const container = createContainer(context, element);
+    container.flags |= FLAGS.CREATES_REAL_STACKING_CONTEXT;
+    const foreignObjectRendererList: Element[] = [];
+    // 修改 parseNodeTree 调用，传入局部列表
+    parseNodeTree(context, element, container, container,foreignObjectRendererList);
+
+    // 去重处理
+    const uniqueList = foreignObjectRendererList.filter((item: any, index: any, self: any) =>
+        index === self.findIndex((t: any) => { return t === item })
+    );
+
+
+    // 并行处理所有截图
+    const screenshotPromises = uniqueList.map((item: any) =>
+        renderForeignObject(item as HTMLElement)
+    );
+
+    const screenshotResults = await Promise.all(screenshotPromises);
+
+    // 添加所有截图到容器
+    screenshotResults.forEach((bgImgSrc: { src: string } | null, index: number) => {
+        if (bgImgSrc) {
+            const itemNode = uniqueList[index] as HTMLElement;
+            const width = itemNode.offsetWidth || itemNode.getBoundingClientRect().width || 100;
+            const height = itemNode.offsetHeight || itemNode.getBoundingClientRect().height || 100;
+            // const rect = itemNode.getBoundingClientRect();
+            // const scrollX = window.scrollX || document.documentElement.scrollLeft;
+            // const scrollY = window.scrollY || document.documentElement.scrollTop;
+
+            // 创建图片容器
+            const bgContainer = document.createElement('div');
+            bgContainer.style.width = Math.ceil(width) + 'px';
+            bgContainer.style.height = Math.ceil(height) + 'px';
+            bgContainer.style.backgroundImage = `url(${bgImgSrc.src})`;
+            bgContainer.style.backgroundSize = 'contain';
+            bgContainer.style.backgroundPosition = 'center';
+            bgContainer.style.backgroundRepeat = 'no-repeat';
+
+            // 创建临时容器获取正确位置
+            const tempContainer = document.createElement('div');
+            tempContainer.style.position = 'absolute';
+            tempContainer.style.left = '-9999px';
+            tempContainer.appendChild(bgContainer);
+            document.body.appendChild(tempContainer);
+
+            const imageContainer = createContainer(context, bgContainer) as ElementContainer;
+
+            // 设置精确位置（考虑滚动偏移）
+            imageContainer.bounds.left = itemNode.offsetLeft;
+            imageContainer.bounds.top = itemNode.offsetTop;
+            imageContainer.bounds.width = width;
+            imageContainer.bounds.height = height;
+            imageContainer.flags = 0;
+
+            // 清理临时元素
+            document.body.removeChild(tempContainer);
+
+            // 添加到容器（放在最底层）
+            container.elements.unshift(imageContainer);
+        }
+    });
+
+    return container;
+};
+
+const makeInvisible =async (element: Element) => {
+    if (element.nodeType === Node.TEXT_NODE && element.textContent?.trim() !== '') {
+        const span = document.createElement('span');
+        span.style.color = 'transparent';
+        span.style.backgroundColor = 'transparent';
+        span.textContent = element.textContent;
+        element.parentNode?.replaceChild(span, element);
+    } else {
+        element.childNodes.forEach(makeInvisible);
+    }
+
+      
+};
+
+const renderForeignObject = async (element: HTMLElement) => {
+    // 复制一份node节点
+    const captureElement = element as HTMLElement;
+
+    makeInvisible(captureElement);
+    // 确保元素有宽高
+    const rect = captureElement.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) {
+        console.warn('元素宽度或高度为0，无法截图');
+        return;
+    }
+    const capture = await snapdom(captureElement, {
+        // width: Math.ceil(rect.width),
+        // height: Math.ceil(rect.height)
+    });
+    try {
+        // 导出PNG格式
+        const pngData: any = await capture.toPng({
+            quality: 0.1,
+            // width: Math.ceil(rect.width),
+            // height: Math.ceil(rect.height)
+        });
+
+        // console.log(pngData, 'pngData');
+
+        if (pngData) {
+            return pngData
+        }
+    } catch (error) {
+        console.error('导出PNG格式失败:', error);
+    }
+};
+
+// 修复3：安全截图（不修改原始 DOM）
+// const renderForeignObject = async (element: HTMLElement) => {
+//     // 1. 克隆元素（包括所有子元素）
+//     const clone = element.cloneNode(true) as HTMLElement;
+
+//     // 2. 创建临时容器（确保正确计算样式）
+//     const container = document.createElement('div');
+//     container.style.position = 'absolute';
+//     container.style.left = '-9999px';
+//     container.appendChild(clone);
+//     document.body.appendChild(container);
+
+//     // 3. 应用透明样式到克隆体
+//     const applyInvisibleStyle = (el: Element) => {
+//         if (el instanceof HTMLElement) {
+//             el.style.color = 'transparent';
+//             el.style.backgroundColor = 'transparent';
+//             Array.from(el.children).forEach(applyInvisibleStyle);
+//         }
+//     };
+//     applyInvisibleStyle(clone);
+
+//     // 4. 获取尺寸
+//     const rect = clone.getBoundingClientRect();
+//     if (rect.width === 0 || rect.height === 0) {
+//         document.body.removeChild(container);
+//         return null;
+//     }
+
+//     try {
+//         // 5. 截图克隆体
+//         const capture = await snapdom(clone, {
+//             // width: Math.ceil(rect.width),
+//             // height: Math.ceil(rect.height)
+//         });
+
+//         const pngData = await capture.toPng({
+//             quality: 0.9,
+//             // width: Math.ceil(rect.width),
+//             // height: Math.ceil(rect.height)
+//         });
+
+//         return pngData;
+//     } catch (error) {
+//         console.error('截图失败:', error);
+//         return null;
+//     } finally {
+//         // 6. 确保清理临时元素
+//         document.body.removeChild(container);
+//     }
+// };
+
+// 修复4：移除原有的 makeInvisible 函数
+// 不再需要，因为新方法使用克隆体
 
 const createsStackingContext = (styles: CSSParsedDeclaration): boolean => styles.isPositioned() || styles.isFloating();
 

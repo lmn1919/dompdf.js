@@ -17,10 +17,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git@github.com:lmn1919/dompdf.git"
+    "url": "git@github.com:lmn1919/dompdf.js.git"
   },
   "bugs": {
-    "url": "https://github.com/lmn1919/dompdf/issues"
+    "url": "https://github.com/lmn1919/dompdf.js/issues"
   },
   "devDependencies": {
     "@babel/cli": "^7.4.3",
@@ -121,10 +121,10 @@
     "start": "ts-node tests/server --port=8080 --cors=8081",
     "dev": "webpack serve --config webpack.dev.js --open"
   },
-  
   "homepage": "https://html2canvas.hertzen.com",
   "license": "MIT",
   "dependencies": {
+    "@zumer/snapdom": "^1.8.0",
     "css-line-break": "^2.1.0",
     "fontkit": "^2.0.4",
     "jspdf": "^2.5.2",
