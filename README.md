@@ -16,6 +16,7 @@ dompdf
 所以他有以下优势：
 1. 不需要服务器端的任何渲染，因为整个pdf是在**客户端浏览器**上创建的。
 2. 生成的是真正的pdf文件，而不是图片式的，这样生成的pdf质量更高，您也可以编辑和打印生成pdf文件。
+3. 更小的pdf文件体积
    
 当然，它也有一些缺点：
 1. 由于是基于DOM的，所以可能与实际表现不会 100% 一致。
@@ -29,17 +30,19 @@ dompdf
 ### 已实现功能
 | 功能     | 状态     | 说明                                                                          |
 | -------- | -------- | ----------------------------------------------------------------------------- |
-| 文本渲染 | ✅        | 支持基础文本内容渲染,font-family,font-size,font-style,font-variant,color等    |
+| 文本渲染 | ✅        | 支持基础文本内容渲染,font-family,font-size,font-style,font-variant,color等，支持文字描边，不支持文字阴影    |
 | 图片渲染 | ✅        | 支持网络图片，base64图片，svg图片                                             |
-| 边框     | ✅        | 支持border-width,border-color,border-style,border-radius,展示只实现了实线边框 |
+| 边框     | ✅        | 支持border-width,border-color,border-style,border-radius,暂时只实现了实线边框 |
+
 | 背景     | ✅        | 支持背景颜色，背景图片，背景渐变                                              |
 | canvas   | ✅        | 支持渲染canvas                                                                |
 | svg      | ✅        | 支持渲染svg                                                                   |
 | iframe   | ❌        | 支持渲染iframe                                                                |
-| 阴影渲染 | ❌        | 暂不支持box-shadow、text-shadow                                               |
-| 渐变渲染 | ❌        | 暂不支持渐变背景                                                              |
+| 阴影渲染 | ✅      | 使用foreignObjectRendering，支持边框阴影渲染                                               |
+| 渐变渲染 | ✅        | 使用foreignObjectRendering，支持背景渐变渲染                                                              |
 
 
+### foreignObjectRendering 使用
 
 
 ### 浏览器兼容性
