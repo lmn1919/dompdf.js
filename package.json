@@ -1,12 +1,12 @@
 {
-  "title": "dompdf",
-  "name": "dompdf",
+  "title": "dompdf.js",
+  "name": "dompdf.js",
   "description": "HTML to PDF",
   "main": "dist/dompdf.js",
   "module": "dist/dompdf.esm.js",
   "typings": "dist/types/index.d.ts",
   "browser": "dist/dompdf.js",
-  "version": "1.4.1",
+  "version": "1.0.0",
   "author": {
     "name": "lfc",
     "email": "lfc191910@gmail.com",
