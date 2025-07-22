@@ -121,11 +121,11 @@ const renderElement = async (element: HTMLElement, opts: Partial<Options>): Prom
         width: opts.width ?? Math.ceil(width),
         height: opts.height ?? Math.ceil(height),
         fontConfig: opts.fontConfig ?? {
-            fontFamily: 'SourceHanSansSC-Normal-Min',
+            fontFamily: '',
             fontBase64: '', // window.fontBase64
-            fontUrl: 'https://oss.jspdf.top/font/SourceHanSansCN-Medium.ttf',
+            fontUrl: '',
             fontWeight: 400,
-            fontStyle: 'normal'
+            fontStyle: ''
         }
     };
 
@@ -142,7 +142,7 @@ const renderElement = async (element: HTMLElement, opts: Partial<Options>): Prom
 
         context.logger.debug(`Starting DOM parsing`,context, clonedElement);
         let root =await parseTree(context, clonedElement);
-
+        console.log('解析后的',root)
 
 
         Reflect.deleteProperty(root, 'context')

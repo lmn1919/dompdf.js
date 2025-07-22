@@ -7,7 +7,14 @@
 [![NPM Downloads](https://img.shields.io/npm/dm/html2canvas.svg)](https://www.npmjs.org/package/html2canvas)
 [![NPM Version](https://img.shields.io/npm/v/html2canvas.svg)](https://www.npmjs.org/package/html2canvas) -->
 
-该脚本允许您直接在用户浏览器上将网页或部分网页生成为可编辑、非图片式、可打印的 pdf。由于生成是基于 DOM 的，因此可能与实际表现不会 100% 一致。
+该脚本允许您直接在用户浏览器上将网页或部分网页生成为可编辑、非图片式、可打印的 pdf。由于生成是基于 DOM 的，因此可能与实际表现不会 100% 一致。如果是复杂的pdf生成需求，不建议使用。
+在线体验：[在线体验](https://dompdfjs.lisky.com.cn)
+
+pdf生成示例
+
+### pdf生成示例
+![pdf生成示例](./examples/test.png)
+
 
 ### 它是如何工作的
 
@@ -36,9 +43,9 @@
 | 背景     | ✅   | 支持背景颜色，背景图片，背景渐变                                                                          |
 | canvas   | ✅   | 支持渲染 canvas                                                                                           |
 | svg      | ✅   | 支持渲染 svg                                                                                              |
-| iframe   | ❌   | 支持渲染 iframe                                                                                           |
 | 阴影渲染 | ✅   | 使用 foreignObjectRendering，支持边框阴影渲染                                                             |
 | 渐变渲染 | ✅   | 使用 foreignObjectRendering，支持背景渐变渲染                                                             |
+| iframe   | ❌   | 支持渲染 iframe                                                                                           |
 
 ### foreignObjectRendering 使用
 
@@ -145,11 +152,3 @@ dompdf(document.querySelector("#capture"), {
 
     $ npm run build
 
-<!-- ### 示例
-
-有关更多信息和示例，请访问[主页](https://html2canvas.hertzen.com)或尝试[测试控制台](https://html2canvas.hertzen.com/tests/)。
-
-### 贡献
-
-如果您希望为项目做出贡献，请将拉取请求发送到 develop 分支。在提交任何更改之前，请尝试测试这些更改是否适用于所有支持的浏览器。如果某些 CSS 属性不受支持或不完整，请在提交任何代码更改之前也为其创建适当的测试。 -->
-````

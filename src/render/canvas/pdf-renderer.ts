@@ -21,7 +21,7 @@ import { isDimensionToken } from '../../css/syntax/parser'; // 维度标记判�
 import { asString, Color, isTransparent, } from '../../css/types/color'; // 颜色相关工具
 // import { calculateGradientDirection, calculateRadius, processColorStops } from '../../css/types/functions/gradient'; // 渐变计算
 import { CSSImageType, CSSURLImage, isLinearGradient, isRadialGradient } from '../../css/types/image'; // 图片类型
-import {  getAbsoluteValue } from '../../css/types/length-percentage'; // 长度百分比FIFTY_PERCENT,
+import { getAbsoluteValue } from '../../css/types/length-percentage'; // 长度百分比FIFTY_PERCENT,
 import { ElementContainer, FLAGS } from '../../dom/element-container'; // 元素容器
 import { SelectElementContainer } from '../../dom/elements/select-element-container'; // Select元素容器
 import { TextareaElementContainer } from '../../dom/elements/textarea-element-container'; // Textarea元素容器
@@ -32,7 +32,7 @@ import { ImageElementContainer } from '../../dom/replaced-elements/image-element
 import { CHECKBOX, INPUT_COLOR, InputElementContainer, RADIO } from '../../dom/replaced-elements/input-element-container'; // Input元素容器
 import { SVGElementContainer } from '../../dom/replaced-elements/svg-element-container'; // SVG元素容器
 import { TextContainer } from '../../dom/text-container'; // 文本容器
-import 'svg2pdf.js'
+
 
 import { calculateBackgroundRendering, getBackgroundValueForIndex } from '../background'; // 背景渲染计算
 import { BezierCurve, isBezierCurve } from '../bezier-curve'; // 贝塞尔曲线
@@ -71,7 +71,7 @@ export interface RenderOptions {
     scale: number; // 缩放比例
     canvas?: HTMLCanvasElement; // 可选的canvas元素
     x: number; // x坐标
-    y: number; // y坐标  
+    y: number; // y坐标
     width: number; // 宽度
     height: number; // 高度
     pdfFileName?: string; // 新增 PDF 文件名选项
@@ -91,6 +91,7 @@ export class CanvasRenderer extends Renderer {
     private readonly fontMetrics: FontMetrics; // 字体度量
     private readonly pxToPt: (px: number) => number; // 将 px 转换为 pt 的函数
 
+
     // 构造函数
     constructor(context: Context, options: RenderConfigurations) {
         // console.log('options参数',options,context)
@@ -100,11 +101,11 @@ export class CanvasRenderer extends Renderer {
 
         // 计算页面尺寸并转换为 pt 单位 (1pt = 1/72 inch, 1px = 1/96 inch)
         const pxToPt = (px: number) => px * (72 / 96);
-        // 
+        //
         const pageWidth = pxToPt(options.width);
         const pageHeight = pxToPt(options.height);
 
-    
+
 
         // 初始化 jsPDF
         this.jspdfCtx = new jsPDF({
@@ -113,6 +114,13 @@ export class CanvasRenderer extends Renderer {
             format: [pageWidth, pageHeight],
             hotfixes: ["px_scaling"]
         });
+
+
+// 保存PDF文件到本地
+// const pdfFileName = options.pdfFileName || 'document.pdf';
+
+// 设置PDF文件的保存方式
+
 
 
 
@@ -198,6 +206,9 @@ export class CanvasRenderer extends Renderer {
 
     addFontToJsPDF(fontData: string) {
         const { fontFamily, fontWeight, fontStyle } = this.options.fontConfig;
+        if (!fontFamily) {
+            return
+        }
         this.jspdfCtx.addFileToVFS(`${fontFamily}.ttf`, fontData); // 将字体添加到虚拟文件系统
         this.jspdfCtx.addFont(`${fontFamily}.ttf`, fontFamily, fontStyle, fontWeight); // 注册字体
         this.jspdfCtx.setFont(fontFamily); // 设置当前字体
@@ -298,14 +309,18 @@ export class CanvasRenderer extends Renderer {
 
     // 渲染带有字母间距的文本
     renderTextWithLetterSpacing(text: TextBounds, letterSpacing: number, baseline: number): void {
-        // console.log(text, letterSpacing,)
+        // console.log(text, text.bounds.top, baseline, text.bounds.top + baseline - topMargin, topMargin, '绘制文字',)
         if (letterSpacing === 0) {
+            // console.log(text.text, text.bounds.left,'绘制文字-没有letterSpacing')
             // this.ctx.fillText(text.text, text.bounds.left, text.bounds.top + baseline);
-            this.context2dCtx.fillText(text.text, text.bounds.left - leftMargin, text.bounds.top + baseline - topMargin);
+            this.context2dCtx.fillText(text.text, text.bounds.left-leftMargin , text.bounds.top + baseline - topMargin);
         } else {
             const letters = segmentGraphemes(text.text);
             letters.reduce((left, letter) => {
+                // console.log(left, letter,'绘制文字')
                 // this.ctx.fillText(letter, left, text.bounds.top + baseline);
+                // this.context2dCtx.fillText(letter, left - leftMargin, text.bounds.top + baseline - topMargin);
+// 使用jspdf绘制文字
                 this.context2dCtx.fillText(letter, left - leftMargin, text.bounds.top + baseline - topMargin);
                 return left + this.ctx.measureText(letter).width;
             }, text.bounds.left);
@@ -370,8 +385,7 @@ export class CanvasRenderer extends Renderer {
 
         const { baseline, middle } = this.fontMetrics.getMetrics(fontFamily, fontSize);
         const paintOrder = styles.paintOrder;
-
-        text.textBounds.forEach((textItem) => { // 重命名 'text' 避免与外部 'text' 冲突
+        text.textBounds.forEach((textItem) => {
             paintOrder.forEach((paintOrderLayer) => {
                 switch (paintOrderLayer) {
                     case PAINT_ORDER_LAYER.FILL:
@@ -436,7 +450,7 @@ export class CanvasRenderer extends Renderer {
                         // this.ctx.lineJoin = 'miter';
 
                         // 清除 jsPDF context2d 的描边样式
-                        this.context2dCtx.strokeStyle = ''; 
+                        this.context2dCtx.strokeStyle = '';
                         this.context2dCtx.lineWidth = 0;
                         this.context2dCtx.lineJoin = 'miter';
                         break;
@@ -540,7 +554,7 @@ export class CanvasRenderer extends Renderer {
                     this.context.logger.error(`Error adding image to PDF: ${err}`);
                 }
             } catch (e) {
-                this.context.logger.error(`Error loading image ${container.src}`);
+                this.context.logger.error(`Error loading image ${container}`);
             }
         }
 
@@ -846,7 +860,7 @@ export class CanvasRenderer extends Renderer {
         if (contains(stack.element.container.flags, FLAGS.DEBUG_RENDER)) {
             debugger;
         }
-     
+
         // https://www.w3.org/TR/css-position-3/#painting-order
         // 1. the background and borders of the element forming the stacking context.
         await this.renderNodeBackgroundAndBorders(stack.element);
@@ -1113,123 +1127,6 @@ export class CanvasRenderer extends Renderer {
     }
 
 
-    // // 渲染背景图片
-    // async renderBackgroundImage(container: ElementContainer): Promise<void> {
-    //     let index = container.styles.backgroundImage.length - 1;
-    //     for (const backgroundImage of container.styles.backgroundImage.slice(0).reverse()) {
-    //         if (backgroundImage.type === CSSImageType.URL) {
-    //             let image;
-    //             const url = (backgroundImage as CSSURLImage).url;
-    //             try {
-    //                 image = await this.context.cache.match(url);
-    //             } catch (e) {
-    //                 this.context.logger.error(`Error loading background-image ${url}`);
-    //             }
-
-    //             if (image) {
-    //                 // path
-    //                 const [ x, y, width, height] = calculateBackgroundRendering(container, index, [
-    //                     image.width,
-    //                     image.height,
-    //                     image.width / image.height
-    //                 ]);
-                    
-    //                 // 注释掉 Canvas 相关代码
-    //                 // const pattern = this.ctx.createPattern(
-    //                 //     this.resizeImage(image, width, height),
-    //                 //     'repeat'
-    //                 // ) as CanvasPattern;
-    //                 // this.renderRepeat(path, pattern, x, y);
-
-    //                 // 使用 jsPDF 绘制 PDF 背景图片
-    //                 const xPt = x;
-    //                 const yPt = y
-    //                 const widthPt = width;
-    //                 const heightPt = height;
-
-    //                 console.log('绘制背景图片',xPt,yPt,image)
-                    
-    //                 // 添加背景图片到 PDF
-    //                 this.jspdfCtx.addImage(
-    //                     image,
-    //                     'JPEG',
-    //                     xPt,
-    //                     yPt,
-    //                     widthPt,
-    //                     heightPt
-    //                 );
-    //             }
-    //         } else if (isLinearGradient(backgroundImage)) {
-    //             // const [path, x, y, width, height] = calculateBackgroundRendering(container, index, [null, null, null]);
-    //             // const [lineLength, x0, x1, y0, y1] = calculateGradientDirection(backgroundImage.angle, width, height);
-
-    //             // 注释掉 Canvas 渐变相关代码
-    //             // const canvas = document.createElement('canvas');
-    //             // canvas.width = width;
-    //             // canvas.height = height;
-    //             // const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
-    //             // const gradient = ctx.createLinearGradient(x0, y0, x1, y1);
-
-    //             // processColorStops(backgroundImage.stops, lineLength).forEach((colorStop) =>
-    //             //     gradient.addColorStop(colorStop.stop, this.convertColor(colorStop.color))
-    //             // );
-
-    //             // ctx.fillStyle = gradient;
-    //             // ctx.fillRect(0, 0, width, height);
-    //             // if (width > 0 && height > 0) {
-    //             //     const pattern = this.ctx.createPattern(canvas, 'repeat') as CanvasPattern;
-    //             //     this.renderRepeat(path, pattern, x, y);
-    //             // }
-                
-    //             // TODO: 使用 jsPDF 实现线性渐变背景（jsPDF 对渐变支持有限）
-    //             // 可以考虑将渐变转换为图片后再添加到 PDF
-    //         } else if (isRadialGradient(backgroundImage)) {
-    //             // const [path, left, top, width, height] = calculateBackgroundRendering(container, index, [
-    //             //     null,
-    //             //     null,
-    //             //     null
-    //             // ]);
-    //             // const position = backgroundImage.position.length === 0 ? [FIFTY_PERCENT] : backgroundImage.position;
-    //             // const x = getAbsoluteValue(position[0], width);
-    //             // const y = getAbsoluteValue(position[position.length - 1], height);
-
-    //             // const [rx, ry] = calculateRadius(backgroundImage, x, y, width, height);
-    //             // if (rx > 0 && ry > 0) {
-    //                 // 注释掉 Canvas 径向渐变相关代码
-    //                 // const radialGradient = this.ctx.createRadialGradient(left + x, top + y, 0, left + x, top + y, rx);
-
-    //                 // processColorStops(backgroundImage.stops, rx * 2).forEach((colorStop) =>
-    //                 //     radialGradient.addColorStop(colorStop.stop, this.convertColor(colorStop.color))
-    //                 // );
-
-    //                 // this.path(path);
-    //                 // this.ctx.fillStyle = radialGradient;
-    //                 // if (rx !== ry) {
-    //                 //     // transforms for elliptical radial gradient
-    //                 //     const midX = container.bounds.left + 0.5 * container.bounds.width;
-    //                 //     const midY = container.bounds.top + 0.5 * container.bounds.height;
-    //                 //     const f = ry / rx;
-    //                 //     const invF = 1 / f;
-
-    //                 //     this.ctx.save();
-    //                 //     this.ctx.translate(midX, midY);
-    //                 //     this.ctx.transform(1, 0, 0, f, 0, 0);
-    //                 //     this.ctx.translate(-midX, -midY);
-
-    //                 //     this.ctx.fillRect(left, invF * (top - midY) + midY, width, height * invF);
-    //                 //     this.ctx.restore();
-    //                 // } else {
-    //                 //     this.ctx.fill();
-    //                 // }
-                    
-    //                 // TODO: 使用 jsPDF 实现径向渐变背景（jsPDF 对渐变支持有限）
-    //                 // 可以考虑将渐变转换为图片后再添加到 PDF
-    //             // }
-    //         }
-    //         index--;
-    //     }
-    // }
-
     /**
      * 渲染实线边框
      * @param color - 边框颜色
@@ -1237,8 +1134,11 @@ export class CanvasRenderer extends Renderer {
      * @param curvePoints - 边框曲线点
      */
     async renderSolidBorder(color: Color, side: number, curvePoints: BoundCurves): Promise<void> {
+        // console.log('绘制边框')
 
         // 解析边框路径
+        // console.log('Border curve points:', JSON.stringify(curvePoints));
+        // console.log('Page height:', this.jspdf.internal.pageSize.height);
         this.path(parsePathForBorder(curvePoints, side));
         // 设置填充颜色
         // this.ctx.fillStyle = this.convertColor(color);
@@ -1246,7 +1146,7 @@ export class CanvasRenderer extends Renderer {
 
         // 填充路径
         // this.ctx.fill();
-        // this.jspdfCtx.fill();
+        this.jspdfCtx.fill();
         this.context2dCtx.fill()
     }
 
@@ -1275,10 +1175,10 @@ export class CanvasRenderer extends Renderer {
     async renderNodeBackgroundAndBorders(paint: ElementPaint): Promise<void> {
         // 应用背景和边框的效果
 
-   
+
         this.applyEffects(paint.getEffects(EffectTarget.BACKGROUND_BORDERS));
         const styles = paint.container.styles;
-     
+
         // 检查是否有背景色或背景图片
         const hasBackground = !isTransparent(styles.backgroundColor) || styles.backgroundImage.length;
 
@@ -1295,11 +1195,11 @@ export class CanvasRenderer extends Renderer {
             getBackgroundValueForIndex(styles.backgroundClip, 0),
             paint.curves
         );
-
+        let foreignobjectrendering=paint.container.foreignobjectrendering
         if (hasBackground || styles.boxShadow.length) {
-            let foreignobjectrendering=paint.container.foreignobjectrendering
+
             // console.log(paint,foreignobjectrendering, 'paint边框')
-      
+
             // 在 save 之前确保字体设置正确
             if (this.options.fontConfig && this.options.fontConfig.fontFamily) {
                 this.jspdfCtx.setFont(this.options.fontConfig.fontFamily);
@@ -1311,7 +1211,7 @@ export class CanvasRenderer extends Renderer {
                 // this.ctx.save();
                 // this.path(backgroundPaintingArea);
                 // this.ctx.clip();
-    
+
                 if (!isTransparent(styles.backgroundColor)) {
                     // this.ctx.fillStyle = asString(styles.backgroundColor);
                     // this.ctx.fill();
@@ -1319,7 +1219,7 @@ export class CanvasRenderer extends Renderer {
                     this.context2dCtx.fill();
                 }
             }
-          
+
 
             await this.renderBackgroundImage(paint.container);
 
@@ -1332,8 +1232,8 @@ export class CanvasRenderer extends Renderer {
             }
 
         }
-
-        if(!true){
+// console.log('绘制边框',paint.container)
+        // if(!true){
         let side = 0;
         for (const border of borders) {
             if (border.style !== BORDER_STYLE.NONE && !isTransparent(border.color) && border.width > 0) {
@@ -1356,13 +1256,17 @@ export class CanvasRenderer extends Renderer {
                 } else if (border.style === BORDER_STYLE.DOUBLE) {
                     await this.renderDoubleBorder(border.color, border.width, side, paint.curves);
                 } else {
-                    await this.renderSolidBorder(border.color, side, paint.curves);
+                    if (!foreignobjectrendering ) {
+
+                        await this.renderSolidBorder(border.color, side, paint.curves);
+
+                    }
                 }
             }
             side++;
         }
 
-    }
+    // }
     }
 
 
@@ -1533,7 +1437,7 @@ export class CanvasRenderer extends Renderer {
         // 使用配置的文件名或默认名称
         // const fileName = this.options.pdfFileName || 'output.pdf';
         // this.jspdfCtx.save(fileName);
-        const pdfBlob = this.jspdfCtx.output('blob');  
+        const pdfBlob = this.jspdfCtx.output('blob');
         return pdfBlob;
         // return this.canvas;
     }

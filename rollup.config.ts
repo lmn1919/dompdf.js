@@ -1,8 +1,8 @@
-import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
-import sourceMaps from 'rollup-plugin-sourcemaps';
-import typescript from '@rollup/plugin-typescript';
 import json from '@rollup/plugin-json';
+import resolve from '@rollup/plugin-node-resolve';
+import typescript from '@rollup/plugin-typescript';
+import sourceMaps from 'rollup-plugin-sourcemaps';
 const serve = require('rollup-plugin-serve')
 const livereload = require('rollup-plugin-livereload')
 
@@ -17,7 +17,7 @@ const banner = `/*!
 export default {
     input: `src/index.ts`,
     output: [
-        { file: pkg.main, name: pkg.name, format: 'umd', banner, sourcemap: true, inlineDynamicImports: true},
+        { file: pkg.main, name: 'dompdf', format: 'umd', banner, sourcemap: true, inlineDynamicImports: true},
         { file: pkg.module, format: 'esm', banner, sourcemap: true,inlineDynamicImports: true},
         
     ],
