@@ -8,6 +8,8 @@
 [![NPM Version](https://img.shields.io/npm/v/html2canvas.svg)](https://www.npmjs.org/package/html2canvas) -->
 
 该脚本允许您直接在用户浏览器上将网页或部分网页生成为可编辑、非图片式、可打印的 pdf。由于生成是基于 DOM 的，因此可能与实际表现不会 100% 一致。如果是复杂的pdf生成需求，不建议使用。
+
+
 在线体验：[在线体验](https://dompdfjs.lisky.com.cn)
 
 pdf生成示例
