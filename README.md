@@ -89,6 +89,11 @@ dompdf 库使用 `Promise` 并期望它们在全局上下文中可用。如果�
 
      npm install dompdf.js --save
 
+CDN引入：
+```html
+          <script src="https://cdn.jsdelivr.net/npm/dompdf.js@1.0.1/dist/dompdf.min.js"></script>   
+          ```
+
 #### 基础用法
 
 ```js

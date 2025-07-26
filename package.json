@@ -6,11 +6,11 @@
   "module": "dist/dompdf.esm.js",
   "typings": "dist/types/index.d.ts",
   "browser": "dist/dompdf.js",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "author": {
     "name": "lfc",
     "email": "lfc191910@gmail.com",
-    "url": "https://hertzen.com"
+    "url": "https://dompdfjs.lisky.com.cn/"
   },
   "engines": {
     "node": ">=8.0.0"
@@ -121,7 +121,7 @@
     "start": "ts-node tests/server --port=8080 --cors=8081",
     "dev": "webpack serve --config webpack.dev.js --open"
   },
-  "homepage": "https://html2canvas.hertzen.com",
+  "homepage": "https://dompdfjs.lisky.com.cn",
   "license": "MIT",
   "dependencies": {
     "@zumer/snapdom": "^1.8.0",

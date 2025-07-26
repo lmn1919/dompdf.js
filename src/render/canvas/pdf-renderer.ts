@@ -114,16 +114,7 @@ export class CanvasRenderer extends Renderer {
             format: [pageWidth, pageHeight],
             hotfixes: ["px_scaling"]
         });
-
-
-// 保存PDF文件到本地
-// const pdfFileName = options.pdfFileName || 'document.pdf';
-
 // 设置PDF文件的保存方式
-
-
-
-
         this.context2dCtx = this.jspdfCtx.context2d;
         this.context2dCtx.scale(0.75, 0.75);
 
@@ -572,12 +563,12 @@ export class CanvasRenderer extends Renderer {
                 const height = this.pxToPt(bounds.height);
 
                 // 将 Canvas 转换为 dataURL
-                const dataURL = container.canvas.toDataURL('image/jpeg', 0.95);
+                const dataURL = container.canvas.toDataURL('image/png', 0.95);
 
                 // 将 Canvas 添加到 PDF
                 this.jspdfCtx.addImage(
                     dataURL,
-                    'JPEG',
+                    'PNG',
                     x,
                     y,
                     width,

@@ -27,6 +27,8 @@ export type Options = CloneOptions &
     };
 
 const dompdf = (element: HTMLElement, options: Partial<Options> = {}): Promise<HTMLCanvasElement> => {
+    // 移除元素的边框和阴影样式
+
     return renderElement(element, options);
 };
 
@@ -99,6 +101,16 @@ const renderElement = async (element: HTMLElement, opts: Partial<Options>): Prom
 
     const documentCloner = new DocumentCloner(context, element, cloneOptions);
     const clonedElement = documentCloner.clonedReferenceElement;
+    // console.log('设置自定义字体',opts.fontConfig,clonedElement,clonedElement.style)
+    if (clonedElement && clonedElement.style) {
+
+        clonedElement.style.border = 'none';
+        clonedElement.style.boxShadow = 'none';
+
+        if (!opts.fontConfig || !opts.fontConfig.fontBase64) {
+            clonedElement.style.fontFamily = 'Helvetica';
+        }
+    }
     if (!clonedElement) {
         return Promise.reject(`Unable to find element in cloned iframe`);
     }
@@ -140,9 +152,9 @@ const renderElement = async (element: HTMLElement, opts: Partial<Options>): Prom
             `Document cloned, element located at ${left},${top} with size ${width}x${height} using computed rendering`
         );
 
-        context.logger.debug(`Starting DOM parsing`,context, clonedElement);
-        let root =await parseTree(context, clonedElement);
-        console.log('解析后的',root)
+        context.logger.debug(`Starting DOM parsing`, context, clonedElement);
+        let root = await parseTree(context, clonedElement);
+
 
 
         Reflect.deleteProperty(root, 'context')
