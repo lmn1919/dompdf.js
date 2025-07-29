@@ -159,3 +159,7 @@ dompdf(document.querySelector("#capture"), {
 
     $ npm run build
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=lmn1919/dompdf.js&type=Date)](https://www.star-history.com/#lmn1919/dompdf.js&Date)
+
