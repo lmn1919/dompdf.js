@@ -94,7 +94,7 @@ export class CanvasRenderer extends Renderer {
 
     // 构造函数
     constructor(context: Context, options: RenderConfigurations) {
-        // console.log('options参数',options,context)
+        console.log('options参数',options,context)
         super(context, options);
         this.canvas = options.canvas ? options.canvas : document.createElement('canvas');
         this.ctx = this.canvas.getContext('2d') as CanvasRenderingContext2D;
@@ -300,7 +300,7 @@ export class CanvasRenderer extends Renderer {
 
     // 渲染带有字母间距的文本
     renderTextWithLetterSpacing(text: TextBounds, letterSpacing: number, baseline: number): void {
-        // console.log(text, text.bounds.top, baseline, text.bounds.top + baseline - topMargin, topMargin, '绘制文字',)
+        console.log(text, text.bounds.top, baseline, text.bounds.top + baseline - topMargin, topMargin, '绘制文字',)
         if (letterSpacing === 0) {
             // console.log(text.text, text.bounds.left,'绘制文字-没有letterSpacing')
             // this.ctx.fillText(text.text, text.bounds.left, text.bounds.top + baseline);
