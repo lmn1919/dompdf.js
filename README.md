@@ -93,8 +93,8 @@ dompdf 库使用 `Promise` 并期望它们在全局上下文中可用。如果�
 
 CDN引入：
 ```html
-          <script src="https://cdn.jsdelivr.net/npm/dompdf.js@1.0.1/dist/dompdf.min.js"></script>   
-          ```
+<script src="https://cdn.jsdelivr.net/npm/dompdf.js@1.0.2/dist/dompdf.min.js"></script>   
+```
 
 #### 基础用法
 
@@ -158,4 +158,8 @@ dompdf(document.querySelector("#capture"), {
 构建浏览器包：
 
     $ npm run build
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=lmn1919/dompdf.js&type=Date)](https://www.star-history.com/#lmn1919/dompdf.js&Date)
 
