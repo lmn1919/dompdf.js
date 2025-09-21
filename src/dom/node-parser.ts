@@ -1,21 +1,22 @@
+import { snapdom } from '@zumer/snapdom';
+import { Context } from '../core/context';
 import { CSSParsedDeclaration } from '../css';
 import { ElementContainer, FLAGS } from './element-container';
-import { TextContainer } from './text-container';
-import { ImageElementContainer } from './replaced-elements/image-element-container';
-import { CanvasElementContainer } from './replaced-elements/canvas-element-container';
-import { SVGElementContainer } from './replaced-elements/svg-element-container';
 import { LIElementContainer } from './elements/li-element-container';
 import { OLElementContainer } from './elements/ol-element-container';
-import { InputElementContainer } from './replaced-elements/input-element-container';
 import { SelectElementContainer } from './elements/select-element-container';
 import { TextareaElementContainer } from './elements/textarea-element-container';
+import { CanvasElementContainer } from './replaced-elements/canvas-element-container';
 import { IFrameElementContainer } from './replaced-elements/iframe-element-container';
-import { Context } from '../core/context';
-import { snapdom } from '@zumer/snapdom';
+import { ImageElementContainer } from './replaced-elements/image-element-container';
+import { InputElementContainer } from './replaced-elements/input-element-container';
+import { SVGElementContainer } from './replaced-elements/svg-element-container';
+import { TextContainer } from './text-container';
 
 const LIST_OWNERS = ['OL', 'UL', 'MENU'];
 // let foreignObjectRendererList: any = []
 const parseNodeTree = (context: Context, node: Node, parent: ElementContainer, root: ElementContainer, foreignObjectRendererList: Element[]) => {
+    // console.log('parseNodeTree', context,node,parent,root)
     for (let childNode = node.firstChild, nextNode; childNode; childNode = nextNode) {
         nextNode = childNode.nextSibling;
 
@@ -23,7 +24,7 @@ const parseNodeTree = (context: Context, node: Node, parent: ElementContainer, r
             parent.textNodes.push(new TextContainer(context, childNode, parent.styles));
             if (isElementNode(node) && node.hasAttribute('foreignobjectrendering')) {
                 foreignObjectRendererList.push(node);
-                
+
             }
         } else if (isElementNode(childNode)) {
             if (isSlotElement(childNode) && childNode.assignedNodes) {
@@ -31,7 +32,7 @@ const parseNodeTree = (context: Context, node: Node, parent: ElementContainer, r
             } else {
                 const container = createContainer(context, childNode);
                 // 检查当前节点或其祖先节点是否有foreignobjectrendering属性
-               
+
                 if (container.styles.isVisible()) {
                     if (createsRealStackingContext(childNode, container, root)) {
                         container.flags |= FLAGS.CREATES_REAL_STACKING_CONTEXT;
@@ -45,7 +46,7 @@ const parseNodeTree = (context: Context, node: Node, parent: ElementContainer, r
                         container.flags |= FLAGS.IS_LIST_OWNER;
                     }
                     if (isElementNode(node) && node.hasAttribute('foreignobjectrendering')) {
-                   
+
                         foreignObjectRendererList.push(node);
                     }
                     // if (parent.foreignobjectrendering){
@@ -203,7 +204,7 @@ const makeInvisible =async (element: Element) => {
         element.childNodes.forEach(makeInvisible);
     }
 
-      
+
 };
 
 const renderForeignObject = async (element: HTMLElement) => {

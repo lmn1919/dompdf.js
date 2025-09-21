@@ -79,8 +79,7 @@ export interface RenderOptions {
 
 // 遮罩偏移常量
 // const MASK_OFFSET = 10000;
-let leftMargin = 0
-let topMargin = 0
+
 // Canvas渲染器类,继承自Renderer
 export class CanvasRenderer extends Renderer {
     canvas: HTMLCanvasElement; // canvas元素
@@ -117,6 +116,8 @@ export class CanvasRenderer extends Renderer {
 // 设置PDF文件的保存方式
         this.context2dCtx = this.jspdfCtx.context2d;
         this.context2dCtx.scale(0.75, 0.75);
+
+        this.context2dCtx.translate(-options.x, -options.y);
 
         // 确保字体已加载并注册到 jsPDF
         if (options.fontConfig) {
@@ -300,11 +301,11 @@ export class CanvasRenderer extends Renderer {
 
     // 渲染带有字母间距的文本
     renderTextWithLetterSpacing(text: TextBounds, letterSpacing: number, baseline: number): void {
-        console.log(text, text.bounds.top, baseline, text.bounds.top + baseline - topMargin, topMargin, '绘制文字',)
+
         if (letterSpacing === 0) {
             // console.log(text.text, text.bounds.left,'绘制文字-没有letterSpacing')
             // this.ctx.fillText(text.text, text.bounds.left, text.bounds.top + baseline);
-            this.context2dCtx.fillText(text.text, text.bounds.left-leftMargin , text.bounds.top + baseline - topMargin);
+            this.context2dCtx.fillText(text.text, text.bounds.left, text.bounds.top + baseline);
         } else {
             const letters = segmentGraphemes(text.text);
             letters.reduce((left, letter) => {
@@ -312,7 +313,7 @@ export class CanvasRenderer extends Renderer {
                 // this.ctx.fillText(letter, left, text.bounds.top + baseline);
                 // this.context2dCtx.fillText(letter, left - leftMargin, text.bounds.top + baseline - topMargin);
 // 使用jspdf绘制文字
-                this.context2dCtx.fillText(letter, left - leftMargin, text.bounds.top + baseline - topMargin);
+                this.context2dCtx.fillText(letter, left, text.bounds.top + baseline);
                 return left + this.ctx.measureText(letter).width;
             }, text.bounds.left);
         }
@@ -404,15 +405,15 @@ export class CanvasRenderer extends Renderer {
                                 switch (textDecorationLine) {
                                     case TEXT_DECORATION_LINE.UNDERLINE:
                                         // this.ctx.fillRect(x, y_underline, width, thickness);
-                                        this.context2dCtx.fillRect(x - leftMargin, y_underline - topMargin, width, thickness);
+                                        this.context2dCtx.fillRect(x, y_underline, width, thickness);
                                         break;
                                     case TEXT_DECORATION_LINE.OVERLINE:
                                         // this.ctx.fillRect(x, y_overline, width, thickness);
-                                        this.context2dCtx.fillRect(x - leftMargin, y_overline - topMargin, width, thickness);
+                                        this.context2dCtx.fillRect(x, y_overline , width, thickness);
                                         break;
                                     case TEXT_DECORATION_LINE.LINE_THROUGH:
                                         // this.ctx.fillRect(x, y_line_through, width, thickness);
-                                        this.context2dCtx.fillRect(x - leftMargin, y_line_through - topMargin, width, thickness);
+                                        this.context2dCtx.fillRect(x, y_line_through , width, thickness);
                                         break;
                                 }
                             });
@@ -433,7 +434,7 @@ export class CanvasRenderer extends Renderer {
                             // CanvasRenderingContext2D 描边
                             // this.ctx.strokeText(textItem.text, textItem.bounds.left, textItem.bounds.top + baseline);
                             // jsPDF context2d 描边
-                            this.context2dCtx.strokeText(textItem.text, textItem.bounds.left - leftMargin, textItem.bounds.top + baseline - topMargin);
+                            this.context2dCtx.strokeText(textItem.text, textItem.bounds.left, textItem.bounds.top + baseline);
                         }
                         // 清除 CanvasRenderingContext2D 的描边样式
                         // this.ctx.strokeStyle = '';
@@ -505,12 +506,12 @@ export class CanvasRenderer extends Renderer {
         const curves = paint.curves;
         const styles = container.styles;
         // console.log('stylescontainer',styles,container)
-        if (!leftMargin) {
-            leftMargin = container.bounds.left
-        }
-        if (!topMargin) {
-            topMargin = container.bounds.top
-        }
+        // if (!leftMargin) {
+        //     leftMargin = container.bounds.left
+        // }
+        // if (!topMargin) {
+        //     topMargin = container.bounds.top
+        // }
         // 渲染所有文本节点
         for (const child of container.textNodes) {
 
@@ -527,8 +528,8 @@ export class CanvasRenderer extends Renderer {
                 try {
                     // 计算图片在 PDF 中的位置和尺寸
                     const bounds = contentBox(container);
-                    const x = this.pxToPt(bounds.left - leftMargin);
-                    const y = this.pxToPt(bounds.top - topMargin);
+                    const x = this.pxToPt(bounds.left);
+                    const y = this.pxToPt(bounds.top);
                     const width = this.pxToPt(bounds.width);
                     const height = this.pxToPt(bounds.height);
 
@@ -557,8 +558,8 @@ export class CanvasRenderer extends Renderer {
             try {
                 // 计算 Canvas 在 PDF 中的位置和尺寸
                 const bounds = contentBox(container);
-                const x = this.pxToPt(bounds.left - leftMargin);
-                const y = this.pxToPt(bounds.top - topMargin);
+                const x = this.pxToPt(bounds.left);
+                const y = this.pxToPt(bounds.top);
                 const width = this.pxToPt(bounds.width);
                 const height = this.pxToPt(bounds.height);
 
@@ -589,8 +590,8 @@ export class CanvasRenderer extends Renderer {
                 try {
                     // 计算 SVG 在 PDF 中的位置和尺寸
                     const bounds = contentBox(container);
-                    const x = this.pxToPt(bounds.left - leftMargin);
-                    const y = this.pxToPt(bounds.top - topMargin);
+                    const x = this.pxToPt(bounds.left);
+                    const y = this.pxToPt(bounds.top);
                     const width = this.pxToPt(bounds.width);
                     const height = this.pxToPt(bounds.height);
 
@@ -946,10 +947,10 @@ export class CanvasRenderer extends Renderer {
             const start: Vector = isBezierCurve(point) ? point.start : point;
             if (index === 0) {
                 // this.ctx.moveTo(start.x, start.y);
-                this.context2dCtx.moveTo(start.x - leftMargin, start.y - topMargin);
+                this.context2dCtx.moveTo(start.x, start.y);
             } else {
                 // this.ctx.lineTo(start.x, start.y);
-                this.context2dCtx.lineTo(start.x - leftMargin, start.y - topMargin);
+                this.context2dCtx.lineTo(start.x, start.y);
             }
 
             if (isBezierCurve(point)) {
@@ -962,12 +963,12 @@ export class CanvasRenderer extends Renderer {
                 //     point.end.y
                 // );
                 this.context2dCtx.bezierCurveTo(
-                    point.startControl.x - leftMargin,
-                    point.startControl.y - topMargin,
-                    point.endControl.x - leftMargin,
-                    point.endControl.y - topMargin,
-                    point.end.x - leftMargin,
-                    point.end.y - topMargin
+                    point.startControl.x ,
+                    point.startControl.y ,
+                    point.endControl.x ,
+                    point.endControl.y ,
+                    point.end.x ,
+                    point.end.y
                 )
 
             }
@@ -1029,8 +1030,8 @@ export class CanvasRenderer extends Renderer {
                     this.renderRepeat(path, pattern, x, y);
 
                     // PDF 背景图片渲染
-                    const xPt = this.pxToPt(x - leftMargin);
-                    const yPt = this.pxToPt(y - topMargin);
+                    const xPt = this.pxToPt(x);
+                    const yPt = this.pxToPt(y);
                     const widthPt = this.pxToPt(width);
                     const heightPt = this.pxToPt(height);
                     // console.log('绘制背景图片', xPt, yPt, image)
