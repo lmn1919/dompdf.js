@@ -216,11 +216,7 @@ export class CanvasRenderer extends Renderer {
         effects.forEach((effect) => this.applyEffect(effect));
     }
 
-    pxToMm(px: number) {
-        const mmPerInch = 25.4;
-        const pxPerInch = 96;
-        return (px * mmPerInch) / pxPerInch;
-    }
+
 
     // 应用单个效果
     applyEffect(effect: IElementEffect): void {
