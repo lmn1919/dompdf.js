@@ -524,8 +524,8 @@ export class CanvasRenderer extends Renderer {
                 try {
                     // 计算图片在 PDF 中的位置和尺寸
                     const bounds = contentBox(container);
-                    const x = this.pxToPt(bounds.left);
-                    const y = this.pxToPt(bounds.top);
+                    const x = this.pxToPt(bounds.left-this.options.x);
+                    const y = this.pxToPt(bounds.top-this.options.y);
                     const width = this.pxToPt(bounds.width);
                     const height = this.pxToPt(bounds.height);
 
@@ -554,8 +554,8 @@ export class CanvasRenderer extends Renderer {
             try {
                 // 计算 Canvas 在 PDF 中的位置和尺寸
                 const bounds = contentBox(container);
-                const x = this.pxToPt(bounds.left);
-                const y = this.pxToPt(bounds.top);
+                const x = this.pxToPt(bounds.left-this.options.x);
+                const y = this.pxToPt(bounds.top-this.options.y);
                 const width = this.pxToPt(bounds.width);
                 const height = this.pxToPt(bounds.height);
 
@@ -586,8 +586,8 @@ export class CanvasRenderer extends Renderer {
                 try {
                     // 计算 SVG 在 PDF 中的位置和尺寸
                     const bounds = contentBox(container);
-                    const x = this.pxToPt(bounds.left);
-                    const y = this.pxToPt(bounds.top);
+                    const x = this.pxToPt(bounds.left-this.options.x);
+                    const y = this.pxToPt(bounds.top-this.options.y);
                     const width = this.pxToPt(bounds.width);
                     const height = this.pxToPt(bounds.height);
 
@@ -1026,8 +1026,8 @@ export class CanvasRenderer extends Renderer {
                     this.renderRepeat(path, pattern, x, y);
 
                     // PDF 背景图片渲染
-                    const xPt = this.pxToPt(x);
-                    const yPt = this.pxToPt(y);
+                    const xPt = this.pxToPt(x-this.options.x);
+                    const yPt = this.pxToPt(y-this.options.y);
                     const widthPt = this.pxToPt(width);
                     const heightPt = this.pxToPt(height);
                     // console.log('绘制背景图片', xPt, yPt, image)
