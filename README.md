@@ -118,7 +118,7 @@ dompdf(document.querySelector("#capture"), {
 
 #### 乱码问题-字体导入支持
 
-由于jspdf只支持英文，所有其他语言会出现乱码的问题，需要导入对应的字体文件来解决，如果需要自定义字体，在[这里](https://rawgit.com/MrRio/jsPDF/master/fontconverter/fontconverter.html)将字体 tff 文件转化成 base64 格式的 js 文件，中文字体推荐使用[思源黑体](https://github.com/lmn1919/dompdf.js/blob/main/examples/SourceHanSansSC-Normal-Min-normal.js),体积较小。
+由于jspdf只支持英文，所以其他语言会出现乱码的问题，需要导入对应的字体文件来解决，如果需要自定义字体，在[这里](https://rawgit.com/MrRio/jsPDF/master/fontconverter/fontconverter.html)将字体 tff 文件转化成 base64 格式的 js 文件，中文字体推荐使用[思源黑体](https://github.com/lmn1919/dompdf.js/blob/main/examples/SourceHanSansSC-Normal-Min-normal.js),体积较小。
 在代码中引入该文件即可。
 
 ````js
