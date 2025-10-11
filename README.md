@@ -12,7 +12,6 @@
 
 在线体验：[在线体验](https://dompdfjs.lisky.com.cn)
 
-pdf生成示例
 
 ### pdf生成示例
 ![pdf生成示例](./examples/test.png)
