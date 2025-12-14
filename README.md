@@ -7,16 +7,13 @@
 [![NPM Downloads](https://img.shields.io/npm/dm/html2canvas.svg)](https://www.npmjs.org/package/html2canvas)
 [![NPM Version](https://img.shields.io/npm/v/html2canvas.svg)](https://www.npmjs.org/package/html2canvas) -->
 
-该脚本允许您直接在用户浏览器上将网页或部分网页生成为可编辑、非图片式、可打印的 pdf。由于生成是基于 DOM 的，因此可能与实际表现不会 100% 一致。如果是复杂的pdf生成需求，不建议使用。
-
+该脚本允许您直接在用户浏览器上将网页或部分网页生成为可编辑、非图片式、可打印的 pdf。由于生成是基于 DOM 的，因此可能与实际表现不会 100% 一致。如果是复杂的 pdf 生成需求，不建议使用。
 
 在线体验：[在线体验](https://dompdfjs.lisky.com.cn)
 
-
-### pdf生成示例
+### pdf 生成示例
 
 ![pdf生成示例](./examples/test.png)
-
 
 ### 它是如何工作的
 
@@ -39,6 +36,7 @@
 
 | 功能     | 状态 | 说明                                                                                                      |
 | -------- | ---- | --------------------------------------------------------------------------------------------------------- |
+| 分页     | ✅   | 支持 PDF 分页渲染                                                                                         |
 | 文本渲染 | ✅   | 支持基础文本内容渲染,font-family,font-size,font-style,font-variant,color 等，支持文字描边，不支持文字阴影 |
 | 图片渲染 | ✅   | 支持网络图片，base64 图片，svg 图片                                                                       |
 | 边框     | ✅   | 支持 border-width,border-color,border-style,border-radius,暂时只实现了实线边框                            |
@@ -91,19 +89,19 @@ dompdf 库使用 `Promise` 并期望它们在全局上下文中可用。如果�
 
      npm install dompdf.js --save
 
-CDN引入：
+CDN 引入：
+
 ```html
-<script src="https://cdn.jsdelivr.net/npm/dompdf.js@1.0.4/dist/dompdf.min.js"></script>   
+<script src="https://cdn.jsdelivr.net/npm/dompdf.js@1.0.4/dist/dompdf.min.js"></script>
 ```
 
 #### 基础用法
 
 ```js
 import dompdf from 'dompdf.js';
-dompdf(document.querySelector("#capture"), {
-    useCORS: true //是否允许跨域
-    })
-    .then(function (blob) {
+
+dompdf(document.querySelector('#capture'), options)
+    .then((blob) => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -111,26 +109,22 @@ dompdf(document.querySelector("#capture"), {
         document.body.appendChild(a);
         a.click();
     })
-    .catch(function (err) {
-        console.log(err, 'err');
+    .catch((err) => {
+        console.error(err);
     });
 ```
 
-#### 乱码问题-字体导入支持
+#### PDF 分页渲染
 
-由于jspdf只支持英文，所以其他语言会出现乱码的问题，需要导入对应的字体文件来解决，如果需要自定义字体，在[这里](https://rawgit.com/MrRio/jsPDF/master/fontconverter/fontconverter.html)将字体 tff 文件转化成 base64 格式的 js 文件，中文字体推荐使用[思源黑体](https://github.com/lmn1919/dompdf.js/blob/main/examples/SourceHanSansSC-Normal-Min-normal.js),体积较小。
-在代码中引入该文件即可。
+默认情况下，dompdf 会将整个文档渲染到单页中。
 
-````js
-    <script type="text/javascript" src="./SourceHanSansSC-Normal-Min-normal.js"></script>
-    dompdf(document.querySelector("#capture"), {
-    useCORS: true, //是否允许跨域
-    fontConfig: {
-                    fontFamily: 'SourceHanSansSC-Normal-Min',
-                    fontBase64: window.fontBase64,
-                },
-    })
-    .then(function (blob) {
+您可以通过设置 `pagination` 选项为 `true` 来开启分页渲染。
+
+```js
+import dompdf from 'dompdf.js';
+
+dompdf(document.querySelector('#capture'), {pagination: true})
+    .then((blob) => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -138,14 +132,83 @@ dompdf(document.querySelector("#capture"), {
         document.body.appendChild(a);
         a.click();
     })
-    .catch(function (err) {
-        console.log(err, 'err');
+    .catch((err) => {
+        console.error(err);
     });
-````
+```
+
+#### options 参数
+
+| 参数名             | 必传 | 默认值        | 类型                | 说明                                                           |
+| ------------------ | ---- | ------------- | ------------------- | -------------------------------------------------------------- |
+| `useCORS`          | 否   | `false`       | `boolean`           | 允许跨域资源（需服务端 CORS 配置）                             |
+| `backgroundColor`  | 否   | 自动解析/白色 | `string \| null`    | 覆盖页面背景色；传 `null` 生成透明背景                         |
+| `removeContainer`  | 否   | `true`        | `boolean`           | 渲染完成后移除克隆用的 `iframe`                                |
+| `fontConfig`       | 否   | -             | `object`            | 非英文字体配置，见下表                                         |
+| `encryption`       | 否   | 空配置        | `object`            | PDF 加密配置                                                   |
+| `precision`        | 否   | `16`          | `number`            | 精度                                                           |
+| `floatPrecision`   | 否   | `16`          | `number \| 'smart'` | 浮点精度                                                       |
+| `compress`         | 否   | `false`       | `boolean`           | 是否压缩                                                       |
+| `putOnlyUsedFonts` | 否   | `false`       | `boolean`           | 仅包含使用字体                                                 |
+| `pagination`       | 否   | `false`       | `boolean`           | 开启分页渲染                                                   |
+| `format`           | 否   | `'a4'`        | `string`            | 页面规格，支持 `a0`–`a10`、`b0`–`b10`、`c0`–`c10`、`letter` 等 |
+| `pageConfig`       | 否   | 见下表        | `object`            | 页眉页脚配置                                                   |
+
+页眉页脚（`pageConfig`）字段：
+| 参数名 | 默认值 | 类型 | 说明 |
+| ----------------- | -------- | -------------------------------- | ---------------------------------- |
+| `header` | 见下表 pageConfigOptions | obj | 页眉设置 |
+| `footer` | 见下表 pageConfigOptions | obj | 页脚设置 |
+
+pageConfigOptions 字段：
+| 参数名 | 所属 | 默认值 | 类型 | 说明 |
+| ----------------- | -------- | -------------------------------- | ---------------------------------- | ------------------------------------------------ |
+| `content` | `header` | `'pageHeader'` | `string` | 文本内容，支持 `${currentPage}`、`${totalPages}` |
+| `height` | `header` | `50` | `number` | 区域高度（px） |
+| `contentPosition` | `header` | `'centerRight'` | `string \| [number, number]` | 文本位置枚举或坐标 `[x,y]` |
+| `contentColor` | `header` | `'#333333'` | `string` | 文本颜色 |
+| `contentFontSize` | `header` | `16` | `number` | 文本字号（px） |
+| `padding` | `header` | `[0,24,0,24]` | `[number, number, number, number]` | 上/右/下/左内边距（px） |
+
+字体配置（`fontConfig`）字段：
+
+| 字段         | 必传                   | 默认值 | 类型     | 说明                               |
+| ------------ | ---------------------- | ------ | -------- | ---------------------------------- |
+| `fontFamily` | 是（启用自定义字体时） | `''`   | `string` | 字体家族名（与注入的 `.ttf` 同名） |
+| `fontBase64` | 是（启用自定义字体时） | `''`   | `string` | `.ttf` 的 Base64 字符串内容        |
+
+不希望某个容器在分页时被拆分时，为该元素添加 `divisionDisable` 属性，跨页时它会整体移至下一页。
+
+#### 乱码问题-字体导入支持
+
+由于 jspdf 只支持英文，所以其他语言会出现乱码的问题，需要导入对应的字体文件来解决，如果需要自定义字体，在[这里](https://rawgit.com/MrRio/jsPDF/master/fontconverter/fontconverter.html)将字体 tff 文件转化成 base64 格式的 js 文件，中文字体推荐使用[思源黑体](https://github.com/lmn1919/dompdf.js/blob/main/examples/SourceHanSansSC-Normal-Min-normal.js),体积较小。
+在代码中引入该文件即可。
+
+```js
+<script type="text/javascript" src="./SourceHanSansSC-Normal-Min-normal.js"></script>
+<script>
+  dompdf(document.querySelector('#capture'), {
+    useCORS: true,
+    fontConfig: {
+      fontFamily: 'SourceHanSansSC-Normal-Min',
+      fontBase64: window.fontBase64
+    }
+  })
+    .then(function (blob) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'example.pdf';
+      document.body.appendChild(a);
+      a.click();
+    })
+    .catch(function (err) {
+      console.error(err);
+    });
+</script>
+```
 
 ### 构建
-
-<!-- 您可以在[这里](https://github.com/niklasvh/html2canvas/releases)下载已构建好的版本。 -->
 
 克隆 git 仓库：
 
@@ -162,4 +225,3 @@ dompdf(document.querySelector("#capture"), {
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=lmn1919/dompdf.js&type=Date)](https://www.star-history.com/#lmn1919/dompdf.js&Date)
-

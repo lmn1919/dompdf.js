@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>html2canvas Demo</title>
+        <style>
+            body {
+                font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, 'Noto Sans',
+                    'PingFang SC', 'Microsoft YaHei', sans-serif;
+                background: #f5f7fb;
+                margin: 0;
+                padding: 24px;
+                color: #222;
+            }
+            .toolbar {
+                position: fixed;
+                top: 0;
+                background: #fff;
+                padding: 12px 16px;
+                border: 1px solid #e3e6ef;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+                display: flex;
+                gap: 12px;
+                z-index: 10;
+            }
+            .btn {
+                cursor: pointer;
+                border: 1px solid #d0d7de;
+                background: #0ea5e9;
+                color: #fff;
+                padding: 8px 12px;
+                border-radius: 6px;
+                font-size: 14px;
+            }
+            .btn.secondary {
+                background: #fff;
+                color: #0ea5e9;
+                border-color: #0ea5e9;
+            }
+            #capture-area {
+                margin-top: 16px;
+                background: #fff;
+                border-radius: 12px;
+                padding: 24px;
+            }
+            .section {
+                margin-bottom: 24px;
+            }
+            .section h2 {
+                margin: 0 0 8px;
+                font-size: 20px;
+                color: #0f172a;
+            }
+            .text p {
+                line-height: 1.7;
+            }
+            .table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+            .table th,
+            .table td {
+                border: 1px solid #e5e7eb;
+                padding: 8px 12px;
+                text-align: left;
+            }
+            .table thead th {
+                background: #f1f5f9;
+            }
+            .table tbody tr:nth-child(odd) {
+                background: #fafafa;
+            }
+            .chart {
+                display: grid;
+                grid-template-columns: 100px 1fr;
+                gap: 12px;
+                align-items: center;
+            }
+            .bars {
+                display: flex;
+                gap: 8px;
+                align-items: flex-end;
+                height: 160px;
+            }
+            .bar {
+                width: 48px;
+                background: linear-gradient(180deg, #60a5fa, #2563eb);
+                border-radius: 6px 6px 0 0;
+                position: relative;
+            }
+            .bar::after {
+                content: attr(data-label);
+                position: absolute;
+                bottom: -22px;
+                left: 50%;
+                transform: translateX(-50%);
+                font-size: 12px;
+                color: #334155;
+            }
+            .bar .value {
+                position: absolute;
+                top: -22px;
+                left: 50%;
+                transform: translateX(-50%);
+                font-size: 12px;
+                color: #0f172a;
+                background: #fff;
+                border: 1px solid #e5e7eb;
+                padding: 2px 6px;
+                border-radius: 12px;
+            }
+            .image-row {
+                display: flex;
+                gap: 16px;
+                align-items: flex-start;
+            }
+            .image-row img {
+                width: 160px;
+                height: 120px;
+                object-fit: cover;
+                border-radius: 12px;
+                border: 1px solid #e5e7eb;
+            }
+            pre.code {
+                background: #0b1020;
+                color: #e5e7eb;
+                padding: 16px;
+                border-radius: 8px;
+                overflow: auto;
+            }
+            pre.code code {
+                font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+                font-size: 13px;
+            }
+            .shadow-card {
+                padding: 12px;
+                border-radius: 8px;
+                background: #fff;
+                box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
+                border: 1px solid #e5e7eb;
+            }
+            .grid {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 16px;
+            }
+            .card {
+                border: 1px solid #e5e7eb;
+                border-radius: 10px;
+                padding: 12px;
+                background: #fff;
+            }
+            .blockquote {
+                padding: 12px 16px;
+                border-left: 4px solid #60a5fa;
+                background: #f8fafc;
+                color: #334155;
+                border-radius: 8px;
+            }
+            .list {
+                padding-left: 18px;
+            }
+            .tags {
+                display: flex;
+                gap: 8px;
+                margin-top: 8px;
+                flex-wrap: wrap;
+            }
+            .tag {
+                display: inline-block;
+                padding: 4px 10px;
+                border: 1px solid #e5e7eb;
+                border-radius: 999px;
+                background: #f1f5f9;
+                font-size: 12px;
+                color: #0f172a;
+            }
+            .progress {
+                height: 10px;
+                background: #e5e7eb;
+                border-radius: 999px;
+                overflow: hidden;
+                margin: 6px 0;
+            }
+            .progress-bar {
+                height: 100%;
+                background: linear-gradient(90deg, #22c55e, #16a34a);
+            }
+            .pie {
+                width: 160px;
+                height: 160px;
+                border-radius: 50%;
+                box-shadow: inset 0 0 0 1px #e5e7eb;
+            }
+            .hero {
+                background-size: cover;
+                background-position: center;
+                border-radius: 12px;
+                padding: 24px;
+                color: #0f172a;
+                border: 1px solid #e5e7eb;
+            }
+            .form label {
+                display: block;
+                margin: 8px 0;
+                color: #334155;
+            }
+            .form input,
+            .form select,
+            .form textarea {
+                width: 100%;
+                padding: 8px 10px;
+                border: 1px solid #d1d5db;
+                border-radius: 6px;
+                background: #fff;
+            }
+            .rtl {
+                direction: rtl;
+            }
+            body {
+                padding-top: 0 !important;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="toolbar">
+            <button id="capture-page" class="btn">Capture Full Page</button>
+            <button id="capture-area-btn" class="btn secondary">Capture Content Area</button>
+            <button id="download-btn" class="btn secondary">Download PNG</button>
+        </div>
+
+        <div
+            id="capture-area"
+            style="width: 746px; background: #fff; margin: 0 auto; padding: 0 24px; margin-top: 120px"
+        >
+            <div class="section text">
+                <h2>Text Paragraph</h2>
+                <p>
+                    This is a test paragraph containing <strong>bold</strong>, <em>italic</em>,
+                    <span style="color: #ef4444">colored</span> and underlined styles. It also tests long text wrapping
+                    and Chinese rendering effects.
+                </p>
+                <p style="text-shadow: 0 1px 0 #fff, 0 3px 6px rgba(0, 0, 0, 0.15)">
+                    Demonstration of shadowed title effect.
+                </p>
+            </div>
+            <div
+                divisionDisable
+                style="
+                    height: 300px;
+                    background: #f1f5f9;
+                    display: flex;
+                    align-items: flex-start;
+                    justify-content: center;
+                    margin-bottom: 20px;
+                "
+            >
+                Image
+            </div>
+            <div class="section text">
+                <p>
+                    This is a test paragraph containing <strong>bold</strong>, <em>italic</em>,
+                    <span style="color: #ef4444">colored</span> and underlined styles. It also tests long text wrapping
+                    and Chinese rendering effects.
+                </p>
+            </div>
+
+            <div class="section">
+                <h2>Table</h2>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Quantity</th>
+                            <th>Remarks</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr divisionDisable>
+                            <td>Apple</td>
+                            <td>12</td>
+                            <td>Fresh</td>
+                        </tr>
+                        <tr divisionDisable>
+                            <td>Banana</td>
+                            <td>8</td>
+                            <td>Imported</td>
+                        </tr>
+                        <tr divisionDisable>
+                            <td>Orange</td>
+                            <td>15</td>
+                            <td>Organic</td>
+                        </tr>
+                        <tr divisionDisable>
+                            <td>Grape</td>
+                            <td>20</td>
+                            <td>Seedless</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- <div class="section">
+        <h2>Chart (CSS Bar Chart)</h2>
+        <div class="chart">
+          <div>Q1–Q4</div>
+          <div class="bars">
+            <div class="bar" style="height:120px" data-label="Q1"><span class="value">12</span></div>
+            <div class="bar" style="height:80px" data-label="Q2"><span class="value">8</span></div>
+            <div class="bar" style="height:140px" data-label="Q3"><span class="value">14</span></div>
+            <div class="bar" style="height:100px" data-label="Q4"><span class="value">10</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section image-row">
+        <div class="shadow-card">
+          <h2>Image</h2>
+          <img src="../tests/assets/image.jpg" alt="Sample Image">
+        </div>
+        <div class="shadow-card">
+          <h2>Rounded Image</h2>
+          <img src="../tests/assets/image_1.jpg" style="filter:saturate(1.2) contrast(1.05)" alt="Sample Image 2">
+        </div>
+      </div> -->
+
+            <div class="section">
+                <h2>Code Block</h2>
+                <pre class="code"><code>function sum(a, b) {
+               return a + b
+              }
+
+            const data = [12, 8, 14, 10]
+            const avg = data.reduce((s, x) => s + x, 0) / data.length
+            console.log('Average:', avg)</code></pre>
+            </div>
+
+            <div class="section">
+                <h2>Lists & Quote</h2>
+                <blockquote class="blockquote">
+                    This is a quote block for testing background, 0 and text style rendering effects.
+                </blockquote>
+                <ul class="list">
+                    <li>Unordered item one</li>
+                    <li>Unordered item two</li>
+                    <li>Unordered item three</li>
+                </ul>
+                <ol class="list">
+                    <li>Ordered item one</li>
+                    <li>Ordered item two</li>
+                    <li>Ordered item three</li>
+                </ol>
+                <div class="tags">
+                    <span class="tag">Tag A</span><span class="tag">Tag B</span><span class="tag">Tag C</span>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>复杂销售明细表</h2>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th rowspan="2">月份</th>
+                            <th colspan="3">销售额（万元）</th>
+                            <th rowspan="2">环比</th>
+                            <th rowspan="2">目标完成率</th>
+                            <th rowspan="2">备注</th>
+                        </tr>
+                        <tr>
+                            <th>线上</th>
+                            <th>线下</th>
+                            <th>合计</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>一月</td>
+                            <td>68</td>
+                            <td>52</td>
+                            <td><strong>120</strong></td>
+                            <td>↑ 12%</td>
+                            <td>
+                                <div
+                                    class="progress"
+                                    style="width: 80px; display: inline-block; vertical-align: middle; margin-left: 6px"
+                                >
+                                    <div class="progress-bar" style="width: 96%"></div>
+                                </div>
+                                <span>96%</span>
+                            </td>
+                            <td>春节促销</td>
+                        </tr>
+                        <tr>
+                            <td>二月</td>
+                            <td>55</td>
+                            <td>43</td>
+                            <td><strong>98</strong></td>
+                            <td>↓ 18%</td>
+                            <td>
+                                <div
+                                    class="progress"
+                                    style="width: 80px; display: inline-block; vertical-align: middle; margin-left: 6px"
+                                >
+                                    <div class="progress-bar" style="width: 75%"></div>
+                                </div>
+                                <span>75%</span>
+                            </td>
+                            <td>疫情反复</td>
+                        </tr>
+                        <tr>
+                            <td>三月</td>
+                            <td>78</td>
+                            <td>57</td>
+                            <td><strong>135</strong></td>
+                            <td>↑ 38%</td>
+                            <td>
+                                <div
+                                    class="progress"
+                                    style="width: 80px; display: inline-block; vertical-align: middle; margin-left: 6px"
+                                >
+                                    <div class="progress-bar" style="width: 104%"></div>
+                                </div>
+                                <span>104%</span>
+                            </td>
+                            <td>女王节大促</td>
+                        </tr>
+                        <tr>
+                            <td>四月</td>
+                            <td>88</td>
+                            <td>62</td>
+                            <td><strong>150</strong></td>
+                            <td>↑ 11%</td>
+                            <td>
+                                <div
+                                    class="progress"
+                                    style="width: 80px; display: inline-block; vertical-align: middle; margin-left: 6px"
+                                >
+                                    <div class="progress-bar" style="width: 115%"></div>
+                                </div>
+                                <span>115%</span>
+                            </td>
+                            <td>新品首发</td>
+                        </tr>
+                        <tr>
+                            <td>五月</td>
+                            <td>65</td>
+                            <td>45</td>
+                            <td><strong>110</strong></td>
+                            <td>→ 0%</td>
+                            <td>
+                                <div
+                                    class="progress"
+                                    style="width: 80px; display: inline-block; vertical-align: middle; margin-left: 6px"
+                                >
+                                    <div class="progress-bar" style="width: 85%"></div>
+                                </div>
+                                <span>85%</span>
+                            </td>
+                            <td>平销期</td>
+                        </tr>
+                        <tr>
+                            <td>六月</td>
+                            <td>82</td>
+                            <td>60</td>
+                            <td><strong>142</strong></td>
+                            <td>↑ 29%</td>
+                            <td>
+                                <div
+                                    class="progress"
+                                    style="width: 80px; display: inline-block; vertical-align: middle; margin-left: 6px"
+                                >
+                                    <div class="progress-bar" style="width: 108%"></div>
+                                </div>
+                                <span>108%</span>
+                            </td>
+                            <td>618大促</td>
+                        </tr>
+                        <tr style="background: #f1f5f9; font-weight: bold">
+                            <td>合计</td>
+                            <td>436</td>
+                            <td>319</td>
+                            <td>755</td>
+                            <td>—</td>
+                            <td>
+                                <div
+                                    class="progress"
+                                    style="width: 80px; display: inline-block; vertical-align: middle; margin-left: 6px"
+                                >
+                                    <div class="progress-bar" style="width: 97%"></div>
+                                </div>
+                                <span>97%</span>
+                            </td>
+                            <td>上半年总结</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="section image-row">
+                <div class="shadow-card" divisionDisable>
+                    <h2>More Images</h2>
+                    <img src="../tests/assets/image2.jpg" alt="Sample Image 3" />
+                </div>
+                <div class="shadow-card" divisionDisable>
+                    <h2>SVG Image</h2>
+                    <img src="../tests/assets/image.svg" alt="SVG" />
+                </div>
+            </div>
+
+            <!-- <div class="section">
+        <h2>Background Image Card</h2>
+        <div class="hero" style="background-image:url('../tests/assets/bg-sliver.png')">
+          <p>This is text overlaid on a background image for testing background rendering and text readability.</p>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Chart (CSS Pie Chart)</h2>
+        <div class="pie" style="background: conic-gradient(#f97316 0 40%, #22c55e 40% 70%, #3b82f6 70% 100%)"></div>
+        <div class="tags"><span class="tag" style="background:#fee2e2">Orange 40%</span><span class="tag" style="background:#dcfce7">Green 30%</span><span class="tag" style="background:#dbeafe">Blue 30%</span></div>
+      </div>
+
+      <div class="section">
+        <h2>Progress Bars</h2>
+        <div class="progress"><div class="progress-bar" style="width:72%"></div></div>
+        <div class="progress"><div class="progress-bar" style="width:45%"></div></div>
+      </div> -->
+
+            <!-- <div class="section">
+        <h2>Form</h2>
+        <form class="form">
+          <label>Name<input type="text" placeholder="John Doe"></label>
+          <label>Email<input type="email" placeholder="name@example.com"></label>
+          <label><input type="checkbox"> Subscribe</label>
+          <label><input type="radio" name="r"> Option One</label>
+          <label><input type="radio" name="r"> Option Two</label>
+          <label>Type<select><option>Type A</option><option>Type B</option></select></label>
+          <label>Message<textarea rows="3" placeholder="Enter content"></textarea></label>
+          <button type="button" class="btn">Submit</button>
+        </form>
+      </div>
+
+      <div class="section">
+        <h2>Canvas</h2>
+        <canvas id="demo-canvas" width="400" height="120" style="border:1px solid #e5e7eb; border-radius:8px"></canvas>
+      </div> -->
+        </div>
+
+        <script type="text/javascript" src="../dist/dompdf.js"></script>
+
+        <!-- <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script> -->
+        <script type="text/javascript">
+            (function () {
+                var lastCanvas = null;
+                var dc = document.getElementById('demo-canvas');
+                if (dc && dc.getContext) {
+                    var ctx = dc.getContext('2d');
+                    var grd = ctx.createLinearGradient(0, 0, 400, 0);
+                    grd.addColorStop(0, '#60a5fa');
+                    grd.addColorStop(1, '#2563eb');
+                    ctx.fillStyle = grd;
+                    ctx.fillRect(0, 0, 400, 120);
+                    ctx.fillStyle = '#fff';
+                    ctx.font = '16px sans-serif';
+                    ctx.fillText('Canvas Rendering Test', 12, 28);
+                    ctx.fillStyle = '#f97316';
+                    for (var i = 0; i < 8; i++) {
+                        ctx.fillRect(12 + i * 48, 100 - i * 8, 32, i * 8);
+                    }
+                }
+                var textSection = document.querySelector('.section.text');
+                if (textSection) {
+                    var frag = document.createDocumentFragment();
+                    for (var i = 1; i <= 100; i++) {
+                        var p = document.createElement('p');
+                        p.innerHTML =
+                            'Paragraph <strong>' +
+                            i +
+                            '</strong>: Batch text rendering test, including English, Chinese, numbers, rendering test, including English, Chinese, numbers,rendering test, Chinese, numbers, rendering test, including English, Chinese, numbers,rendering test,including English, Chinese, numbers' +
+                            i;
+                        frag.appendChild(p);
+                    }
+                    textSection.appendChild(frag);
+                }
+                function doCapture(target) {
+                    if (lastCanvas) lastCanvas.remove();
+                    console.log('Start rendering', target);
+                    dompdf(target, {
+                        scale: window.devicePixelRatio > 1 ? 2 : 1,
+                        backgroundColor: '#ffffff',
+                        pagination: true,
+                        useCORS: true
+                        // pageConfig: {}
+                    }).then(function (blob) {
+                        // lastCanvas = canvas
+                        // canvas.style.marginTop = '16px'
+                        // document.body.appendChild(canvas)
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'example.pdf';
+                        document.body.appendChild(a);
+                        a.click();
+
+                        // Cleanup
+                        setTimeout(() => {
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                        }, 100);
+                    });
+                }
+                document.getElementById('capture-page').addEventListener('click', function () {
+                    doCapture(document.body);
+                });
+                document.getElementById('capture-area-btn').addEventListener('click', function () {
+                    doCapture(document.getElementById('capture-area'));
+                });
+                document.getElementById('download-btn').addEventListener('click', function () {
+                    if (!lastCanvas) return;
+                    var a = document.createElement('a');
+                    a.href = lastCanvas.toDataURL('image/png');
+                    a.download = 'screenshot.png';
+                    a.click();
+                });
+            })();
+        </script>
+    </body>
+</html>

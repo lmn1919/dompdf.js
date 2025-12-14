@@ -1,8 +1,8 @@
 import html2canvas from '../index';
 
-import { COLORS } from '../css/types/color';
-import { DocumentCloner } from '../dom/document-cloner';
-import { CanvasRenderer } from '../render/canvas/pdf-renderer';
+import {COLORS} from '../css/types/color';
+import {DocumentCloner} from '../dom/document-cloner';
+import {CanvasRenderer} from '../render/canvas/pdf-renderer';
 
 jest.mock('../core/logger');
 jest.mock('../css/layout/bounds');

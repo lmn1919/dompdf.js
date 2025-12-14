@@ -1,6 +1,6 @@
-import { Context } from '../../core/context';
-import { Color, COLORS, isTransparent, parseColor } from '../../css/types/color';
-import { ElementContainer } from '../element-container';
+import {Context} from '../../core/context';
+import {Color, COLORS, isTransparent, parseColor} from '../../css/types/color';
+import {ElementContainer} from '../element-container';
 
 export class IFrameElementContainer extends ElementContainer {
     src: string;

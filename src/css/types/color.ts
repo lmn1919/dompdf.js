@@ -1,10 +1,10 @@
 // 导入必要的依赖
-import { Context } from '../../core/context';
-import { ITypeDescriptor } from '../ITypeDescriptor';
-import { CSSValue, nonFunctionArgSeparator, Parser } from '../syntax/parser';
-import { TokenType } from '../syntax/tokenizer';
-import { angle, deg } from './angle';
-import { getAbsoluteValue, isLengthPercentage } from './length-percentage';
+import {Context} from '../../core/context';
+import {ITypeDescriptor} from '../ITypeDescriptor';
+import {CSSValue, nonFunctionArgSeparator, Parser} from '../syntax/parser';
+import {TokenType} from '../syntax/tokenizer';
+import {angle, deg} from './angle';
+import {getAbsoluteValue, isLengthPercentage} from './length-percentage';
 
 // 定义颜色类型为数字
 export type Color = number;

@@ -1,21 +1,27 @@
-import { snapdom } from '@zumer/snapdom';
-import { Context } from '../core/context';
-import { CSSParsedDeclaration } from '../css';
-import { ElementContainer, FLAGS } from './element-container';
-import { LIElementContainer } from './elements/li-element-container';
-import { OLElementContainer } from './elements/ol-element-container';
-import { SelectElementContainer } from './elements/select-element-container';
-import { TextareaElementContainer } from './elements/textarea-element-container';
-import { CanvasElementContainer } from './replaced-elements/canvas-element-container';
-import { IFrameElementContainer } from './replaced-elements/iframe-element-container';
-import { ImageElementContainer } from './replaced-elements/image-element-container';
-import { InputElementContainer } from './replaced-elements/input-element-container';
-import { SVGElementContainer } from './replaced-elements/svg-element-container';
-import { TextContainer } from './text-container';
+import {snapdom} from '@zumer/snapdom';
+import {Context} from '../core/context';
+import {CSSParsedDeclaration} from '../css';
+import {ElementContainer, FLAGS} from './element-container';
+import {LIElementContainer} from './elements/li-element-container';
+import {OLElementContainer} from './elements/ol-element-container';
+import {SelectElementContainer} from './elements/select-element-container';
+import {TextareaElementContainer} from './elements/textarea-element-container';
+import {CanvasElementContainer} from './replaced-elements/canvas-element-container';
+import {IFrameElementContainer} from './replaced-elements/iframe-element-container';
+import {ImageElementContainer} from './replaced-elements/image-element-container';
+import {InputElementContainer} from './replaced-elements/input-element-container';
+import {SVGElementContainer} from './replaced-elements/svg-element-container';
+import {TextContainer} from './text-container';
 
 const LIST_OWNERS = ['OL', 'UL', 'MENU'];
 // let foreignObjectRendererList: any = []
-const parseNodeTree = (context: Context, node: Node, parent: ElementContainer, root: ElementContainer, foreignObjectRendererList: Element[]) => {
+const parseNodeTree = (
+    context: Context,
+    node: Node,
+    parent: ElementContainer,
+    root: ElementContainer,
+    foreignObjectRendererList: Element[]
+) => {
     // console.log('parseNodeTree', context,node,parent,root)
     for (let childNode = node.firstChild, nextNode; childNode; childNode = nextNode) {
         nextNode = childNode.nextSibling;
@@ -24,11 +30,12 @@ const parseNodeTree = (context: Context, node: Node, parent: ElementContainer, r
             parent.textNodes.push(new TextContainer(context, childNode, parent.styles));
             if (isElementNode(node) && node.hasAttribute('foreignobjectrendering')) {
                 foreignObjectRendererList.push(node);
-
             }
         } else if (isElementNode(childNode)) {
             if (isSlotElement(childNode) && childNode.assignedNodes) {
-                childNode.assignedNodes().forEach((childNode) => parseNodeTree(context, childNode, parent, root,foreignObjectRendererList));
+                childNode
+                    .assignedNodes()
+                    .forEach((childNode) => parseNodeTree(context, childNode, parent, root, foreignObjectRendererList));
             } else {
                 const container = createContainer(context, childNode);
                 // 检查当前节点或其祖先节点是否有foreignobjectrendering属性
@@ -39,14 +46,22 @@ const parseNodeTree = (context: Context, node: Node, parent: ElementContainer, r
                     } else if (createsStackingContext(container.styles)) {
                         container.flags |= FLAGS.CREATES_STACKING_CONTEXT;
                     }
-                    if (isElementNode(childNode) && (childNode.hasAttribute('foreignobjectrendering') || parent.foreignobjectrendering)) {
+                    if (
+                        isElementNode(childNode) &&
+                        (childNode.hasAttribute('foreignobjectrendering') || parent.foreignobjectrendering)
+                    ) {
                         container.foreignobjectrendering = true;
+                    }
+                    if (
+                        isElementNode(childNode) &&
+                        (childNode.hasAttribute('divisionDisable') || parent.divisionDisable)
+                    ) {
+                        container.divisionDisable = true;
                     }
                     if (LIST_OWNERS.indexOf(childNode.tagName) !== -1) {
                         container.flags |= FLAGS.IS_LIST_OWNER;
                     }
                     if (isElementNode(node) && node.hasAttribute('foreignobjectrendering')) {
-
                         foreignObjectRendererList.push(node);
                     }
                     // if (parent.foreignobjectrendering){
@@ -55,13 +70,13 @@ const parseNodeTree = (context: Context, node: Node, parent: ElementContainer, r
                     parent.elements.push(container);
                     childNode.slot;
                     if (childNode.shadowRoot) {
-                        parseNodeTree(context, childNode.shadowRoot, container, root,foreignObjectRendererList);
+                        parseNodeTree(context, childNode.shadowRoot, container, root, foreignObjectRendererList);
                     } else if (
                         !isTextareaElement(childNode) &&
                         !isSVGElement(childNode) &&
                         !isSelectElement(childNode)
                     ) {
-                        parseNodeTree(context, childNode, container, root,foreignObjectRendererList);
+                        parseNodeTree(context, childNode, container, root, foreignObjectRendererList);
                     }
                 }
             }
@@ -132,23 +147,24 @@ export const parseTree = async (context: Context, element: HTMLElement): Promise
     container.flags |= FLAGS.CREATES_REAL_STACKING_CONTEXT;
     const foreignObjectRendererList: Element[] = [];
     // 修改 parseNodeTree 调用，传入局部列表
-    parseNodeTree(context, element, container, container,foreignObjectRendererList);
+    parseNodeTree(context, element, container, container, foreignObjectRendererList);
 
     // 去重处理
-    const uniqueList = foreignObjectRendererList.filter((item: any, index: any, self: any) =>
-        index === self.findIndex((t: any) => { return t === item })
+    const uniqueList = foreignObjectRendererList.filter(
+        (item: any, index: any, self: any) =>
+            index ===
+            self.findIndex((t: any) => {
+                return t === item;
+            })
     );
-
 
     // 并行处理所有截图
-    const screenshotPromises = uniqueList.map((item: any) =>
-        renderForeignObject(item as HTMLElement)
-    );
+    const screenshotPromises = uniqueList.map((item: any) => renderForeignObject(item as HTMLElement));
 
     const screenshotResults = await Promise.all(screenshotPromises);
 
     // 添加所有截图到容器
-    screenshotResults.forEach((bgImgSrc: { src: string } | null, index: number) => {
+    screenshotResults.forEach((bgImgSrc: {src: string} | null, index: number) => {
         if (bgImgSrc) {
             const itemNode = uniqueList[index] as HTMLElement;
             const width = itemNode.offsetWidth || itemNode.getBoundingClientRect().width || 100;
@@ -193,7 +209,7 @@ export const parseTree = async (context: Context, element: HTMLElement): Promise
     return container;
 };
 
-const makeInvisible =async (element: Element) => {
+const makeInvisible = async (element: Element) => {
     if (element.nodeType === Node.TEXT_NODE && element.textContent?.trim() !== '') {
         const span = document.createElement('span');
         span.style.color = 'transparent';
@@ -203,8 +219,6 @@ const makeInvisible =async (element: Element) => {
     } else {
         element.childNodes.forEach(makeInvisible);
     }
-
-
 };
 
 const renderForeignObject = async (element: HTMLElement) => {
@@ -225,7 +239,7 @@ const renderForeignObject = async (element: HTMLElement) => {
     try {
         // 导出PNG格式
         const pngData: any = await capture.toPng({
-            quality: 0.1,
+            quality: 0.1
             // width: Math.ceil(rect.width),
             // height: Math.ceil(rect.height)
         });
@@ -233,7 +247,7 @@ const renderForeignObject = async (element: HTMLElement) => {
         // console.log(pngData, 'pngData');
 
         if (pngData) {
-            return pngData
+            return pngData;
         }
     } catch (error) {
         console.error('导出PNG格式失败:', error);
