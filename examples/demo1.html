@@ -301,30 +301,6 @@
                 </table>
             </div>
 
-            <!-- <div class="section">
-        <h2>Chart (CSS Bar Chart)</h2>
-        <div class="chart">
-          <div>Q1–Q4</div>
-          <div class="bars">
-            <div class="bar" style="height:120px" data-label="Q1"><span class="value">12</span></div>
-            <div class="bar" style="height:80px" data-label="Q2"><span class="value">8</span></div>
-            <div class="bar" style="height:140px" data-label="Q3"><span class="value">14</span></div>
-            <div class="bar" style="height:100px" data-label="Q4"><span class="value">10</span></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="section image-row">
-        <div class="shadow-card">
-          <h2>Image</h2>
-          <img src="../tests/assets/image.jpg" alt="Sample Image">
-        </div>
-        <div class="shadow-card">
-          <h2>Rounded Image</h2>
-          <img src="../tests/assets/image_1.jpg" style="filter:saturate(1.2) contrast(1.05)" alt="Sample Image 2">
-        </div>
-      </div> -->
-
             <div class="section">
                 <h2>Code Block</h2>
                 <pre class="code"><code>function sum(a, b) {
@@ -572,7 +548,7 @@
                 var textSection = document.querySelector('.section.text');
                 if (textSection) {
                     var frag = document.createDocumentFragment();
-                    for (var i = 1; i <= 100; i++) {
+                    for (var i = 1; i <= 10000; i++) {
                         var p = document.createElement('p');
                         p.innerHTML =
                             'Paragraph <strong>' +

@@ -81,10 +81,12 @@ const filterTextNodesForPage = (container: ElementContainer, pageStart: number, 
                     }
                 }
                 const visibleTop = Math.max(top, pageStart);
+                const visibleBottom = Math.min(bottom, pageEnd);
                 const newTop = visibleTop - pageStart;
+                const newHeight = Math.max(0, visibleBottom - visibleTop);
 
                 // 根据可见区域生成新的 Bounds
-                const nb = new Bounds(tb.bounds.left, newTop + pageMarginTop, tb.bounds.width, tb.bounds.height);
+                const nb = new Bounds(tb.bounds.left, newTop + pageMarginTop, tb.bounds.width, newHeight);
                 // if (pageIndex == 3) {
                 //     console.log(
                 //         'nb',

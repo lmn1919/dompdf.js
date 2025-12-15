@@ -171,7 +171,7 @@ const renderElement = async (element: HTMLElement, opts: Partial<Options>): Prom
         format: opts.format ?? 'a4',
         pageConfig: opts.pageConfig ?? {
             header: {
-                content: 'pageHeader',
+                content: '',
                 height: 50,
                 contentPosition: 'centerRight',
                 contentColor: '#333333',
