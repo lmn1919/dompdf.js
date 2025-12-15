@@ -159,11 +159,10 @@ dompdf(document.querySelector("#capture"), {
 | ----------------- | --------------------------------------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------- |
 | `content`         | 页眉默认值为空,页脚默认值为`${currentPage}/${totalPages}` | `string`                     | 文本内容，支持 `${currentPage}`、`${totalPages}`，`${currentPage}`为当前页码，`${totalPages}`为总页码 |
 | `height`          | `50`                                                      | `number`                     | 区域高度（px）                                                                                        |
-| `contentPosition` | `'center'`                                                | `string \| [number, number]` | 文本位置枚举 `center`、`centerLeft` 、 `centerRight`、`centerTop`、 `centerBottom`、 `leftTop`、 `leftBottom`、`rightTop`、`rightBottom`或坐标 `[x,y]` |
-
-| `contentColor` | `'#333333'` | `string` | 文本颜色 |
-| `contentFontSize` | `16` | `number` | 文本字号（px） |
-| `padding` | `[0,24,0,24]` | `[number, number, number, number]` | 上/右/下/左内边距（px） |
+| `contentPosition` | `'center'`                                                | `string \| [number, number]` | 文本位置枚举 `center`、`centerLeft` 、 `centerRight`、`centerTop`、 `centerBottom`、`leftTop`、 `leftBottom`、`rightTop`、`rightBottom`或坐标 `[x,y]` |
+| `contentColor`    | `'#333333'`                                               | `string`                     | 文本颜色                                                                                              |
+| `contentFontSize` | `16`                                                      | `number`                     | 文本字号（px）                                                                                        |
+| `padding`         | `[0,24,0,24]`                                             | `[number, number, number, number]` | 上/右/下/左内边距（px）                                       |
 
 
 ##### 字体配置（`fontConfig`）字段：
