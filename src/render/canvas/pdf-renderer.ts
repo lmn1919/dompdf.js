@@ -910,6 +910,11 @@ export class CanvasRenderer extends Renderer {
         curvePoints: BoundCurves,
         style: BORDER_STYLE
     ): Promise<void> {
+         /**
+         * fix: Fixed an error when calling this.jspdfCtx.restoreGraphicsState() when the internal graphics state stack of jsPDF is empty
+         * Save the jsPDF graphics state first
+         */
+        this.jspdfCtx.saveGraphicsState();
         this.context2dCtx.save();
 
         const strokePaths = parsePathForBorderStroke(curvePoints, side);
