@@ -1,4 +1,4 @@
-import {jsPDF} from 'jspdf';
+import {jsPDF, EncryptionOptions} from 'jspdf';
 import {contains} from '../../core/bitwise';
 import {Context} from '../../core/context';
 import {CSSParsedDeclaration} from '../../css';
@@ -95,6 +95,12 @@ export type pageConfigOptions = {
     };
 };
 
+// export interface EncryptionOptions {
+//     userPassword?: string;
+//     ownerPassword?: string;
+//     userPermissions?: ("print" | "modify" | "copy" | "annot-forms")[];
+// }
+
 export interface RenderOptions {
     scale: number;
     canvas?: HTMLCanvasElement;
@@ -103,11 +109,7 @@ export interface RenderOptions {
     width: number;
     height: number;
     pdfFileName?: string;
-    encryption?: {
-        userPassword?: string;
-        ownerPassword?: string;
-        userPermissions?: string[];
-    };
+    encryption?: EncryptionOptions | undefined;
     precision?: number;
     floatPrecision?: number | 'smart';
     compress?: boolean;
@@ -176,26 +178,6 @@ export class CanvasRenderer extends Renderer {
         const pageWidth = pxToPt(options.width);
         const pageHeight = pxToPt(options.height);
 
-        // const enc =
-        //     this.options.encryption &&
-        //     (this.options.encryption.userPassword ||
-        //         this.options.encryption.ownerPassword ||
-        //         (this.options.encryption.userPermissions && this.options.encryption.userPermissions.length))
-        //         ? this.options.encryption
-        //         : [];
-        const encOptions = this.options.encryption
-            ? {
-                  userPassword: this.options.encryption.userPassword,
-                  ownerPassword: this.options.encryption.ownerPassword,
-                  userPermissions: this.options.encryption.userPermissions as (
-                      | 'print'
-                      | 'modify'
-                      | 'copy'
-                      | 'annot-forms'
-                  )[]
-              }
-            : undefined;
-
         this.jspdfCtx = new jsPDF({
             orientation: pageWidth > pageHeight ? 'landscape' : 'portrait',
             unit: 'pt',
@@ -205,18 +187,8 @@ export class CanvasRenderer extends Renderer {
             compress: options.compress,
             precision: options.precision,
             floatPrecision: options.floatPrecision,
-            encryption: encOptions
+            encryption: options.encryption
         });
-        //     orientation: pageWidth > pageHeight ? 'landscape' : 'portrait',
-        //     unit: 'pt',
-        //     format: options.pagination && options.format ? options.format : [pageHeight, pageWidth],
-        //     hotfixes: ['px_scaling'],
-        //     putOnlyUsedFonts: options.putOnlyUsedFonts,
-        //     compress: options.compress,
-        //     precision: options.precision,
-        //     floatPrecision: options.floatPrecision,
-        //     encryption: enc
-        // });
         this.context2dCtx = this.jspdfCtx.context2d;
         this.context2dCtx.scale(0.75, 0.75);
 

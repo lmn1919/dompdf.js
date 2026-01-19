@@ -9,6 +9,7 @@ import {ForeignObjectRenderer} from './render/canvas/foreignobject-renderer';
 import {CanvasRenderer, RenderConfigurations, RenderOptions} from './render/canvas/pdf-renderer';
 import {PAGE_FORMAT_MAP} from './render/page-format-map';
 import {paginateNode} from './render/paginate';
+import {isEmptyValue} from './utils/index';
 // paginationState
 
 interface FontConfig {
@@ -158,11 +159,7 @@ const renderElement = async (element: HTMLElement, opts: Partial<Options>): Prom
             fontFamily: '',
             fontBase64: ''
         },
-        encryption: {
-            userPassword: '',
-            ownerPassword: '',
-            userPermissions: []
-        },
+        encryption: isEmptyValue(opts.encryption) ? undefined : opts.encryption, // fix：jspdf encryption default value
         precision: opts.precision ?? 16,
         floatPrecision: opts.floatPrecision ?? 16,
         compress: opts.compress ?? false,
