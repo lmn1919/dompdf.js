@@ -245,6 +245,16 @@
                     Demonstration of shadowed title effect.
                 </p>
             </div>
+            <div class="section text">
+                <h2>中文测试</h2>
+                <p>
+                   这是一个测试段落 包含<strong>粗体</strong>, <em>斜体</em>,
+                    <span style="color: #ef4444">彩色</span> 和下划线样式。它还测试了长文本换行和中文渲染效果。
+                </p>
+                <p style="text-shadow: 0 1px 0 #fff, 0 3px 6px rgba(0, 0, 0, 0.15)">
+                    阴影标题效果的演示。
+                </p>
+            </div>
             <div
                 divisionDisable
                 style="
@@ -319,13 +329,13 @@
                 </blockquote>
                 <ul class="list">
                     <li>Unordered item one</li>
-                    <li>Unordered item two</li>
+                    <li>中文 2</li>
                     <li>Unordered item three</li>
                 </ul>
                 <ol class="list">
                     <li>Ordered item one</li>
                     <li>Ordered item two</li>
-                    <li>Ordered item three</li>
+                    <li>中文 3</li>
                 </ol>
                 <div class="tags">
                     <span class="tag">Tag A</span><span class="tag">Tag B</span><span class="tag">Tag C</span>
@@ -524,50 +534,58 @@
         </div>
 
         <script type="text/javascript" src="../dist/dompdf.js"></script>
+        <script type="text/javascript" src="./SourceHanSansSC-Normal-Min-normal.js"></script>
 
         <!-- <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script> -->
         <script type="text/javascript">
             (function () {
-                var lastCanvas = null;
-                var dc = document.getElementById('demo-canvas');
-                if (dc && dc.getContext) {
-                    var ctx = dc.getContext('2d');
-                    var grd = ctx.createLinearGradient(0, 0, 400, 0);
-                    grd.addColorStop(0, '#60a5fa');
-                    grd.addColorStop(1, '#2563eb');
-                    ctx.fillStyle = grd;
-                    ctx.fillRect(0, 0, 400, 120);
-                    ctx.fillStyle = '#fff';
-                    ctx.font = '16px sans-serif';
-                    ctx.fillText('Canvas Rendering Test', 12, 28);
-                    ctx.fillStyle = '#f97316';
-                    for (var i = 0; i < 8; i++) {
-                        ctx.fillRect(12 + i * 48, 100 - i * 8, 32, i * 8);
-                    }
-                }
-                var textSection = document.querySelector('.section.text');
-                if (textSection) {
-                    var frag = document.createDocumentFragment();
-                    for (var i = 1; i <= 10000; i++) {
-                        var p = document.createElement('p');
-                        p.innerHTML =
-                            'Paragraph <strong>' +
-                            i +
-                            '</strong>: Batch text rendering test, including English, Chinese, numbers, rendering test, including English, Chinese, numbers,rendering test, Chinese, numbers, rendering test, including English, Chinese, numbers,rendering test,including English, Chinese, numbers' +
-                            i;
-                        frag.appendChild(p);
-                    }
-                    textSection.appendChild(frag);
-                }
+                // var lastCanvas = null;
+                // var dc = document.getElementById('demo-canvas');
+                // if (dc && dc.getContext) {
+                //     var ctx = dc.getContext('2d');
+                //     var grd = ctx.createLinearGradient(0, 0, 400, 0);
+                //     grd.addColorStop(0, '#60a5fa');
+                //     grd.addColorStop(1, '#2563eb');
+                //     ctx.fillStyle = grd;
+                //     ctx.fillRect(0, 0, 400, 120);
+                //     ctx.fillStyle = '#fff';
+                //     ctx.font = '16px sans-serif';
+                //     ctx.fillText('Canvas Rendering Test', 12, 28);
+                //     ctx.fillStyle = '#f97316';
+                //     for (var i = 0; i < 8; i++) {
+                //         ctx.fillRect(12 + i * 48, 100 - i * 8, 32, i * 8);
+                //     }
+                // }
+                // var textSection = document.querySelector('.section.text');
+                // if (textSection) {
+                //     var frag = document.createDocumentFragment();
+                //     for (var i = 1; i <= 10000; i++) {
+                //         var p = document.createElement('p');
+                //         p.innerHTML =
+                //             'Paragraph <strong>' +
+                //             i +
+                //             '</strong>: Batch text rendering test, including English, Chinese, numbers, rendering test, including English, Chinese, numbers,rendering test, Chinese, numbers, rendering test, including English, Chinese, numbers,rendering test,including English, Chinese, numbers' +
+                //             i;
+                //         frag.appendChild(p);
+                //     }
+                //     textSection.appendChild(frag);
+                // }
                 function doCapture(target) {
-                    if (lastCanvas) lastCanvas.remove();
+                    // if (lastCanvas) lastCanvas.remove();
                     console.log('Start rendering', target);
                     dompdf(target, {
                         scale: window.devicePixelRatio > 1 ? 2 : 1,
                         backgroundColor: '#ffffff',
                         pagination: true,
-                        useCORS: true
-                        // pageConfig: {}
+                        useCORS: true,
+                        // pageConfig: {}    
+                        fontConfig: {
+                            fontFamily: 'SourceHanSansSC-Normal-Min',
+                            fontBase64: window.fontBase64,
+                            fontUrl: '',
+                            fontWeight: 400,
+                            fontStyle: 'normal'
+                        },
                     }).then(function (blob) {
                         // lastCanvas = canvas
                         // canvas.style.marginTop = '16px'
