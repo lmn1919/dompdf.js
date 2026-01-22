@@ -9,7 +9,7 @@ import {ForeignObjectRenderer} from './render/canvas/foreignobject-renderer';
 import {CanvasRenderer, RenderConfigurations, RenderOptions} from './render/canvas/pdf-renderer';
 import {PAGE_FORMAT_MAP} from './render/page-format-map';
 import {paginateNode} from './render/paginate';
-import {isEmptyValue} from './utils/index';
+import {isEmptyValue} from './utils';
 // paginationState
 
 interface FontConfig {
