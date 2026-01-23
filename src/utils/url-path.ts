@@ -4,12 +4,12 @@
  * @param {("svg" | "webp" | "png" | "jpg" | "gif" | "unknown")} type 要判断的图片类型
  * @returns {boolean} 是否为指定类型的图片
  */
-export function getImageTypeByPath(path: string, type: "svg" | "webp" | "png" | "jpg" | "gif" | "unknown"): boolean {
-  if (!path || !type) return false;
-  const purePath = path.split('?')[0].split('#')[0];
-  const ext = purePath.split('.').pop()?.toLowerCase() || '';
-  if (type === 'jpg') {
-    return ext === 'jpg' || ext === 'jpeg';
-  }
-  return ext === type;
+export function getImageTypeByPath(path: string, type: 'svg' | 'webp' | 'png' | 'jpg' | 'gif' | 'unknown'): boolean {
+    if (!path || !type) return false;
+    const purePath = path.split('?')[0].split('#')[0];
+    const ext = purePath.split('.').pop()?.toLowerCase() || '';
+    if (type === 'jpg') {
+        return ext === 'jpg' || ext === 'jpeg';
+    }
+    return ext === type;
 }

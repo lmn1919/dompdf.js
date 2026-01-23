@@ -1,6 +1,6 @@
-import "jspdf/dist/polyfills.es.js";
+import 'jspdf/dist/polyfills.es.js';
 import {jsPDF, EncryptionOptions, Context2d} from 'jspdf';
-import { BACKGROUND_REPEAT } from "../../css/property-descriptors/background-repeat";
+import {BACKGROUND_REPEAT} from '../../css/property-descriptors/background-repeat';
 import {contains} from '../../core/bitwise';
 import {Context} from '../../core/context';
 import {CSSParsedDeclaration} from '../../css';
@@ -47,16 +47,18 @@ import {Path, transformPath} from '../path';
 import {Renderer} from '../renderer';
 import {ElementPaint, parseStackingContexts, StackingContext} from '../stacking-context';
 import {Vector} from '../vector';
-import {getBackgroundRepeat, getImageTypeByPath} from "../../utils";
+import {getBackgroundRepeat, getImageTypeByPath, isArray, isEmptyValue, isObject} from '../../utils';
 
 interface FontConfig {
     fontFamily: string;
     fontBase64: string;
+    fontStyle: string;
+    fontWeight: 400 | 700;
 }
 
 export type RenderConfigurations = RenderOptions & {
     backgroundColor: Color | null;
-    fontConfig: FontConfig;
+    fontConfig: FontConfig | FontConfig[];
 };
 
 export type pageConfigOptions = {
@@ -194,7 +196,7 @@ export class CanvasRenderer extends Renderer {
 
         if (options.fontConfig) {
             try {
-                this.loadFont();
+                this.addFontToJsPDF();
             } catch (error) {
                 console.warn('Failed to set font:', error);
                 this.jspdfCtx.setFont('Helvetica');
@@ -217,29 +219,54 @@ export class CanvasRenderer extends Renderer {
         );
     }
 
-    async loadFont() {
-        let fontData;
-
-        if (this.options.fontConfig.fontBase64) {
-            fontData = this.options.fontConfig.fontBase64;
-        }
-        this.addFontToJsPDF(fontData as string);
-    }
-    addFontToJsPDF(fontData: string) {
-        const {fontFamily} = this.options.fontConfig;
-        if (!fontFamily) {
+    addFontToJsPDF(): void {
+        if (isEmptyValue(this.options.fontConfig as FontConfig)) {
             return;
         }
-        this.jspdfCtx.addFileToVFS(`${fontFamily}.ttf`, fontData);
-        this.jspdfCtx.addFont(`${fontFamily}.ttf`, fontFamily, 'normal', 'Identity-H');
-        this.jspdfCtx.setFont(fontFamily);
+        const fonts = isObject(this.options.fontConfig)
+            ? [this.options.fontConfig as FontConfig]
+            : (this.options.fontConfig as FontConfig[]);
+        fonts.forEach((v) => {
+            this.jspdfCtx.addFileToVFS(`${v.fontFamily}.ttf`, v.fontBase64);
+            this.jspdfCtx.addFont(`${v.fontFamily}.ttf`, v.fontFamily, 'normal');
+            this.jspdfCtx.setFont(v.fontFamily);
+        });
+        // console.log('render getFont', this.jspdfCtx.getFont());
+        this.context.logger.debug(`setFont renderer initialized`);
     }
 
-    // reset font form options
-    resetJsPDFFont()  {
-        if (this.options.fontConfig && this.options.fontConfig.fontFamily) {
-            this.jspdfCtx.setFont(this.options.fontConfig.fontFamily);
+    // reset all font
+    resetJsPDFFont(): void {
+        // if fontConfig is a single FontConfig object
+        if (
+            isObject(this.options.fontConfig) &&
+            this.options.fontConfig &&
+            (this.options.fontConfig as FontConfig).fontFamily
+        ) {
+            this.jspdfCtx.setFont((this.options.fontConfig as FontConfig).fontFamily);
+        } else if (isArray(this.options.fontConfig) && !isEmptyValue(this.options.fontConfig)) {
+            (this.options.fontConfig as FontConfig[]).forEach((v) => {
+                this.jspdfCtx.setFont(v.fontFamily);
+            });
         }
+    }
+    // setFont form options
+    setTextFont(styles: CSSParsedDeclaration): string {
+        // console.log(styles.fontWeight, styles.fontStyle, 'styles');
+        if (isEmptyValue(this.options.fontConfig)) {
+            return '';
+        }
+        if ((this.options.fontConfig as FontConfig[]).length === 1) {
+            const fontFamilyCustom = (this.options.fontConfig as FontConfig[])[0].fontFamily ?? '';
+            this.jspdfCtx.setFont(fontFamilyCustom);
+            return fontFamilyCustom;
+        }
+        const fontFamilyCustom =
+            (this.options.fontConfig as FontConfig[]).find(
+                (v) => v.fontWeight === styles.fontWeight && v.fontStyle === styles.fontStyle
+            )?.fontFamily ?? '';
+        this.jspdfCtx.setFont(fontFamilyCustom);
+        return fontFamilyCustom;
     }
 
     applyEffects(effects: IElementEffect[]): void {
@@ -280,7 +307,7 @@ export class CanvasRenderer extends Renderer {
     popEffect(): void {
         this._activeEffects.pop();
         this.context2dCtx.restore();
-        this.resetJsPDFFont()
+        this.resetJsPDFFont();
     }
 
     async renderStack(stack: StackingContext): Promise<void> {
@@ -347,9 +374,9 @@ export class CanvasRenderer extends Renderer {
 
     async renderTextNode(text: TextContainer, styles: CSSParsedDeclaration): Promise<void> {
         const [font, fontFamily, fontSize] = this.createFontStyle(styles);
-
-        this.context2dCtx.font = this.options.fontConfig.fontFamily || font;
-
+        const fontFamilyFinal = this.setTextFont(styles);
+        this.context2dCtx.font = fontFamilyFinal || font;
+        // console.log(fontFamilyFinal, 'render getFont', this.jspdfCtx.getFont());
         // jspdf context2d not supported ‘direction’
         // this.context2dCtx.direction = styles.direction === DIRECTION.RTL ? 'rtl' : 'ltr';
 
@@ -413,17 +440,14 @@ export class CanvasRenderer extends Renderer {
         });
     }
 
-    renderReplacedJsPdfImage(
-        container: ImageElementContainer,
-        image: HTMLImageElement | HTMLCanvasElement
-    ): void {
+    renderReplacedJsPdfImage(container: ImageElementContainer, image: HTMLImageElement | HTMLCanvasElement): void {
         const bounds = contentBox(container);
         const x = this.pxToPt(bounds.left - this.options.x);
         const y = this.pxToPt(bounds.top - this.options.y);
         const width = this.pxToPt(bounds.width);
         const height = this.pxToPt(bounds.height);
         // fix: url is svg image export
-        if (getImageTypeByPath(container.src, 'svg')) { 
+        if (getImageTypeByPath(container.src, 'svg')) {
             const canvas = document.createElement('canvas');
             canvas.width = width;
             canvas.height = height;
@@ -438,10 +462,7 @@ export class CanvasRenderer extends Renderer {
             this.addImagePdf(image, 'JPEG', x, y, width, height);
         }
     }
-    renderReplacedJsPdfSvg(
-        container: SVGElementContainer,
-        image: HTMLImageElement | HTMLCanvasElement
-    ): void {
+    renderReplacedJsPdfSvg(container: SVGElementContainer, image: HTMLImageElement | HTMLCanvasElement): void {
         const bounds = contentBox(container);
         const x = this.pxToPt(bounds.left - this.options.x);
         const y = this.pxToPt(bounds.top - this.options.y);
@@ -459,10 +480,8 @@ export class CanvasRenderer extends Renderer {
             this.addImagePdf(dataURL, 'PNG', x, y, width, height);
         }
     }
-    renderReplacedJsPdfCanvasImage(
-        container: CanvasElementContainer
-    ): void {
-       const bounds = contentBox(container);
+    renderReplacedJsPdfCanvasImage(container: CanvasElementContainer): void {
+        const bounds = contentBox(container);
         const x = this.pxToPt(bounds.left - this.options.x);
         const y = this.pxToPt(bounds.top - this.options.y);
         const width = this.pxToPt(bounds.width);
@@ -476,7 +495,7 @@ export class CanvasRenderer extends Renderer {
         const container = paint.container;
         // const curves = paint.curves;
         const styles = container.styles;
-        this.resetJsPDFFont()
+        this.resetJsPDFFont();
 
         for (const child of container.textNodes) {
             await this.renderTextNode(child, styles);
@@ -485,7 +504,7 @@ export class CanvasRenderer extends Renderer {
         if (container instanceof ImageElementContainer) {
             try {
                 const image = await this.context.cache.match(container.src);
-                this.renderReplacedJsPdfImage(container, image)
+                this.renderReplacedJsPdfImage(container, image);
             } catch (e) {
                 this.context.logger.error(`Error loading image ${container}`);
             }
@@ -493,7 +512,7 @@ export class CanvasRenderer extends Renderer {
 
         if (container instanceof CanvasElementContainer) {
             try {
-                this.renderReplacedJsPdfCanvasImage(container)
+                this.renderReplacedJsPdfCanvasImage(container);
             } catch (err) {
                 this.context.logger.error(`Error adding canvas to PDF: ${err}`);
             }
@@ -711,8 +730,13 @@ export class CanvasRenderer extends Renderer {
         });
     }
 
-    renderRepeat(boxs: Bounds, ctx: CanvasRenderingContext2D, path: Path[], pattern: CanvasPattern | CanvasGradient): void {
-    // renderRepeat(boxs: Bounds, ctx: CanvasRenderingContext2D, path: Path[], pattern: CanvasPattern | CanvasGradient, offsetX: number, offsetY: number): void {
+    renderRepeat(
+        boxs: Bounds,
+        ctx: CanvasRenderingContext2D,
+        path: Path[],
+        pattern: CanvasPattern | CanvasGradient
+    ): void {
+        // renderRepeat(boxs: Bounds, ctx: CanvasRenderingContext2D, path: Path[], pattern: CanvasPattern | CanvasGradient, offsetX: number, offsetY: number): void {
         const contextCtx = ctx;
         this.path(path, contextCtx);
         contextCtx.fillStyle = pattern;
@@ -739,7 +763,6 @@ export class CanvasRenderer extends Renderer {
     async renderBackgroundImage(container: ElementContainer): Promise<void> {
         let index = container.styles.backgroundImage.length - 1;
         for (const backgroundImage of container.styles.backgroundImage.slice(0).reverse()) {
-            
             // fix: background img render support gradient image-repeat
             if (backgroundImage.type === CSSImageType.URL) {
                 let image;
@@ -756,7 +779,7 @@ export class CanvasRenderer extends Renderer {
                         image.height,
                         image.width / image.height
                     ]);
-                    const boxs = contentBox(container)
+                    const boxs = contentBox(container);
                     const ownerDocument = this.canvas.ownerDocument ?? document;
                     const canvas = ownerDocument.createElement('canvas');
                     canvas.width = Math.max(1, boxs.width);
@@ -772,10 +795,7 @@ export class CanvasRenderer extends Renderer {
                         this.addImagePdf(image, 'JPEG', xPt, yPt, widthPt, heightPt);
                     } else {
                         const resizeImg = this.resizeImage(image, width, height);
-                        const pattern = ctx.createPattern(
-                            resizeImg,
-                            repeatStr
-                        ) as CanvasPattern;
+                        const pattern = ctx.createPattern(resizeImg, repeatStr) as CanvasPattern;
                         // this.renderRepeat(boxs, ctx, path, pattern, x, y);
                         // need transformPath
                         const pathTs = transformPath(path, -x, -y, 0, 0);
@@ -793,7 +813,7 @@ export class CanvasRenderer extends Renderer {
             } else if (isLinearGradient(backgroundImage)) {
                 const [path, x, y, width, height] = calculateBackgroundRendering(container, index, [null, null, null]);
                 const [lineLength, x0, x1, y0, y1] = calculateGradientDirection(backgroundImage.angle, width, height);
-                const boxs = contentBox(container)
+                const boxs = contentBox(container);
                 const canvas = document.createElement('canvas');
                 canvas.width = width;
                 canvas.height = height;
@@ -932,7 +952,7 @@ export class CanvasRenderer extends Renderer {
             await this.renderBackgroundImage(paint.container);
 
             this.context2dCtx.restore();
-            this.resetJsPDFFont()
+            this.resetJsPDFFont();
         }
         let side = 0;
         for (const border of borders) {
@@ -972,7 +992,7 @@ export class CanvasRenderer extends Renderer {
         curvePoints: BoundCurves,
         style: BORDER_STYLE
     ): Promise<void> {
-         /**
+        /**
          * fix: Fixed an error when calling this.jspdfCtx.restoreGraphicsState() when the internal graphics state stack of jsPDF is empty
          * Save the jsPDF graphics state first
          */
