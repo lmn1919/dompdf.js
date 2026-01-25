@@ -221,6 +221,35 @@
             body {
                 padding-top: 0 !important;
             }
+            .bgcollor {
+                background-color: #fbbf24;
+                border: 1px solid #e5e7eb;
+                border-radius: 12px;
+            }
+            .bgimg {
+                background-size: 35px 35px;
+                background-image: url('../tests/assets/image2.jpg');
+                background-position: center;
+                background-repeat: no-repeat;
+                border: 1px solid #e5e7eb;
+                border-radius: 12px;
+            }
+            .bgimg-repeat {
+                background-size: 35px 35px;
+                background-image: url('../tests/assets/image2.jpg');
+                background-position: center;
+                background-repeat: repeat;
+                border: 1px solid #e5e7eb;
+                border-radius: 12px;
+            }
+            .bg-linear-gradient {
+                background-image: linear-gradient(white, yellow);
+                border: 1px solid #e5e7eb;
+                border-radius: 12px;
+            }
+            .bg-radial-gradient {
+                background: radial-gradient(circle closest-side, #3f87a6, #ebf8e1, #f69d3c);
+            }
         </style>
     </head>
     <body>
@@ -234,10 +263,10 @@
             id="capture-area"
             style="width: 746px; background: #fff; margin: 0 auto; padding: 0 24px; margin-top: 120px"
         >
-            <div class="section text">
+            <div class="section text bg-linear-gradient">
                 <h2>Text Paragraph</h2>
                 <p>
-                    This is a test paragraph containing <strong>bold</strong>, <em>italic</em>,
+                    This is a test paragraph containing <strong>bold  <em>italic</em></strong>, <em>italic</em>,
                     <span style="color: #ef4444">colored</span> and underlined styles. It also tests long text wrapping
                     and Chinese rendering effects.
                 </p>
@@ -245,15 +274,21 @@
                     Demonstration of shadowed title effect.
                 </p>
             </div>
-            <div class="section text">
+            <div class="section text bgimg">
                 <h2>中文测试</h2>
                 <p>
-                   这是一个测试段落 包含<strong>粗体</strong>, <em>斜体</em>,
+                    这是一个测试段落 包含<strong>粗体</strong>, <em>斜体</em>,
                     <span style="color: #ef4444">彩色</span> 和下划线样式。它还测试了长文本换行和中文渲染效果。
                 </p>
-                <p style="text-shadow: 0 1px 0 #fff, 0 3px 6px rgba(0, 0, 0, 0.15)">
-                    阴影标题效果的演示。
+                <p style="text-shadow: 0 1px 0 #fff, 0 3px 6px rgba(0, 0, 0, 0.15)">阴影标题效果的演示。</p>
+            </div>
+            <div class="section text bgcollor">
+                <h2>中文测试</h2>
+                <p>
+                    这是一个测试段落 包含<strong>粗体</strong>, <em>斜体</em>,
+                    <span style="color: #ef4444">彩色</span> 和下划线样式。它还测试了长文本换行和中文渲染效果。
                 </p>
+                <p style="text-shadow: 0 1px 0 #fff, 0 3px 6px rgba(0, 0, 0, 0.15)">阴影标题效果的演示。</p>
             </div>
             <div
                 divisionDisable
@@ -268,7 +303,7 @@
             >
                 Image
             </div>
-            <div class="section text">
+            <div class="section text bg-radial-gradient">
                 <p>
                     This is a test paragraph containing <strong>bold</strong>, <em>italic</em>,
                     <span style="color: #ef4444">colored</span> and underlined styles. It also tests long text wrapping
@@ -309,6 +344,17 @@
                         </tr>
                     </tbody>
                 </table>
+            </div>
+
+            <div class="section bgimg-repeat">
+                <h2>Code Block</h2>
+                <pre class="code"><code>function sum(a, b) {
+               return a + b
+              }
+
+            const data = [12, 8, 14, 10]
+            const avg = data.reduce((s, x) => s + x, 0) / data.length
+            console.log('Average:', avg)</code></pre>
             </div>
 
             <div class="section">
@@ -534,7 +580,10 @@
         </div>
 
         <script type="text/javascript" src="../dist/dompdf.js"></script>
-        <script type="text/javascript" src="./SourceHanSansSC-Normal-Min-normal.js"></script>
+        <script type="text/javascript" src="./SourceHanSansCNRegularItalic-normal.js"></script>
+        <script type="text/javascript" src="./SourceHanSansCNBold-bold.js"></script>
+        <script type="text/javascript" src="./SourceHanSansCNNormal-normal.js"></script>
+        <script type="text/javascript" src="./SourceHanSansCNBoldItalic-normal.js"></script>
 
         <!-- <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script> -->
         <script type="text/javascript">
@@ -578,14 +627,61 @@
                         backgroundColor: '#ffffff',
                         pagination: true,
                         useCORS: true,
-                        // pageConfig: {}    
-                        fontConfig: {
-                            fontFamily: 'SourceHanSansSC-Normal-Min',
-                            fontBase64: window.fontBase64,
-                            fontUrl: '',
-                            fontWeight: 400,
-                            fontStyle: 'normal'
-                        },
+                        // fontConfig: {
+                        //     fontFamily: 'SourceHanSansCNBoldItalic',
+                        //     fontBase64: window.SourceHanSansCNBoldItalic,
+                        //     fontUrl: '',
+                        //     fontWeight: 700,
+                        //     fontStyle: 'italic'
+                        // },
+                        fontConfig: [
+                            {
+                                fontFamily: 'SourceHanSansCNBoldItalic',
+                                fontBase64: window.SourceHanSansCNBoldItalic,
+                                fontUrl: '',
+                                fontWeight: 700,
+                                fontStyle: 'italic'
+                            },
+                            {
+                                fontFamily: 'SourceHanSansCNRegularItalic',
+                                fontBase64: window.SourceHanSansCNRegularItalic,
+                                fontUrl: '',
+                                fontWeight: 400,
+                                fontStyle: 'italic'
+                            },
+                            {
+                                fontFamily: 'SourceHanSansCNBold',
+                                fontBase64: window.SourceHanSansCNBold,
+                                fontUrl: '',
+                                fontWeight: 700,
+                                fontStyle: 'normal'
+                            },
+                            {
+                                fontFamily: 'SourceHanSansCNNormal',
+                                fontBase64: window.SourceHanSansCNNormal,
+                                fontUrl: '',
+                                fontWeight: 400,
+                                fontStyle: 'normal'
+                            },
+                        ],
+                        pageConfig: {
+                            header: {
+                                content: '',
+                                height: 0,
+                                contentColor: '#333333',
+                                contentFontSize: 0,
+                                contentPosition: 'center',
+                                padding: [0, 0, 0, 0]
+                            },
+                            footer: {
+                                content: '',
+                                height: 0,
+                                contentColor: '#333333',
+                                contentFontSize: 0,
+                                contentPosition: 'center',
+                                padding: [0, 0, 0, 0]
+                            }
+                        }
                     }).then(function (blob) {
                         // lastCanvas = canvas
                         // canvas.style.marginTop = '16px'

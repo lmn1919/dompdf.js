@@ -1,4 +1,4 @@
-import nodeResolve from '@rollup/plugin-node-resolve';
+import {nodeResolve} from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import sourceMaps from 'rollup-plugin-sourcemaps';
 import typescript from '@rollup/plugin-typescript';
@@ -12,7 +12,6 @@ const banner = `/*
  * Copyright (c) ${new Date().getFullYear()} ${pkg.author.name} <${pkg.author.url}>
  * Released under ${pkg.license} License
  */`;
-
 export default {
     input: `tests/testrunner.ts`,
     output: [
@@ -21,7 +20,7 @@ export default {
             name: 'testrunner',
             format: 'iife',
             banner,
-            sourcemap: true
+            sourcemap: true,
         }
     ],
     external: [],
@@ -32,7 +31,9 @@ export default {
         // Allow node_modules resolution, so you can use 'external' to control
         // which external modules to include in the bundle
         // https://github.com/rollup/rollup-plugin-node-resolve#usage
-        nodeResolve(),
+        nodeResolve({
+            exportConditions: ['browser', 'module', 'import', 'default']
+        }),
         // Allow json resolution
         json(),
         // Compile TypeScript files
