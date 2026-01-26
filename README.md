@@ -135,7 +135,7 @@ dompdf(document.querySelector("#capture"), {
 | ------------------ | ---- | ------------- | ------------------- | -------------------------------------------------------------- |
 | `useCORS`          | 否   | `false`       | `boolean`           | 允许跨域资源（需服务端 CORS 配置）                             |
 | `backgroundColor`  | 否   | 自动解析/白色 | `string \| null`    | 覆盖页面背景色；传 `null` 生成透明背景                         |
-| `fontConfig`       | 否   | -             | `object`            | 非英文字体配置，见下表                                         |
+| `fontConfig`       | 否   | -             | `object \| Array`            | 非英文字体配置，见下表                                         |
 | `encryption`       | 否   | 空配置        | `object`            | PDF 加密配置，属性`userPassword` 用于给定权限列表下用户的密码；属性`ownerPassword` 需要设置userPassword和ownerPassword以进行正确的身份验证；属性`userPermissions` 用于指定用户权限，可选值为 `['print', 'modify', 'copy', 'annot-forms']` |
 | `precision`        | 否   | `16`          | `number`            | 元素位置的精度                                                           |
 | `compress`         | 否   | `false`       | `boolean`           | 是否压缩PDF                                                       |
@@ -171,21 +171,55 @@ dompdf(document.querySelector("#capture"), {
 | ------------ | ---------------------- | ------ | -------- | ---------------------------------- |
 | `fontFamily` | 是（启用自定义字体时） | `''`   | `string` | 字体家族名（与注入的 `.ttf` 同名） |
 | `fontBase64` | 是（启用自定义字体时） | `''`   | `string` | `.ttf` 的 Base64 字符串内容        |
+| `fontStyle` | 是（启用自定义字体时） | `''`   | `string` | `normal \| italic`       |
+| `fontWeight` | 是（启用自定义字体时字体加粗） | `''`   | `number` | `400 \| 700`        |
 
 #### 乱码问题-字体导入支持
 
-由于 jspdf 只支持英文，所以其他语言会出现乱码的问题，需要导入对应的字体文件来解决，如果需要自定义字体，在[这里](https://rawgit.com/MrRio/jsPDF/master/fontconverter/fontconverter.html)将字体 tff 文件转化成 base64 格式的 js 文件，中文字体推荐使用[思源黑体](https://github.com/lmn1919/dompdf.js/blob/main/examples/SourceHanSansSC-Normal-Min-normal.js),体积较小。
+由于 jspdf 只支持英文，所以其他语言会出现乱码的问题，需要导入对应的字体文件来解决，如果需要自定义字体，在[这里](https://github.com/lmn1919/dompdf.js/tree/main/fontconverter)将字体 tff 文件转化成 base64 格式的 js 文件，中文字体推荐使用[思源黑体](https://github.com/lmn1919/dompdf.js/blob/main/examples/SourceHanSansSC-Normal-Min-normal.js),体积较小。
 在代码中引入该文件即可。
 
+> **注意：导入字体会导致最终的pdf体积增大，如果对最终pdf体积有要求的，建议精简字体，可以剔除不需要的字体。或者使用`Fontmin‌`等工具对字体进行瘦身**
 ```js
 <script type="text/javascript" src="./SourceHanSansSC-Normal-Min-normal.js"></script>
+<script type="text/javascript" src="./SourceHanSansCNBold-bold.js"></script>
+<script type="text/javascript" src="./SourceHanSansCNNormal-normal.js"></script>
+<script type="text/javascript" src="./SourceHanSansCNRegularItalic-normal.js"></script>
 <script>
+  /* 导入字体 */
   dompdf(document.querySelector('#capture'), {
     useCORS: true,
-    fontConfig: {
+    /* 单个字体导入 */
+    /* fontConfig: {
       fontFamily: 'SourceHanSansSC-Normal-Min',
-      fontBase64: window.fontBase64
-    }
+      fontBase64: window.fontBase64,
+      fontStyle: 'normal',
+      fontWeight: 400,
+    }, */
+    /* 导入注册多种字体，需要支持什么语种，样式，就导入对应的字体 */
+    fontConfig: [
+        {
+            fontFamily: 'SourceHanSansCNRegularItalic',
+            fontBase64: window.SourceHanSansCNRegularItalic,
+            fontUrl: '',
+            fontWeight: 400,
+            fontStyle: 'italic' // 斜体
+        },
+        {
+            fontFamily: 'SourceHanSansCNBold',
+            fontBase64: window.SourceHanSansCNBold,
+            fontUrl: '',
+            fontWeight: 700, // 加粗
+            fontStyle: 'normal'
+        },
+        {
+            fontFamily: 'SourceHanSansCNNormal',
+            fontBase64: window.SourceHanSansCNNormal,
+            fontUrl: '',
+            fontWeight: 400,
+            fontStyle: 'normal'
+        },
+    ],
   })
     .then(function (blob) {
       const url = URL.createObjectURL(blob);

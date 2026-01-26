@@ -47,18 +47,11 @@ import {Path, transformPath} from '../path';
 import {Renderer} from '../renderer';
 import {ElementPaint, parseStackingContexts, StackingContext} from '../stacking-context';
 import {Vector} from '../vector';
-import {getBackgroundRepeat, getImageTypeByPath, isArray, isEmptyValue, isObject} from '../../utils';
-
-interface FontConfig {
-    fontFamily: string;
-    fontBase64: string;
-    fontStyle: string;
-    fontWeight: 400 | 700;
-}
+import {getBackgroundRepeat, getImageTypeByPath, isArray, isEmptyValue, isObject, FontConfig} from '../../utils';
 
 export type RenderConfigurations = RenderOptions & {
     backgroundColor: Color | null;
-    fontConfig: FontConfig | FontConfig[];
+    fontConfig: FontConfig | FontConfig[] | undefined;
 };
 
 export type pageConfigOptions = {
@@ -1111,7 +1104,7 @@ export class CanvasRenderer extends Renderer {
 
         this.jspdfCtx.restoreGraphicsState();
     }
-    async addPage(offsetY: number) {
+    async addPage(offsetY: number): Promise<void> {
         this.context2dCtx.translate(0, -offsetY);
         this.jspdfCtx.addPage();
     }
