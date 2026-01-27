@@ -9,7 +9,7 @@ export interface FontConfig {
 // check fontConfig object structure and types
 export function validateFontConfig(fontConfig: FontConfig | FontConfig[] | undefined): boolean {
     if (fontConfig === undefined) {
-        return true;
+        return false;
     }
 
     const configList: FontConfig[] = isArray(fontConfig) ? fontConfig : [fontConfig as FontConfig];
