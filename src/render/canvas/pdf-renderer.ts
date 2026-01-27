@@ -239,7 +239,7 @@ export class CanvasRenderer extends Renderer {
             this.jspdfCtx.setFont((this.options.fontConfig as FontConfig).fontFamily);
         } else if (isArray(this.options.fontConfig) && !isEmptyValue(this.options.fontConfig)) {
             (this.options.fontConfig as FontConfig[]).forEach((v) => {
-                this.jspdfCtx.setFont(v.fontFamily);
+                v.fontFamily && this.jspdfCtx.setFont(v.fontFamily);
             });
         }
     }
@@ -251,14 +251,14 @@ export class CanvasRenderer extends Renderer {
         }
         if ((this.options.fontConfig as FontConfig[]).length === 1) {
             const fontFamilyCustom = (this.options.fontConfig as FontConfig[])[0].fontFamily ?? '';
-            this.jspdfCtx.setFont(fontFamilyCustom);
+            fontFamilyCustom && this.jspdfCtx.setFont(fontFamilyCustom);
             return fontFamilyCustom;
         }
         const fontFamilyCustom =
             (this.options.fontConfig as FontConfig[]).find(
                 (v) => v.fontWeight === styles.fontWeight && v.fontStyle === styles.fontStyle
             )?.fontFamily ?? '';
-        this.jspdfCtx.setFont(fontFamilyCustom);
+        fontFamilyCustom && this.jspdfCtx.setFont(fontFamilyCustom);
         return fontFamilyCustom;
     }
 
@@ -479,8 +479,8 @@ export class CanvasRenderer extends Renderer {
         const y = this.pxToPt(bounds.top - this.options.y);
         const width = this.pxToPt(bounds.width);
         const height = this.pxToPt(bounds.height);
-        const dataURL = container.canvas.toDataURL('image/jpeg', 0.8);
-        this.addImagePdf(dataURL, 'JPEG', x, y, width, height);
+        const dataURL = container.canvas.toDataURL('image/png', 0.8);
+        this.addImagePdf(dataURL, 'PNG', x, y, width, height);
     }
 
     async renderNodeContent(paint: ElementPaint): Promise<void> {
