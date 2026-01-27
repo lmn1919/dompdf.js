@@ -1,14 +1,13 @@
+import {Context2d, EncryptionOptions, jsPDF} from 'jspdf';
 import 'jspdf/dist/polyfills.es.js';
-import {jsPDF, EncryptionOptions, Context2d} from 'jspdf';
-import {BACKGROUND_REPEAT} from '../../css/property-descriptors/background-repeat';
 import {contains} from '../../core/bitwise';
 import {Context} from '../../core/context';
 import {CSSParsedDeclaration} from '../../css';
 import {Bounds} from '../../css/layout/bounds';
 import {segmentGraphemes, TextBounds} from '../../css/layout/text';
 import {BACKGROUND_CLIP} from '../../css/property-descriptors/background-clip';
+import {BACKGROUND_REPEAT} from '../../css/property-descriptors/background-repeat';
 import {BORDER_STYLE} from '../../css/property-descriptors/border-style';
-import {calculateGradientDirection, calculateRadius, processColorStops} from '../../css/types/functions/gradient';
 import {DISPLAY} from '../../css/property-descriptors/display';
 import {computeLineHeight} from '../../css/property-descriptors/line-height';
 import {LIST_STYLE_TYPE} from '../../css/property-descriptors/list-style-type';
@@ -17,6 +16,7 @@ import {TEXT_ALIGN} from '../../css/property-descriptors/text-align';
 import {TEXT_DECORATION_LINE} from '../../css/property-descriptors/text-decoration-line';
 import {isDimensionToken} from '../../css/syntax/parser';
 import {asString, Color, isTransparent} from '../../css/types/color';
+import {calculateGradientDirection, calculateRadius, processColorStops} from '../../css/types/functions/gradient';
 import {CSSImageType, CSSURLImage, isLinearGradient, isRadialGradient} from '../../css/types/image';
 import {FIFTY_PERCENT, getAbsoluteValue} from '../../css/types/length-percentage';
 import {ElementContainer, FLAGS} from '../../dom/element-container';
@@ -43,22 +43,15 @@ import {contentBox} from '../box-sizing';
 import {EffectTarget, IElementEffect, isClipEffect, isOpacityEffect, isTransformEffect} from '../effects';
 import {FontMetrics} from '../font-metrics';
 // transformPath
+import {FontConfig, getBackgroundRepeat, getImageTypeByPath, isArray, isEmptyValue, isObject} from '../../utils';
 import {Path, transformPath} from '../path';
 import {Renderer} from '../renderer';
 import {ElementPaint, parseStackingContexts, StackingContext} from '../stacking-context';
 import {Vector} from '../vector';
-import {getBackgroundRepeat, getImageTypeByPath, isArray, isEmptyValue, isObject} from '../../utils';
-
-interface FontConfig {
-    fontFamily: string;
-    fontBase64: string;
-    fontStyle: string;
-    fontWeight: 400 | 700;
-}
 
 export type RenderConfigurations = RenderOptions & {
     backgroundColor: Color | null;
-    fontConfig: FontConfig | FontConfig[];
+    fontConfig: FontConfig | FontConfig[] | undefined;
 };
 
 export type pageConfigOptions = {
@@ -246,7 +239,7 @@ export class CanvasRenderer extends Renderer {
             this.jspdfCtx.setFont((this.options.fontConfig as FontConfig).fontFamily);
         } else if (isArray(this.options.fontConfig) && !isEmptyValue(this.options.fontConfig)) {
             (this.options.fontConfig as FontConfig[]).forEach((v) => {
-                this.jspdfCtx.setFont(v.fontFamily);
+                v.fontFamily && this.jspdfCtx.setFont(v.fontFamily);
             });
         }
     }
@@ -258,14 +251,14 @@ export class CanvasRenderer extends Renderer {
         }
         if ((this.options.fontConfig as FontConfig[]).length === 1) {
             const fontFamilyCustom = (this.options.fontConfig as FontConfig[])[0].fontFamily ?? '';
-            this.jspdfCtx.setFont(fontFamilyCustom);
+            fontFamilyCustom && this.jspdfCtx.setFont(fontFamilyCustom);
             return fontFamilyCustom;
         }
         const fontFamilyCustom =
             (this.options.fontConfig as FontConfig[]).find(
                 (v) => v.fontWeight === styles.fontWeight && v.fontStyle === styles.fontStyle
             )?.fontFamily ?? '';
-        this.jspdfCtx.setFont(fontFamilyCustom);
+        fontFamilyCustom && this.jspdfCtx.setFont(fontFamilyCustom);
         return fontFamilyCustom;
     }
 
@@ -486,8 +479,8 @@ export class CanvasRenderer extends Renderer {
         const y = this.pxToPt(bounds.top - this.options.y);
         const width = this.pxToPt(bounds.width);
         const height = this.pxToPt(bounds.height);
-        const dataURL = container.canvas.toDataURL('image/jpeg', 0.8);
-        this.addImagePdf(dataURL, 'JPEG', x, y, width, height);
+        const dataURL = container.canvas.toDataURL('image/png', 0.8);
+        this.addImagePdf(dataURL, 'PNG', x, y, width, height);
     }
 
     async renderNodeContent(paint: ElementPaint): Promise<void> {
@@ -769,46 +762,45 @@ export class CanvasRenderer extends Renderer {
                 const url = (backgroundImage as CSSURLImage).url;
                 try {
                     image = await this.context.cache.match(url);
+                    if (image) {
+                        const [path, x, y, width, height] = calculateBackgroundRendering(container, index, [
+                            image.width,
+                            image.height,
+                            image.width / image.height
+                        ]);
+                        const boxs = contentBox(container);
+                        const ownerDocument = this.canvas.ownerDocument ?? document;
+                        const canvas = ownerDocument.createElement('canvas');
+                        canvas.width = Math.max(1, boxs.width);
+                        canvas.height = Math.max(1, boxs.height);
+                        const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
+                        ctx.save();
+                        const repeatStr = getBackgroundRepeat(container.styles.backgroundRepeat[0]);
+                        if (container.styles.backgroundRepeat[0] === BACKGROUND_REPEAT.NO_REPEAT) {
+                            const xPt = this.pxToPt(x - this.options.x);
+                            const yPt = this.pxToPt(y - this.options.y);
+                            const widthPt = this.pxToPt(width);
+                            const heightPt = this.pxToPt(height);
+                            this.addImagePdf(image, 'JPEG', xPt, yPt, widthPt, heightPt);
+                        } else {
+                            const resizeImg = this.resizeImage(image, width, height);
+                            const pattern = ctx.createPattern(resizeImg, repeatStr) as CanvasPattern;
+                            // this.renderRepeat(boxs, ctx, path, pattern, x, y);
+                            // need transformPath
+                            const pathTs = transformPath(path, -x, -y, 0, 0);
+                            this.renderRepeat(boxs, ctx, pathTs, pattern);
+                            const dataURL = canvas.toDataURL('image/jpeg', 0.8);
+                            // console.log(dataURL, 'dataURL', image)
+                            ctx.restore();
+                            const xPt = this.pxToPt(boxs.left - this.options.x);
+                            const yPt = this.pxToPt(boxs.top - this.options.y);
+                            const widthPt = this.pxToPt(boxs.width);
+                            const heightPt = this.pxToPt(boxs.height);
+                            this.addImagePdf(dataURL, 'JPEG', xPt, yPt, widthPt, heightPt);
+                        }
+                    }
                 } catch (e) {
                     this.context.logger.error(`Error loading background-image ${url}`);
-                }
-
-                if (image) {
-                    const [path, x, y, width, height] = calculateBackgroundRendering(container, index, [
-                        image.width,
-                        image.height,
-                        image.width / image.height
-                    ]);
-                    const boxs = contentBox(container);
-                    const ownerDocument = this.canvas.ownerDocument ?? document;
-                    const canvas = ownerDocument.createElement('canvas');
-                    canvas.width = Math.max(1, boxs.width);
-                    canvas.height = Math.max(1, boxs.height);
-                    const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
-                    ctx.save();
-                    const repeatStr = getBackgroundRepeat(container.styles.backgroundRepeat[0]);
-                    if (container.styles.backgroundRepeat[0] === BACKGROUND_REPEAT.NO_REPEAT) {
-                        const xPt = this.pxToPt(x - this.options.x);
-                        const yPt = this.pxToPt(y - this.options.y);
-                        const widthPt = this.pxToPt(width);
-                        const heightPt = this.pxToPt(height);
-                        this.addImagePdf(image, 'JPEG', xPt, yPt, widthPt, heightPt);
-                    } else {
-                        const resizeImg = this.resizeImage(image, width, height);
-                        const pattern = ctx.createPattern(resizeImg, repeatStr) as CanvasPattern;
-                        // this.renderRepeat(boxs, ctx, path, pattern, x, y);
-                        // need transformPath
-                        const pathTs = transformPath(path, -x, -y, 0, 0);
-                        this.renderRepeat(boxs, ctx, pathTs, pattern);
-                        const dataURL = canvas.toDataURL('image/jpeg', 0.8);
-                        // console.log(dataURL, 'dataURL', image)
-                        ctx.restore();
-                        const xPt = this.pxToPt(boxs.left - this.options.x);
-                        const yPt = this.pxToPt(boxs.top - this.options.y);
-                        const widthPt = this.pxToPt(boxs.width);
-                        const heightPt = this.pxToPt(boxs.height);
-                        this.addImagePdf(dataURL, 'JPEG', xPt, yPt, widthPt, heightPt);
-                    }
                 }
             } else if (isLinearGradient(backgroundImage)) {
                 const [path, x, y, width, height] = calculateBackgroundRendering(container, index, [null, null, null]);
@@ -1111,7 +1103,7 @@ export class CanvasRenderer extends Renderer {
 
         this.jspdfCtx.restoreGraphicsState();
     }
-    async addPage(offsetY: number) {
+    async addPage(offsetY: number): Promise<void> {
         this.context2dCtx.translate(0, -offsetY);
         this.jspdfCtx.addPage();
     }
@@ -1364,3 +1356,4 @@ const fixIOSSystemFonts = (fontFamilies: string[]): string[] => {
         ? fontFamilies.filter((fontFamily) => iOSBrokenFonts.indexOf(fontFamily) === -1)
         : fontFamilies;
 };
+
