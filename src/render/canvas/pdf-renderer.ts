@@ -762,46 +762,45 @@ export class CanvasRenderer extends Renderer {
                 const url = (backgroundImage as CSSURLImage).url;
                 try {
                     image = await this.context.cache.match(url);
+                    if (image) {
+                        const [path, x, y, width, height] = calculateBackgroundRendering(container, index, [
+                            image.width,
+                            image.height,
+                            image.width / image.height
+                        ]);
+                        const boxs = contentBox(container);
+                        const ownerDocument = this.canvas.ownerDocument ?? document;
+                        const canvas = ownerDocument.createElement('canvas');
+                        canvas.width = Math.max(1, boxs.width);
+                        canvas.height = Math.max(1, boxs.height);
+                        const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
+                        ctx.save();
+                        const repeatStr = getBackgroundRepeat(container.styles.backgroundRepeat[0]);
+                        if (container.styles.backgroundRepeat[0] === BACKGROUND_REPEAT.NO_REPEAT) {
+                            const xPt = this.pxToPt(x - this.options.x);
+                            const yPt = this.pxToPt(y - this.options.y);
+                            const widthPt = this.pxToPt(width);
+                            const heightPt = this.pxToPt(height);
+                            this.addImagePdf(image, 'JPEG', xPt, yPt, widthPt, heightPt);
+                        } else {
+                            const resizeImg = this.resizeImage(image, width, height);
+                            const pattern = ctx.createPattern(resizeImg, repeatStr) as CanvasPattern;
+                            // this.renderRepeat(boxs, ctx, path, pattern, x, y);
+                            // need transformPath
+                            const pathTs = transformPath(path, -x, -y, 0, 0);
+                            this.renderRepeat(boxs, ctx, pathTs, pattern);
+                            const dataURL = canvas.toDataURL('image/jpeg', 0.8);
+                            // console.log(dataURL, 'dataURL', image)
+                            ctx.restore();
+                            const xPt = this.pxToPt(boxs.left - this.options.x);
+                            const yPt = this.pxToPt(boxs.top - this.options.y);
+                            const widthPt = this.pxToPt(boxs.width);
+                            const heightPt = this.pxToPt(boxs.height);
+                            this.addImagePdf(dataURL, 'JPEG', xPt, yPt, widthPt, heightPt);
+                        }
+                    }
                 } catch (e) {
                     this.context.logger.error(`Error loading background-image ${url}`);
-                }
-
-                if (image) {
-                    const [path, x, y, width, height] = calculateBackgroundRendering(container, index, [
-                        image.width,
-                        image.height,
-                        image.width / image.height
-                    ]);
-                    const boxs = contentBox(container);
-                    const ownerDocument = this.canvas.ownerDocument ?? document;
-                    const canvas = ownerDocument.createElement('canvas');
-                    canvas.width = Math.max(1, boxs.width);
-                    canvas.height = Math.max(1, boxs.height);
-                    const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
-                    ctx.save();
-                    const repeatStr = getBackgroundRepeat(container.styles.backgroundRepeat[0]);
-                    if (container.styles.backgroundRepeat[0] === BACKGROUND_REPEAT.NO_REPEAT) {
-                        const xPt = this.pxToPt(x - this.options.x);
-                        const yPt = this.pxToPt(y - this.options.y);
-                        const widthPt = this.pxToPt(width);
-                        const heightPt = this.pxToPt(height);
-                        this.addImagePdf(image, 'JPEG', xPt, yPt, widthPt, heightPt);
-                    } else {
-                        const resizeImg = this.resizeImage(image, width, height);
-                        const pattern = ctx.createPattern(resizeImg, repeatStr) as CanvasPattern;
-                        // this.renderRepeat(boxs, ctx, path, pattern, x, y);
-                        // need transformPath
-                        const pathTs = transformPath(path, -x, -y, 0, 0);
-                        this.renderRepeat(boxs, ctx, pathTs, pattern);
-                        const dataURL = canvas.toDataURL('image/jpeg', 0.8);
-                        // console.log(dataURL, 'dataURL', image)
-                        ctx.restore();
-                        const xPt = this.pxToPt(boxs.left - this.options.x);
-                        const yPt = this.pxToPt(boxs.top - this.options.y);
-                        const widthPt = this.pxToPt(boxs.width);
-                        const heightPt = this.pxToPt(boxs.height);
-                        this.addImagePdf(dataURL, 'JPEG', xPt, yPt, widthPt, heightPt);
-                    }
                 }
             } else if (isLinearGradient(backgroundImage)) {
                 const [path, x, y, width, height] = calculateBackgroundRendering(container, index, [null, null, null]);
