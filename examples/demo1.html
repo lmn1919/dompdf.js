@@ -749,7 +749,7 @@
                                 padding: [0, 0, 0, 0]
                             }
                         },
-                        onJsdfReady(jspdf) {
+                        onJspdfReady(jspdf) {
                             // 设置 pdf 基本信息
                             jspdf.setDocumentProperties({
                                 title: 'dompdf.pdf',
@@ -760,7 +760,7 @@
                             });
                             console.log(jspdf, 'jspdf');
                         },
-                        onJsdfFinish(jspdf) {
+                        onJspdfFinish(jspdf) {
                             // ========== 添加文字水印 ==========
                             // 获取PDF总页数
                             const pageCount = jspdf.getNumberOfPages();

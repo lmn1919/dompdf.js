@@ -143,8 +143,8 @@ dompdf(document.querySelector("#capture"), {
 | `pagination`       | 否   | `false`       | `boolean`           | 开启分页渲染                                                   |
 | `format`           | 否   | `'a4'`        | `string`            | 页面规格，支持 `a0–a10`、`b0–b10`、`c0–c10`、`letter` 等 |
 | `pageConfig`       | 否   | 见下表        | `object`            | 页眉页脚配置                                                   |
-| `onJsdfReady`      | 否   | ``                                                      | `Function(jspdf: jsPDF)`                     | jspdf实例初始化
-| `onJsdfFinish`      | 否   | ``                                                      | `Function(jspdf: jsPDF)`                     | jspdf实例绘制pdf完成
+| `onJspdfReady`      | 否   | ``                                                      | `Function(jspdf: jsPDF)`                     | jspdf实例初始化
+| `onJspdfFinish`      | 否   | ``                                                      | `Function(jspdf: jsPDF)`                     | jspdf实例绘制pdf完成
 
 ##### `pageConfig`字段：
 

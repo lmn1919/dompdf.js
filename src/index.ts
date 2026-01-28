@@ -21,8 +21,8 @@ export type Options = CloneOptions &
         divisionDisable?: boolean; // 禁用分割
         removeContainer?: boolean;
         fontConfig?: FontConfig | FontConfig[] | undefined;
-        onJsdfReady?: (jspdfCtx: jsPDF) => void;
-        onJsdfFinish?: (jspdfCtx: jsPDF) => void;
+        onJspdfReady?: (jspdfCtx: jsPDF) => void;
+        onJspdfFinish?: (jspdfCtx: jsPDF) => void;
     };
 
 const dompdf = (element: HTMLElement, options: Partial<Options> = {}): Promise<HTMLCanvasElement> => {
@@ -227,8 +227,8 @@ const renderElement = async (element: HTMLElement, opts: Partial<Options>): Prom
         // , pageRoots, paginationState
         renderOptions.y = 0;
         const renderer = new CanvasRenderer(context, renderOptions);
-        if (isFunction(opts.onJsdfReady)) {
-            opts.onJsdfReady(renderer.jspdfCtx);
+        if (isFunction(opts.onJspdfReady)) {
+            opts.onJspdfReady(renderer.jspdfCtx);
         }
         renderer.setTotalPages(pageRoots.length);
         if (pageRoots.length > 0) {
@@ -238,8 +238,8 @@ const renderElement = async (element: HTMLElement, opts: Partial<Options>): Prom
                 await renderer.renderPage(pageRoots[i], i + 1);
             }
         }
-        if (isFunction(opts.onJsdfFinish)) {
-            opts.onJsdfFinish(renderer.jspdfCtx);
+        if (isFunction(opts.onJspdfFinish)) {
+            opts.onJspdfFinish(renderer.jspdfCtx);
         }
         canvas = await renderer.output();
     }
