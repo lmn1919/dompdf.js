@@ -3,8 +3,8 @@ import json from '@rollup/plugin-json';
 import resolve from '@rollup/plugin-node-resolve';
 import typescript from '@rollup/plugin-typescript';
 import sourceMaps from 'rollup-plugin-sourcemaps';
-const serve = require('rollup-plugin-serve')
-const livereload = require('rollup-plugin-livereload')
+// const serve = require('rollup-plugin-serve')
+// const livereload = require('rollup-plugin-livereload')
 
 const pkg = require('./package.json');
 
@@ -48,7 +48,7 @@ export default {
         //     contentBase: './build'
         //   }),
 
-          livereload(),
+        //   livereload(),
 
         // Resolve source maps to the original source
         sourceMaps(),
