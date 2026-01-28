@@ -41,7 +41,7 @@
             #capture-area {
                 margin-top: 16px;
                 background: #fff;
-                border-radius: 12px;
+                /* border-radius: 12px; */
                 padding: 24px;
             }
             .section {
@@ -748,6 +748,59 @@
                                 contentPosition: 'center',
                                 padding: [0, 0, 0, 0]
                             }
+                        },
+                        onJspdfReady(jspdf) {
+                            // 设置 pdf 基本信息
+                            jspdf.setDocumentProperties({
+                                title: 'dompdf.pdf',
+                                subject: 'dompdf',
+                                author: 'dompdf',
+                                creator: 'dompdf',
+                                keywords: 'dompdf.js'
+                            });
+                            console.log(jspdf, 'jspdf');
+                        },
+                        onJspdfFinish(jspdf) {
+                            // ========== 添加文字水印 ==========
+                            // 获取PDF总页数
+                            const pageCount = jspdf.getNumberOfPages();
+                            // 水印配置（关键：用RGBA设置透明度）
+                            const watermarkConfig = {
+                                text: '水印', // 水印文字
+                                fontSize: 12, // 字号
+                                angle: 40, // 旋转角度（斜角水印）
+                                rgbaColor: '#00000033', // 黑色+0.2透明度（核心）
+                                spacing: 100 // 水印间距（控制密度）
+                            };
+
+                            // 遍历所有页面添加水印
+                            for (let i = 1; i <= pageCount; i++) {
+                                // 切换到当前页
+                                jspdf.setPage(i);
+
+                                // A4页面尺寸
+                                const pageWidth = jspdf.internal.pageSize.width;
+                                const pageHeight = jspdf.internal.pageSize.height;
+
+                                // 循环绘制水印，铺满整个页面
+                                for (let x = 0; x < pageWidth; x += watermarkConfig.spacing) {
+                                    for (let y = 0; y < pageHeight; y += watermarkConfig.spacing) {
+                                        // 关键：设置带透明度的文本颜色（替代setTextOpacity）
+                                        jspdf.setTextColor(0,0,0,0.2);
+                                        jspdf.setFontSize(watermarkConfig.fontSize);
+
+                                        // 绘制旋转的水印文字（4.0.0支持的写法）
+                                        jspdf.text(
+                                            watermarkConfig.text,
+                                            x + 20, // 偏移量，避免水印贴边
+                                            y + 20,
+                                            {angle: watermarkConfig.angle}
+                                        );
+                                    }
+                                }
+                            }
+                            // 保存PDF
+                            console.log(jspdf, 'jspdf');
                         }
                     }).then(function (blob) {
                         // lastCanvas = canvas

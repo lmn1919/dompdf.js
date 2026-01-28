@@ -151,12 +151,18 @@ export interface RenderOptions {
         | 'credit-card';
     pageConfig?: pageConfigOptions;
 }
+
+export class JsPdfContext2d {}
+export interface JsPdfContext2d extends Context2d {
+    getLineDash(): number[];
+    setLineDash(segments: number[]): void;
+}
+
 export class CanvasRenderer extends Renderer {
     canvas: HTMLCanvasElement;
     // ctx: CanvasRenderingContext2D;
     readonly jspdfCtx: jsPDF;
-    // readonly context2dCtx: CanvasRenderingContext2D;
-    readonly context2dCtx: Context2d;
+    readonly context2dCtx: JsPdfContext2d;
     private readonly _activeEffects: IElementEffect[] = [];
     private readonly fontMetrics: FontMetrics;
     private readonly pxToPt: (px: number) => number;
@@ -182,7 +188,7 @@ export class CanvasRenderer extends Renderer {
             floatPrecision: options.floatPrecision,
             encryption: options.encryption
         });
-        this.context2dCtx = this.jspdfCtx.context2d;
+        this.context2dCtx = this.jspdfCtx.context2d as JsPdfContext2d;
         this.context2dCtx.scale(0.75, 0.75);
 
         this.context2dCtx.translate(-options.x, -options.y);
@@ -976,7 +982,6 @@ export class CanvasRenderer extends Renderer {
             side++;
         }
     }
-
     async renderDashedDottedBorder(
         color: Color,
         width: number,
@@ -984,11 +989,6 @@ export class CanvasRenderer extends Renderer {
         curvePoints: BoundCurves,
         style: BORDER_STYLE
     ): Promise<void> {
-        /**
-         * fix: Fixed an error when calling this.jspdfCtx.restoreGraphicsState() when the internal graphics state stack of jsPDF is empty
-         * Save the jsPDF graphics state first
-         */
-        this.jspdfCtx.saveGraphicsState();
         this.context2dCtx.save();
 
         const strokePaths = parsePathForBorderStroke(curvePoints, side);
@@ -1023,8 +1023,6 @@ export class CanvasRenderer extends Renderer {
         }
 
         this.context2dCtx.beginPath();
-        this.jspdfCtx.setDrawColor(this.convertColor(color));
-
         if (style === BORDER_STYLE.DOTTED) {
             this.formatPath(strokePaths);
         } else {
@@ -1057,51 +1055,41 @@ export class CanvasRenderer extends Renderer {
 
         if (useLineDash) {
             if (style === BORDER_STYLE.DOTTED) {
-                this.jspdfCtx.setLineDashPattern([0, dashLength + spaceLength], 0);
+                this.context2dCtx.setLineDash([0, dashLength + spaceLength]);
             } else {
-                this.jspdfCtx.setLineDashPattern([dashLength, spaceLength], 0);
+                this.context2dCtx.setLineDash([dashLength, spaceLength]);
             }
         }
 
         if (style === BORDER_STYLE.DOTTED) {
-            this.jspdfCtx.setLineCap('round');
-            this.jspdfCtx.setLineWidth(width);
+            this.context2dCtx.lineCap = 'round';
+            this.context2dCtx.lineWidth = width;
         } else {
-            this.jspdfCtx.setLineWidth(width * 2 + 1.1);
+            this.context2dCtx.lineWidth = width * 2 + 1.1;
         }
-        this.jspdfCtx.stroke();
-        this.jspdfCtx.setLineDashPattern([], 0);
+        this.context2dCtx.strokeStyle = asString(color);
+        this.context2dCtx.stroke();
+        this.context2dCtx.setLineDash([]);
 
+        // dashed round edge gap
         if (style === BORDER_STYLE.DASHED) {
             if (isBezierCurve(boxPaths[0])) {
                 const path1 = boxPaths[3] as BezierCurve;
                 const path2 = boxPaths[0] as BezierCurve;
-
-                const x1 = this.pxToPt(path1.end.x);
-                const y1 = this.pxToPt(path1.end.y);
-                const x2 = this.pxToPt(path2.start.x);
-                const y2 = this.pxToPt(path2.start.y);
-
-                try {
-                    this.jspdfCtx.line(x1, y1, x2, y2);
-                    this.jspdfCtx.stroke();
-                } catch (error) {
-                    console.warn('Failed to draw dashed border:', error);
-                }
+                this.context2dCtx.beginPath();
+                this.formatPath([new Vector(path1.end.x, path1.end.y), new Vector(path2.start.x, path2.start.y)]);
+                this.context2dCtx.stroke();
             }
             if (isBezierCurve(boxPaths[1])) {
                 const path1 = boxPaths[1] as BezierCurve;
                 const path2 = boxPaths[2] as BezierCurve;
-                this.jspdfCtx.lines(
-                    [[path1.end.x, path1.end.y, path2.start.x, path2.start.y]],
-                    path1.end.x,
-                    path1.end.y
-                );
-                this.jspdfCtx.stroke();
+                this.context2dCtx.beginPath();
+                this.formatPath([new Vector(path1.end.x, path1.end.y), new Vector(path2.start.x, path2.start.y)]);
+                this.context2dCtx.stroke();
             }
         }
 
-        this.jspdfCtx.restoreGraphicsState();
+        this.context2dCtx.restore();
     }
     async addPage(offsetY: number): Promise<void> {
         this.context2dCtx.translate(0, -offsetY);

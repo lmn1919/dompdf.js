@@ -5,7 +5,7 @@ import type {ElementContainer} from '../dom/element-container';
 import type {TextContainer} from '../dom/text-container';
 import {pageConfigOptions} from './canvas/pdf-renderer';
 
-const offSetPageObj: any = {};
+let offSetPageObj: Record<number | string, number> = {};
 let offSetTotal = 0;
 let activePageHeight = 1123;
 let pageMarginTop = 0;
@@ -59,7 +59,7 @@ const filterTextNodesForPage = (container: ElementContainer, pageStart: number, 
             const maxKey = Math.max(...Object.keys(offSetPageObj).map((k) => +k));
             const activePageOffset = offSetPageObj[maxKey] || 0;
             const top = tb.bounds.top + activePageOffset;
-            const bottom = tb.bounds.top + tb.bounds.height + activePageOffset;
+            let bottom = tb.bounds.top + tb.bounds.height + activePageOffset;
             const intersects = bottom > pageStart && top < pageEnd;
             const crossesToNextPage = bottom > pageEnd;
 
@@ -79,6 +79,8 @@ const filterTextNodesForPage = (container: ElementContainer, pageStart: number, 
                         }
                         offSetPageObj[pageIndex] = offSetTotal;
                     }
+                    // Fix the issue where no offset is added for the first text container
+                    bottom += offsetNum;
                 }
                 const visibleTop = Math.max(top, pageStart);
                 const visibleBottom = Math.min(bottom, pageEnd);
@@ -165,7 +167,7 @@ export const paginateNode = (
 ): ElementContainer[] => {
     if (initialOffset < 0) initialOffset = 0;
     offSetTotal = 0;
-    Object.keys(offSetPageObj).forEach((key) => delete offSetPageObj[key]);
+    offSetPageObj = {};
     const maxBottom = computeMaxBottom(root);
     pageMarginTop = pageConfig?.header?.height || 0;
     pageMarginBottom = pageConfig?.footer?.height || 0;

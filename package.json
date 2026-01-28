@@ -103,9 +103,9 @@
   },
   "scripts": {
     "prebuild": "rimraf dist/ && rimraf build/ && mkdirp dist && mkdirp build",
-    "build": "tsc --module commonjs && rollup -c rollup.config.ts && npm run build:create-reftest-list && npm run build:testrunner && npm run build:minify",
+    "build": "tsc --module commonjs && rollup -c rollup.config.ts && npm run build:minify",
     "build:testrunner": "rollup -c tests/rollup.config.ts",
-    "build:minify": "uglifyjs --compress --comments /^!/ -o dist/html2canvas.min.js --mangle -- dist/html2canvas.js",
+    "build:minify": "uglifyjs --compress --comments /^!/ -o dist/dompdf.min.js --mangle -- dist/dompdf.js",
     "build:reftest-result-list": "ts-node scripts/create-reftest-result-list.ts",
     "build:create-reftest-list": "ts-node scripts/create-reftest-list.ts tests/reftests/ignore.txt build/reftests.ts",
     "build:reftest-preview": "webpack --config www/webpack.config.js",
