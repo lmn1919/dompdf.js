@@ -163,7 +163,8 @@ dompdf(document.querySelector("#capture"), {
 | `contentColor`    | `'#333333'`                                               | `string`                     | 文本颜色                                                                                              |
 | `contentFontSize` | `16`                                                      | `number`                     | 文本字号（px）                                                                                        |
 | `padding`         | `[0,24,0,24]`                                             | `[number, number, number, number]` | 上/右/下/左内边距（px）                                       |
-
+| `onJsdfReady` | ``                                                      | `Function(jspdf: jsPDF)`                     | jspdf实例初始化
+| `onJsdfFinish` | ``                                                      | `Function(jspdf: jsPDF)`                     | jspdf实例绘制pdf完成
 
 ##### 字体配置（`fontConfig`）字段：
 
