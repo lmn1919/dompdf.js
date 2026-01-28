@@ -9,15 +9,9 @@ import {ForeignObjectRenderer} from './render/canvas/foreignobject-renderer';
 import {CanvasRenderer, RenderConfigurations, RenderOptions} from './render/canvas/pdf-renderer';
 import {PAGE_FORMAT_MAP} from './render/page-format-map';
 import {paginateNode} from './render/paginate';
-import {isEmptyValue, isArray} from './utils';
+import {isEmptyValue, isArray, validateFontConfig, FontConfig} from './utils';
 // paginationState
 
-interface FontConfig {
-    fontFamily: string;
-    fontBase64: string;
-    fontStyle: string;
-    fontWeight: 400 | 700;
-}
 // import { Console } from 'console';
 export type Options = CloneOptions &
     WindowOptions &
@@ -27,7 +21,7 @@ export type Options = CloneOptions &
         foreignObjectRendering: boolean;
         divisionDisable?: boolean; // 禁用分割
         removeContainer?: boolean;
-        fontConfig?: FontConfig | FontConfig[];
+        fontConfig?: FontConfig | FontConfig[] | undefined;
     };
 
 const dompdf = (element: HTMLElement, options: Partial<Options> = {}): Promise<HTMLCanvasElement> => {
@@ -157,16 +151,11 @@ const renderElement = async (element: HTMLElement, opts: Partial<Options>): Prom
         y: (opts.y ?? 0) + top,
         width: opts.width ?? Math.ceil(width),
         height: opts.height ?? Math.ceil(height),
-        fontConfig: isEmptyValue(opts.fontConfig)
-            ? [{
-                  fontFamily: '',
-                  fontBase64: '',
-                  fontStyle: '',
-                  fontWeight: 400
-              }]
-            : isArray(opts.fontConfig)
-            ? opts.fontConfig  as FontConfig[]
-            : [opts.fontConfig as FontConfig],
+        fontConfig: validateFontConfig(opts.fontConfig)
+            ? isArray(opts.fontConfig)
+                ? opts.fontConfig
+                : [opts.fontConfig as FontConfig]
+            : undefined,
         encryption: isEmptyValue(opts.encryption) ? undefined : opts.encryption, // fix：jspdf encryption default value
         precision: opts.precision ?? 16,
         floatPrecision: opts.floatPrecision ?? 16,

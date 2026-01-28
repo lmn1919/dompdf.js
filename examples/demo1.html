@@ -2,7 +2,7 @@
 <html>
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-        <title>html2canvas Demo</title>
+        <title>dompdf Demo</title>
         <style>
             body {
                 font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, 'Noto Sans',
@@ -182,10 +182,12 @@
                 border-radius: 999px;
                 overflow: hidden;
                 margin: 6px 0;
+                position: relative;
             }
             .progress-bar {
                 height: 100%;
                 background: linear-gradient(90deg, #22c55e, #16a34a);
+                z-index: 1;
             }
             .pie {
                 width: 160px;
@@ -261,322 +263,387 @@
 
         <div
             id="capture-area"
-            style="width: 746px; background: #fff; margin: 0 auto; padding: 0 24px; margin-top: 120px"
+            style="
+                width: 746px;
+                background: #fff;
+                margin: 0 auto;
+                padding: 10px 24px;
+                margin-top: 120px;
+                background: #60a5fa;
+            "
         >
-            <div class="section text bg-linear-gradient">
-                <h2>Text Paragraph</h2>
-                <p>
-                    This is a test paragraph containing <strong>bold  <em>italic</em></strong>, <em>italic</em>,
-                    <span style="color: #ef4444">colored</span> and underlined styles. It also tests long text wrapping
-                    and Chinese rendering effects.
-                </p>
-                <p style="text-shadow: 0 1px 0 #fff, 0 3px 6px rgba(0, 0, 0, 0.15)">
-                    Demonstration of shadowed title effect.
-                </p>
-            </div>
-            <div class="section text bgimg">
-                <h2>中文测试</h2>
-                <p>
-                    这是一个测试段落 包含<strong>粗体</strong>, <em>斜体</em>,
-                    <span style="color: #ef4444">彩色</span> 和下划线样式。它还测试了长文本换行和中文渲染效果。
-                </p>
-                <p style="text-shadow: 0 1px 0 #fff, 0 3px 6px rgba(0, 0, 0, 0.15)">阴影标题效果的演示。</p>
-            </div>
-            <div class="section text bgcollor">
-                <h2>中文测试</h2>
-                <p>
-                    这是一个测试段落 包含<strong>粗体</strong>, <em>斜体</em>,
-                    <span style="color: #ef4444">彩色</span> 和下划线样式。它还测试了长文本换行和中文渲染效果。
-                </p>
-                <p style="text-shadow: 0 1px 0 #fff, 0 3px 6px rgba(0, 0, 0, 0.15)">阴影标题效果的演示。</p>
-            </div>
-            <div
-                divisionDisable
-                style="
-                    height: 300px;
-                    background: #f1f5f9;
-                    display: flex;
-                    align-items: flex-start;
-                    justify-content: center;
-                    margin-bottom: 20px;
-                "
-            >
-                Image
-            </div>
-            <div class="section text bg-radial-gradient">
-                <p>
-                    This is a test paragraph containing <strong>bold</strong>, <em>italic</em>,
-                    <span style="color: #ef4444">colored</span> and underlined styles. It also tests long text wrapping
-                    and Chinese rendering effects.
-                </p>
-            </div>
+            <div style="position: relative; background: #fff">
+                <div class="section text bg-linear-gradient">
+                    <h2>Text Paragraph</h2>
+                    <p>
+                        This is a test paragraph containing <strong>bold <em>italic</em></strong
+                        >, <em>italic</em>, <span style="color: #ef4444">colored</span> and underlined styles. It also
+                        tests long text wrapping and Chinese rendering effects.
+                    </p>
+                    <p style="text-shadow: 0 1px 0 #fff, 0 3px 6px rgba(0, 0, 0, 0.15)">
+                        Demonstration of shadowed title effect.
+                    </p>
+                </div>
+                <div class="section text bgimg">
+                    <h2>中文测试</h2>
+                    <p>
+                        这是一个测试段落 包含<strong>粗体</strong>, <em>斜体</em>,
+                        <span style="color: #ef4444">彩色</span> 和下划线样式。它还测试了长文本换行和中文渲染效果。
+                    </p>
+                    <p style="text-shadow: 0 1px 0 #fff, 0 3px 6px rgba(0, 0, 0, 0.15)">阴影标题效果的演示。</p>
+                </div>
+                <div class="section text bgcollor">
+                    <h2>中文测试</h2>
+                    <p>
+                        这是一个测试段落 包含<strong>粗体</strong>, <em>斜体</em>,
+                        <span style="color: #ef4444">彩色</span> 和下划线样式。它还测试了长文本换行和中文渲染效果。
+                    </p>
+                    <p style="text-shadow: 0 1px 0 #fff, 0 3px 6px rgba(0, 0, 0, 0.15)">阴影标题效果的演示。</p>
+                </div>
+                <div
+                    divisionDisable
+                    style="
+                        height: 300px;
+                        background: #f1f5f9;
+                        display: flex;
+                        align-items: flex-start;
+                        justify-content: center;
+                        margin-bottom: 20px;
+                    "
+                >
+                    Image
+                </div>
+                <div class="section text bg-radial-gradient">
+                    <p>
+                        This is a test paragraph containing <strong>bold</strong>, <em>italic</em>,
+                        <span style="color: #ef4444">colored</span> and underlined styles. It also tests long text
+                        wrapping and Chinese rendering effects.
+                    </p>
+                </div>
 
-            <div class="section">
-                <h2>Table</h2>
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Quantity</th>
-                            <th>Remarks</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr divisionDisable>
-                            <td>Apple</td>
-                            <td>12</td>
-                            <td>Fresh</td>
-                        </tr>
-                        <tr divisionDisable>
-                            <td>Banana</td>
-                            <td>8</td>
-                            <td>Imported</td>
-                        </tr>
-                        <tr divisionDisable>
-                            <td>Orange</td>
-                            <td>15</td>
-                            <td>Organic</td>
-                        </tr>
-                        <tr divisionDisable>
-                            <td>Grape</td>
-                            <td>20</td>
-                            <td>Seedless</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+                <div class="section">
+                    <h2>Table</h2>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Quantity</th>
+                                <th>Remarks</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr divisionDisable>
+                                <td>Apple</td>
+                                <td>12</td>
+                                <td>Fresh</td>
+                            </tr>
+                            <tr divisionDisable>
+                                <td>Banana</td>
+                                <td>8</td>
+                                <td>Imported</td>
+                            </tr>
+                            <tr divisionDisable>
+                                <td>Orange</td>
+                                <td>15</td>
+                                <td>Organic</td>
+                            </tr>
+                            <tr divisionDisable>
+                                <td>Grape</td>
+                                <td>20</td>
+                                <td>Seedless</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
 
-            <div class="section bgimg-repeat">
-                <h2>Code Block</h2>
-                <pre class="code"><code>function sum(a, b) {
+                <div class="section bgimg-repeat">
+                    <h2>Code Block</h2>
+                    <pre class="code"><code>function sum(a, b) {
                return a + b
               }
 
             const data = [12, 8, 14, 10]
             const avg = data.reduce((s, x) => s + x, 0) / data.length
             console.log('Average:', avg)</code></pre>
-            </div>
+                </div>
 
-            <div class="section">
-                <h2>Code Block</h2>
-                <pre class="code"><code>function sum(a, b) {
+                <div class="section">
+                    <h2>Code Block</h2>
+                    <pre class="code"><code>function sum(a, b) {
                return a + b
               }
 
             const data = [12, 8, 14, 10]
             const avg = data.reduce((s, x) => s + x, 0) / data.length
             console.log('Average:', avg)</code></pre>
-            </div>
+                </div>
 
-            <div class="section">
-                <h2>Lists & Quote</h2>
-                <blockquote class="blockquote">
-                    This is a quote block for testing background, 0 and text style rendering effects.
-                </blockquote>
-                <ul class="list">
-                    <li>Unordered item one</li>
-                    <li>中文 2</li>
-                    <li>Unordered item three</li>
-                </ul>
-                <ol class="list">
-                    <li>Ordered item one</li>
-                    <li>Ordered item two</li>
-                    <li>中文 3</li>
-                </ol>
-                <div class="tags">
-                    <span class="tag">Tag A</span><span class="tag">Tag B</span><span class="tag">Tag C</span>
+                <div class="section">
+                    <h2>Lists & Quote</h2>
+                    <blockquote class="blockquote">
+                        This is a quote block for testing background, 0 and text style rendering effects.
+                    </blockquote>
+                    <ul class="list">
+                        <li>Unordered item one</li>
+                        <li>中文 2</li>
+                        <li>Unordered item three</li>
+                    </ul>
+                    <ol class="list">
+                        <li>Ordered item one</li>
+                        <li>Ordered item two</li>
+                        <li>中文 3</li>
+                    </ol>
+                    <div class="tags">
+                        <span class="tag">Tag A</span><span class="tag">Tag B</span><span class="tag">Tag C</span>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>复杂销售明细表</h2>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th rowspan="2">月份</th>
+                                <th colspan="3">销售额（万元）</th>
+                                <th rowspan="2">环比</th>
+                                <th rowspan="2">目标完成率</th>
+                                <th rowspan="2">备注</th>
+                            </tr>
+                            <tr>
+                                <th>线上</th>
+                                <th>线下</th>
+                                <th>合计</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>一月</td>
+                                <td>68</td>
+                                <td>52</td>
+                                <td><strong>120</strong></td>
+                                <td>↑ 12%</td>
+                                <td>
+                                    <div
+                                        class="progress"
+                                        style="
+                                            width: 80px;
+                                            display: inline-block;
+                                            vertical-align: middle;
+                                            margin-left: 6px;
+                                        "
+                                    >
+                                        <div class="progress-bar" style="width: 96%"></div>
+                                    </div>
+                                    <span>96%</span>
+                                </td>
+                                <td>春节促销</td>
+                            </tr>
+                            <tr>
+                                <td>二月</td>
+                                <td>55</td>
+                                <td>43</td>
+                                <td><strong>98</strong></td>
+                                <td>↓ 18%</td>
+                                <td>
+                                    <div
+                                        class="progress"
+                                        style="
+                                            width: 80px;
+                                            display: inline-block;
+                                            vertical-align: middle;
+                                            margin-left: 6px;
+                                        "
+                                    >
+                                        <div class="progress-bar" style="width: 75%"></div>
+                                    </div>
+                                    <span>75%</span>
+                                </td>
+                                <td>疫情反复</td>
+                            </tr>
+                            <tr>
+                                <td>三月</td>
+                                <td>78</td>
+                                <td>57</td>
+                                <td><strong>135</strong></td>
+                                <td>↑ 38%</td>
+                                <td>
+                                    <div
+                                        class="progress"
+                                        style="
+                                            width: 80px;
+                                            display: inline-block;
+                                            vertical-align: middle;
+                                            margin-left: 6px;
+                                        "
+                                    >
+                                        <div class="progress-bar" style="width: 104%"></div>
+                                    </div>
+                                    <span>104%</span>
+                                </td>
+                                <td>女王节大促</td>
+                            </tr>
+                            <tr>
+                                <td>四月</td>
+                                <td>88</td>
+                                <td>62</td>
+                                <td><strong>150</strong></td>
+                                <td>↑ 11%</td>
+                                <td>
+                                    <div
+                                        class="progress"
+                                        style="
+                                            width: 80px;
+                                            display: inline-block;
+                                            vertical-align: middle;
+                                            margin-left: 6px;
+                                        "
+                                    >
+                                        <div class="progress-bar" style="width: 115%"></div>
+                                    </div>
+                                    <span>115%</span>
+                                </td>
+                                <td>新品首发</td>
+                            </tr>
+                            <tr>
+                                <td>五月</td>
+                                <td>65</td>
+                                <td>45</td>
+                                <td><strong>110</strong></td>
+                                <td>→ 0%</td>
+                                <td>
+                                    <div
+                                        class="progress"
+                                        style="
+                                            width: 80px;
+                                            display: inline-block;
+                                            vertical-align: middle;
+                                            margin-left: 6px;
+                                        "
+                                    >
+                                        <div class="progress-bar" style="width: 85%"></div>
+                                    </div>
+                                    <span>85%</span>
+                                </td>
+                                <td>平销期</td>
+                            </tr>
+                            <tr>
+                                <td>六月</td>
+                                <td>82</td>
+                                <td>60</td>
+                                <td><strong>142</strong></td>
+                                <td>↑ 29%</td>
+                                <td>
+                                    <div
+                                        class="progress"
+                                        style="
+                                            width: 80px;
+                                            display: inline-block;
+                                            vertical-align: middle;
+                                            margin-left: 6px;
+                                        "
+                                    >
+                                        <div class="progress-bar" style="width: 108%"></div>
+                                    </div>
+                                    <span>108%</span>
+                                </td>
+                                <td>618大促</td>
+                            </tr>
+                            <tr style="background: #f1f5f9; font-weight: bold">
+                                <td>合计</td>
+                                <td>436</td>
+                                <td>319</td>
+                                <td>755</td>
+                                <td>—</td>
+                                <td>
+                                    <div
+                                        class="progress"
+                                        style="
+                                            width: 80px;
+                                            display: inline-block;
+                                            vertical-align: middle;
+                                            margin-left: 6px;
+                                        "
+                                    >
+                                        <div class="progress-bar" style="width: 97%"></div>
+                                    </div>
+                                    <span>97%</span>
+                                </td>
+                                <td>上半年总结</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="section image-row">
+                    <div class="shadow-card" divisionDisable>
+                        <h2>More Images</h2>
+                        <img src="../tests/assets/image2.jpg" alt="Sample Image 3" />
+                    </div>
+                    <div class="shadow-card" divisionDisable>
+                        <h2>SVG Image</h2>
+                        <img src="../tests/assets/image.svg" alt="SVG" />
+                    </div>
+                </div>
+
+                <!-- <div class="section">
+                    <h2>Background Image Card</h2>
+                    <div class="hero" style="background-image: url('../tests/assets/bg-sliver.png')">
+                        <p>
+                            This is text overlaid on a background image for testing background rendering and text
+                            readability.
+                        </p>
+                    </div>
+                </div> -->
+
+                <!-- <div class="section">
+                    <h2>Chart (CSS Pie Chart)</h2>
+                    <div
+                        class="pie"
+                        style="background: conic-gradient(#f97316 0 40%, #22c55e 40% 70%, #3b82f6 70% 100%)"
+                        foreignobjectrendering
+                    ></div>
+                    <div class="tags">
+                        <span class="tag" style="background: #fee2e2">Orange 40%</span
+                        ><span class="tag" style="background: #dcfce7">Green 30%</span
+                        ><span class="tag" style="background: #dbeafe">Blue 30%</span>
+                    </div>
+                </div> -->
+
+                <div class="section">
+                    <h2>Progress Bars</h2>
+                    <div class="progress"><div class="progress-bar" style="width: 72%"></div></div>
+                    <div class="progress"><div class="progress-bar" style="width: 45%"></div></div>
+                </div>
+
+                <div class="section">
+                    <h2>Form</h2>
+                    <form class="form">
+                        <label>Name<input type="text" placeholder="John Doe" /></label>
+                        <label>Email<input type="email" placeholder="name@example.com" /></label>
+                        <label><input type="checkbox" /> Subscribe</label>
+                        <label><input type="radio" name="r" /> Option One</label>
+                        <label><input type="radio" name="r" /> Option Two</label>
+                        <label
+                            >Type<select>
+                                <option>Type A</option>
+                                <option>Type B</option>
+                            </select></label
+                        >
+                        <label>Message<textarea rows="3" placeholder="Enter content"></textarea></label>
+                        <button type="button" class="btn">Submit</button>
+                    </form>
+                </div>
+
+                <div class="section" divisiondisable>
+                    <h2>Canvas</h2>
+                    <canvas
+                        id="demo-canvas"
+                        width="400"
+                        height="120"
+                        style="border: 1px solid #e5e7eb; border-radius: 8px"
+                    ></canvas>
                 </div>
             </div>
-
-            <div class="section">
-                <h2>复杂销售明细表</h2>
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th rowspan="2">月份</th>
-                            <th colspan="3">销售额（万元）</th>
-                            <th rowspan="2">环比</th>
-                            <th rowspan="2">目标完成率</th>
-                            <th rowspan="2">备注</th>
-                        </tr>
-                        <tr>
-                            <th>线上</th>
-                            <th>线下</th>
-                            <th>合计</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>一月</td>
-                            <td>68</td>
-                            <td>52</td>
-                            <td><strong>120</strong></td>
-                            <td>↑ 12%</td>
-                            <td>
-                                <div
-                                    class="progress"
-                                    style="width: 80px; display: inline-block; vertical-align: middle; margin-left: 6px"
-                                >
-                                    <div class="progress-bar" style="width: 96%"></div>
-                                </div>
-                                <span>96%</span>
-                            </td>
-                            <td>春节促销</td>
-                        </tr>
-                        <tr>
-                            <td>二月</td>
-                            <td>55</td>
-                            <td>43</td>
-                            <td><strong>98</strong></td>
-                            <td>↓ 18%</td>
-                            <td>
-                                <div
-                                    class="progress"
-                                    style="width: 80px; display: inline-block; vertical-align: middle; margin-left: 6px"
-                                >
-                                    <div class="progress-bar" style="width: 75%"></div>
-                                </div>
-                                <span>75%</span>
-                            </td>
-                            <td>疫情反复</td>
-                        </tr>
-                        <tr>
-                            <td>三月</td>
-                            <td>78</td>
-                            <td>57</td>
-                            <td><strong>135</strong></td>
-                            <td>↑ 38%</td>
-                            <td>
-                                <div
-                                    class="progress"
-                                    style="width: 80px; display: inline-block; vertical-align: middle; margin-left: 6px"
-                                >
-                                    <div class="progress-bar" style="width: 104%"></div>
-                                </div>
-                                <span>104%</span>
-                            </td>
-                            <td>女王节大促</td>
-                        </tr>
-                        <tr>
-                            <td>四月</td>
-                            <td>88</td>
-                            <td>62</td>
-                            <td><strong>150</strong></td>
-                            <td>↑ 11%</td>
-                            <td>
-                                <div
-                                    class="progress"
-                                    style="width: 80px; display: inline-block; vertical-align: middle; margin-left: 6px"
-                                >
-                                    <div class="progress-bar" style="width: 115%"></div>
-                                </div>
-                                <span>115%</span>
-                            </td>
-                            <td>新品首发</td>
-                        </tr>
-                        <tr>
-                            <td>五月</td>
-                            <td>65</td>
-                            <td>45</td>
-                            <td><strong>110</strong></td>
-                            <td>→ 0%</td>
-                            <td>
-                                <div
-                                    class="progress"
-                                    style="width: 80px; display: inline-block; vertical-align: middle; margin-left: 6px"
-                                >
-                                    <div class="progress-bar" style="width: 85%"></div>
-                                </div>
-                                <span>85%</span>
-                            </td>
-                            <td>平销期</td>
-                        </tr>
-                        <tr>
-                            <td>六月</td>
-                            <td>82</td>
-                            <td>60</td>
-                            <td><strong>142</strong></td>
-                            <td>↑ 29%</td>
-                            <td>
-                                <div
-                                    class="progress"
-                                    style="width: 80px; display: inline-block; vertical-align: middle; margin-left: 6px"
-                                >
-                                    <div class="progress-bar" style="width: 108%"></div>
-                                </div>
-                                <span>108%</span>
-                            </td>
-                            <td>618大促</td>
-                        </tr>
-                        <tr style="background: #f1f5f9; font-weight: bold">
-                            <td>合计</td>
-                            <td>436</td>
-                            <td>319</td>
-                            <td>755</td>
-                            <td>—</td>
-                            <td>
-                                <div
-                                    class="progress"
-                                    style="width: 80px; display: inline-block; vertical-align: middle; margin-left: 6px"
-                                >
-                                    <div class="progress-bar" style="width: 97%"></div>
-                                </div>
-                                <span>97%</span>
-                            </td>
-                            <td>上半年总结</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <div class="section image-row">
-                <div class="shadow-card" divisionDisable>
-                    <h2>More Images</h2>
-                    <img src="../tests/assets/image2.jpg" alt="Sample Image 3" />
-                </div>
-                <div class="shadow-card" divisionDisable>
-                    <h2>SVG Image</h2>
-                    <img src="../tests/assets/image.svg" alt="SVG" />
-                </div>
-            </div>
-
-            <!-- <div class="section">
-        <h2>Background Image Card</h2>
-        <div class="hero" style="background-image:url('../tests/assets/bg-sliver.png')">
-          <p>This is text overlaid on a background image for testing background rendering and text readability.</p>
-        </div>
-      </div>
-
-      <div class="section">
-        <h2>Chart (CSS Pie Chart)</h2>
-        <div class="pie" style="background: conic-gradient(#f97316 0 40%, #22c55e 40% 70%, #3b82f6 70% 100%)"></div>
-        <div class="tags"><span class="tag" style="background:#fee2e2">Orange 40%</span><span class="tag" style="background:#dcfce7">Green 30%</span><span class="tag" style="background:#dbeafe">Blue 30%</span></div>
-      </div>
-
-      <div class="section">
-        <h2>Progress Bars</h2>
-        <div class="progress"><div class="progress-bar" style="width:72%"></div></div>
-        <div class="progress"><div class="progress-bar" style="width:45%"></div></div>
-      </div> -->
-
-            <!-- <div class="section">
-        <h2>Form</h2>
-        <form class="form">
-          <label>Name<input type="text" placeholder="John Doe"></label>
-          <label>Email<input type="email" placeholder="name@example.com"></label>
-          <label><input type="checkbox"> Subscribe</label>
-          <label><input type="radio" name="r"> Option One</label>
-          <label><input type="radio" name="r"> Option Two</label>
-          <label>Type<select><option>Type A</option><option>Type B</option></select></label>
-          <label>Message<textarea rows="3" placeholder="Enter content"></textarea></label>
-          <button type="button" class="btn">Submit</button>
-        </form>
-      </div>
-
-      <div class="section">
-        <h2>Canvas</h2>
-        <canvas id="demo-canvas" width="400" height="120" style="border:1px solid #e5e7eb; border-radius:8px"></canvas>
-      </div> -->
         </div>
 
         <script type="text/javascript" src="../dist/dompdf.js"></script>
@@ -662,7 +729,7 @@
                                 fontUrl: '',
                                 fontWeight: 400,
                                 fontStyle: 'normal'
-                            },
+                            }
                         ],
                         pageConfig: {
                             header: {
