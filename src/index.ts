@@ -10,7 +10,7 @@ import {CanvasRenderer, RenderConfigurations, RenderOptions} from './render/canv
 import {PAGE_FORMAT_MAP} from './render/page-format-map';
 import {paginateNode} from './render/paginate';
 import {jsPDF} from 'jspdf';
-import {isEmptyValue, isArray, isFunction, validateFontConfig, FontConfig} from './utils';
+import {isEmptyValue, isArray, isFunction, validateFontConfig, FontConfig, checkAllTextNodesEmpty} from './utils';
 
 export type Options = CloneOptions &
     WindowOptions &
@@ -230,6 +230,10 @@ const renderElement = async (element: HTMLElement, opts: Partial<Options>): Prom
         if (isFunction(opts.onJspdfReady)) {
             opts.onJspdfReady(renderer.jspdfCtx);
         }
+        // const renderPageRoots = pageRoots.filter((v) => !checkAllTextNodesEmpty(v));
+        // console.log(pageRoots, 'pageRoots');
+        // console.log(renderPageRoots, 'renderPageRoots');
+        context.logger.info(`pdf render totalPage is ${pageRoots.length}`);
         renderer.setTotalPages(pageRoots.length);
         if (pageRoots.length > 0) {
             await renderer.renderPage(pageRoots[0], 1);
