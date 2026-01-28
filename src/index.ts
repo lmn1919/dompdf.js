@@ -9,10 +9,9 @@ import {ForeignObjectRenderer} from './render/canvas/foreignobject-renderer';
 import {CanvasRenderer, RenderConfigurations, RenderOptions} from './render/canvas/pdf-renderer';
 import {PAGE_FORMAT_MAP} from './render/page-format-map';
 import {paginateNode} from './render/paginate';
-import {isEmptyValue, isArray, validateFontConfig, FontConfig} from './utils';
-// paginationState
+import {jsPDF} from 'jspdf';
+import {isEmptyValue, isArray, isFunction, validateFontConfig, FontConfig} from './utils';
 
-// import { Console } from 'console';
 export type Options = CloneOptions &
     WindowOptions &
     RenderOptions &
@@ -22,6 +21,8 @@ export type Options = CloneOptions &
         divisionDisable?: boolean; // 禁用分割
         removeContainer?: boolean;
         fontConfig?: FontConfig | FontConfig[] | undefined;
+        onJsdfReady?: (jspdfCtx: jsPDF) => void;
+        onJsdfFinish?: (jspdfCtx: jsPDF) => void;
     };
 
 const dompdf = (element: HTMLElement, options: Partial<Options> = {}): Promise<HTMLCanvasElement> => {
@@ -226,6 +227,9 @@ const renderElement = async (element: HTMLElement, opts: Partial<Options>): Prom
         // , pageRoots, paginationState
         renderOptions.y = 0;
         const renderer = new CanvasRenderer(context, renderOptions);
+        if (isFunction(opts.onJsdfReady)) {
+            opts.onJsdfReady(renderer.jspdfCtx);
+        }
         renderer.setTotalPages(pageRoots.length);
         if (pageRoots.length > 0) {
             await renderer.renderPage(pageRoots[0], 1);
@@ -233,6 +237,9 @@ const renderElement = async (element: HTMLElement, opts: Partial<Options>): Prom
                 renderer.addPage(0);
                 await renderer.renderPage(pageRoots[i], i + 1);
             }
+        }
+        if (isFunction(opts.onJsdfFinish)) {
+            opts.onJsdfFinish(renderer.jspdfCtx);
         }
         canvas = await renderer.output();
     }
