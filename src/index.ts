@@ -1,3 +1,4 @@
+import {jsPDF} from 'jspdf';
 import {CacheStorage} from './core/cache-storage';
 import {Context, ContextOptions} from './core/context';
 import {Bounds, parseBounds, parseDocumentSize} from './css/layout/bounds';
@@ -9,8 +10,7 @@ import {ForeignObjectRenderer} from './render/canvas/foreignobject-renderer';
 import {CanvasRenderer, RenderConfigurations, RenderOptions} from './render/canvas/pdf-renderer';
 import {PAGE_FORMAT_MAP} from './render/page-format-map';
 import {paginateNode} from './render/paginate';
-import {jsPDF} from 'jspdf';
-import {isEmptyValue, isArray, isFunction, validateFontConfig, FontConfig, checkAllTextNodesEmpty} from './utils';
+import {FontConfig, isArray, isEmptyValue, isFunction, validateFontConfig} from './utils';
 
 export type Options = CloneOptions &
     WindowOptions &
@@ -197,7 +197,9 @@ const renderElement = async (element: HTMLElement, opts: Partial<Options>): Prom
 
         context.logger.debug(`Starting DOM parsing`, context, clonedElement);
         const root = await parseTree(context, clonedElement);
-        const {height: pageHeight} = PAGE_FORMAT_MAP[renderOptions.format || 'a4'];
+        const pageHeight = isArray(renderOptions.format)
+            ? renderOptions.format[1]
+            : PAGE_FORMAT_MAP[renderOptions.format || 'a4'].height;
         if (renderOptions.y !== 0) {
             const offsetY = renderOptions.y;
             renderOptions.y = 0;
@@ -257,3 +259,4 @@ const renderElement = async (element: HTMLElement, opts: Partial<Options>): Prom
     context.logger.debug(`Finished rendering`);
     return canvas;
 };
+

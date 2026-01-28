@@ -148,7 +148,8 @@ export interface RenderOptions {
         | 'junior-legal'
         | 'ledger'
         | 'tabloid'
-        | 'credit-card';
+        | 'credit-card'
+        | [number, number];
     pageConfig?: pageConfigOptions;
 }
 
@@ -176,11 +177,13 @@ export class CanvasRenderer extends Renderer {
         this.pxToPt = (px: number) => px * (72 / 96);
         const pageWidth = this.pxToPt(options.width);
         const pageHeight = this.pxToPt(options.height);
+        // 如果 format 是数组，则将 px 转换为 pt
+        const format = Array.isArray(options.format) ? options.format.map((v) => this.pxToPt(v)) : options.format;
 
         this.jspdfCtx = new jsPDF({
-            orientation: pageWidth > pageHeight ? 'landscape' : 'portrait',
+            // orientation: pageWidth > pageHeight ? 'landscape' : 'landscape',
             unit: 'pt',
-            format: options.pagination && options.format ? options.format : [pageHeight, pageWidth],
+            format: options.pagination && format ? format : [pageHeight, pageWidth],
             hotfixes: ['px_scaling'],
             putOnlyUsedFonts: options.putOnlyUsedFonts,
             compress: options.compress,
