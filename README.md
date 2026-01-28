@@ -143,7 +143,8 @@ dompdf(document.querySelector("#capture"), {
 | `pagination`       | 否   | `false`       | `boolean`           | 开启分页渲染                                                   |
 | `format`           | 否   | `'a4'`        | `string`            | 页面规格，支持 `a0–a10`、`b0–b10`、`c0–c10`、`letter` 等 |
 | `pageConfig`       | 否   | 见下表        | `object`            | 页眉页脚配置                                                   |
-
+| `onJsdfReady`      | 否   | ``                                                      | `Function(jspdf: jsPDF)`                     | jspdf实例初始化
+| `onJsdfFinish`      | 否   | ``                                                      | `Function(jspdf: jsPDF)`                     | jspdf实例绘制pdf完成
 
 ##### `pageConfig`字段：
 
@@ -163,8 +164,6 @@ dompdf(document.querySelector("#capture"), {
 | `contentColor`    | `'#333333'`                                               | `string`                     | 文本颜色                                                                                              |
 | `contentFontSize` | `16`                                                      | `number`                     | 文本字号（px）                                                                                        |
 | `padding`         | `[0,24,0,24]`                                             | `[number, number, number, number]` | 上/右/下/左内边距（px）                                       |
-| `onJsdfReady` | ``                                                      | `Function(jspdf: jsPDF)`                     | jspdf实例初始化
-| `onJsdfFinish` | ``                                                      | `Function(jspdf: jsPDF)`                     | jspdf实例绘制pdf完成
 
 ##### 字体配置（`fontConfig`）字段：
 
