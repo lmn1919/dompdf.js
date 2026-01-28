@@ -59,7 +59,7 @@ const filterTextNodesForPage = (container: ElementContainer, pageStart: number, 
             const maxKey = Math.max(...Object.keys(offSetPageObj).map((k) => +k));
             const activePageOffset = offSetPageObj[maxKey] || 0;
             const top = tb.bounds.top + activePageOffset;
-            const bottom = tb.bounds.top + tb.bounds.height + activePageOffset;
+            let bottom = tb.bounds.top + tb.bounds.height + activePageOffset;
             const intersects = bottom > pageStart && top < pageEnd;
             const crossesToNextPage = bottom > pageEnd;
 
@@ -79,6 +79,8 @@ const filterTextNodesForPage = (container: ElementContainer, pageStart: number, 
                         }
                         offSetPageObj[pageIndex] = offSetTotal;
                     }
+                    // Fix the issue where no offset is added for the first text container
+                    bottom += offsetNum;
                 }
                 const visibleTop = Math.max(top, pageStart);
                 const visibleBottom = Math.min(bottom, pageEnd);
