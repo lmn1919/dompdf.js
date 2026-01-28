@@ -5,7 +5,7 @@ import type {ElementContainer} from '../dom/element-container';
 import type {TextContainer} from '../dom/text-container';
 import {pageConfigOptions} from './canvas/pdf-renderer';
 
-const offSetPageObj: any = {};
+let offSetPageObj: Record<number | string, number> = {};
 let offSetTotal = 0;
 let activePageHeight = 1123;
 let pageMarginTop = 0;
@@ -167,7 +167,7 @@ export const paginateNode = (
 ): ElementContainer[] => {
     if (initialOffset < 0) initialOffset = 0;
     offSetTotal = 0;
-    Object.keys(offSetPageObj).forEach((key) => delete offSetPageObj[key]);
+    offSetPageObj = {};
     const maxBottom = computeMaxBottom(root);
     pageMarginTop = pageConfig?.header?.height || 0;
     pageMarginBottom = pageConfig?.footer?.height || 0;
