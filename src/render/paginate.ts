@@ -163,12 +163,13 @@ export const paginateNode = (
     root: ElementContainer,
     pageHeight: number,
     initialOffset = 0,
+    totalHeight?: number,
     pageConfig?: pageConfigOptions
 ): ElementContainer[] => {
     if (initialOffset < 0) initialOffset = 0;
     offSetTotal = 0;
     offSetPageObj = {};
-    const maxBottom = computeMaxBottom(root);
+    const maxBottom = totalHeight || computeMaxBottom(root);
     pageMarginTop = pageConfig?.header?.height || 0;
     pageMarginBottom = pageConfig?.footer?.height || 0;
     activePageHeight = pageHeight - pageMarginTop - pageMarginBottom;

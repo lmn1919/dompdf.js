@@ -7,7 +7,6 @@ import {isArray} from './type-utils';
  */
 export function checkAllTextNodesEmpty(node: ElementContainer): boolean {
     if (!isArray(node.textNodes) || node.textNodes.length > 0) {
-      console.log(node.textNodes, '1111')
         return false;
     }
     if (isArray(node.elements)) {
