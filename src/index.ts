@@ -216,7 +216,13 @@ const renderElement = async (element: HTMLElement, opts: Partial<Options>): Prom
             };
             adjustTop(root, offsetY);
         }
-        const pageRoots = paginateNode(root, pageHeight, renderOptions.y, renderOptions.pageConfig);
+        const pageRoots = paginateNode(
+            root,
+            pageHeight,
+            renderOptions.y,
+            renderOptions.height,
+            renderOptions.pageConfig
+        );
 
         Reflect.deleteProperty(root, 'context');
         if (backgroundColor === root.styles.backgroundColor) {
@@ -259,4 +265,3 @@ const renderElement = async (element: HTMLElement, opts: Partial<Options>): Prom
     context.logger.debug(`Finished rendering`);
     return canvas;
 };
-
