@@ -10,7 +10,7 @@ import {CanvasRenderer, RenderConfigurations, RenderOptions} from './render/canv
 import {PAGE_FORMAT_MAP} from './render/page-format-map';
 import {paginateNode} from './render/paginate';
 import {jsPDF} from 'jspdf';
-import {isEmptyValue, isArray, isFunction, validateFontConfig, FontConfig, checkAllTextNodesEmpty} from './utils';
+import {isEmptyValue, isArray, isFunction, validateFontConfig, FontConfig} from './utils';
 
 export type Options = CloneOptions &
     WindowOptions &
@@ -214,7 +214,13 @@ const renderElement = async (element: HTMLElement, opts: Partial<Options>): Prom
             };
             adjustTop(root, offsetY);
         }
-        const pageRoots = paginateNode(root, pageHeight, renderOptions.y, renderOptions.pageConfig);
+        const pageRoots = paginateNode(
+            root,
+            pageHeight,
+            renderOptions.y,
+            renderOptions.height,
+            renderOptions.pageConfig
+        );
 
         Reflect.deleteProperty(root, 'context');
         if (backgroundColor === root.styles.backgroundColor) {
