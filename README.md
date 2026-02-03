@@ -1,215 +1,214 @@
 # dompdf
 
-<!-- [主页](https://html2canvas.hertzen.com) | [下载](https://github.com/niklasvh/html2canvas/releases) | [问题](https://github.com/niklasvh/html2canvas/discussions/categories/q-a)
+[English](./README.md) | [中文](./README_CN.md)
+
+<!-- [Home](https://html2canvas.hertzen.com) | [Downloads](https://github.com/niklasvh/html2canvas/releases) | [Questions](https://github.com/niklasvh/html2canvas/discussions/categories/q-a)
 
 [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/niklasvh/html2canvas?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 ![CI](https://github.com/niklasvh/html2canvas/workflows/CI/badge.svg?branch=master)
 [![NPM Downloads](https://img.shields.io/npm/dm/html2canvas.svg)](https://www.npmjs.org/package/html2canvas)
 [![NPM Version](https://img.shields.io/npm/v/html2canvas.svg)](https://www.npmjs.org/package/html2canvas) -->
 
-该脚本允许您直接在用户浏览器上将网页或部分网页生成为可编辑、非图片式、可打印的矢量 pdf。支持分页，最多可以生成上数千页的 pdf 文件。由于生成是基于 DOM 的，因此可能与实际表现不会 100% 一致。如果是复杂的 pdf 生成需求，不建议使用。
+This script allows you to generate editable, non-image, printable vector PDFs directly on the user's browser from web pages or parts of web pages. It supports pagination and can generate PDF files with thousands of pages. Since the generation is based on the DOM, the result may not be 100% consistent with the actual appearance. It is not recommended for complex PDF generation requirements.
 
-在线体验：[在线体验](https://dompdfjs.lisky.com.cn)
+Live Demo: [Online Demo](https://dompdfjs.lisky.com.cn)
 
-### pdf 生成示例
+### PDF Generation Example
 
-![pdf生成示例](./examples/test.png)
+![PDF Generation Example](./examples/test.jpg)
 
-### 它是如何工作的
+### 🛠️ How it works
 
-该脚本基于[html2canvas](https://github.com/niklasvh/html2canvas)和[jspdf](https://github.com/MrRio/jsPDF)，与以往将 html 页面通过 html2canvas 渲染为图片，再通过 jspdf 将图片生成 pdf 文件不同，该脚本通过读取 DOM 和应用于元素的不同样式，改造了 html2canvas 的 canvas-renderer 文件，调用 jspdf 的方法生成 pdf 文件。
-所以他有以下优势：
+This script is based on [html2canvas](https://github.com/niklasvh/html2canvas) and [jspdf](https://github.com/MrRio/jsPDF). Unlike traditional methods that render HTML pages to images via html2canvas and then generate PDF files from images via jspdf, this script modifies the canvas-renderer file of html2canvas by reading the DOM and styles applied to elements, and calls jspdf methods to generate PDF files.
+Therefore, it has the following advantages:
 
-1. 不需要服务器端的任何渲染，因为整个 pdf 是在**客户端浏览器**上创建的。
-2. 生成的是真正的 pdf 文件，而不是图片式的，这样生成的 pdf 质量更高，您也可以编辑和打印生成 pdf 文件。
-3. 更小的 pdf 文件体积。
-4. 不受 canvas 渲染高度限制，可以生成数千页的 pdf 文件。
+1. No server-side rendering is required because the entire PDF is created on the **client-side browser**.
+2. It generates real PDF files, not image-based ones, so the quality of the generated PDF is higher, and you can edit and print the generated PDF files.
+3. Smaller PDF file size.
+4. Not limited by canvas rendering height, allowing for the generation of PDF files with thousands of pages.
 
-当然，它也有一些缺点：
+Of course, it also has some disadvantages:
 
-1. 由于是基于 DOM 的，所以可能与实际表现不会 100% 一致。
-2. 有的 css 属性还没有被支持，查看[支持的 css 属性](https://www.html2canvas.cn/html2canvas-features.html)。
+1. Since it is based on the DOM, it may not be 100% consistent with the actual appearance.
+2. Some CSS properties are not yet supported. See [Supported CSS Properties](https://www.html2canvas.cn/html2canvas-features.html).
 
-### 已实现功能
+### Implemented Features
 
-| 功能     | 状态 | 说明                                                                                                      |
-| -------- | ---- | --------------------------------------------------------------------------------------------------------- |
-| 分页     | ✅   | 支持 PDF 分页渲染，可生成数千页的 PDF 文件                                                                |
-| 文本渲染 | ✅   | 支持基础文本内容渲染,font-family,font-size,font-style,font-variant,color 等，支持文字描边，不支持文字阴影 |
-| 图片渲染 | ✅   | 支持网络图片，base64 图片，svg 图片                                                                       |
-| 边框     | ✅   | 支持 border-width,border-color,border-style,border-radius,暂时只实现了实线边框                            |
-| 背景     | ✅   | 支持背景颜色，背景图片，背景渐变                                                                          |
-| canvas   | ✅   | 支持渲染 canvas                                                                                           |
-| svg      | ✅   | 支持渲染 svg                                                                                              |
-| 阴影渲染 | ✅   | 使用 foreignObjectRendering，支持边框阴影渲染                                                             |
-| 渐变渲染 | ✅   | 使用 foreignObjectRendering，支持背景渐变渲染                                                             |
-| iframe   | ❌   | 暂不支持渲染 iframe                                                                                       |
+| Feature            | Status | Description                                                                                                                                              |
+| :----------------- | :----- | :------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pagination         | ✅     | Supports PDF pagination rendering, capable of generating PDF files with thousands of pages                                                               |
+| Text Rendering     | ✅     | Supports basic text content rendering, font-family, font-size, font-style, font-variant, color, etc., supports text stroke, does not support text shadow |
+| Image Rendering    | ✅     | Supports web images, base64 images, svg images                                                                                                           |
+| Borders            | ✅     | Supports border-width, border-color, border-style, border-radius, currently only solid borders are implemented                                           |
+| Background         | ✅     | Supports background color, background image, background gradient                                                                                         |
+| Canvas             | ✅     | Supports rendering canvas                                                                                                                                |
+| SVG                | ✅     | Supports rendering svg                                                                                                                                   |
+| Shadow Rendering   | ✅     | Uses foreignObjectRendering, supports border shadow rendering                                                                                            |
+| Gradient Rendering | ✅     | Uses foreignObjectRendering, supports background gradient rendering                                                                                      |
+| Iframe             | ❌     | Does not support rendering iframe yet                                                                                                                    |
 
+### Usage
 
+The dompdf library uses `Promise` and expects them to be available in the global context. If you wish to support [older browsers](http://caniuse.com/#search=promise) that do not natively support `Promise`, please include a polyfill, such as [es6-promise](https://github.com/jakearchibald/es6-promise), before importing `dompdf`.
 
-### 使用方法
-
-dompdf 库使用 `Promise` 并期望它们在全局上下文中可用。如果您希望支持不原生支持 `Promise` 的[较旧浏览器](http://caniuse.com/#search=promise)，请在引入 `dompdf` 之前包含一个 polyfill，比如 [es6-promise](https://github.com/jakearchibald/es6-promise)。
-
-安装：
+Installation:
 
      npm install dompdf.js --save
 
-CDN 引入：
+CDN Import:
 
 ```html
 <script src="https://cdn.jsdelivr.net/npm/dompdf.js@latest/dist/dompdf.js"></script>
 ```
 
-#### 基础用法
+#### Basic Usage
 
 ```js
-import dompdf from "dompdf.js";
+import dompdf from 'dompdf.js';
 
-dompdf(document.querySelector("#capture"), options)
-  .then((blob) => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "example.pdf";
-    document.body.appendChild(a);
-    a.click();
-  })
-  .catch((err) => {
-    console.error(err);
-  });
+dompdf(document.querySelector('#capture'), options)
+    .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'example.pdf';
+        document.body.appendChild(a);
+        a.click();
+    })
+    .catch((err) => {
+        console.error(err);
+    });
 ```
 
+#### PDF Pagination Rendering
 
-#### PDF 分页渲染
+By default, dompdf renders the entire document onto a single page.
 
-默认情况下，dompdf 会将整个文档渲染到单页中。
-
-您可以通过设置 `pagination` 选项为 `true` 来开启分页渲染。通过 pageConfig 字段自定义页眉页脚的尺寸，内容，字体颜色/大小，位置等信息。
+You can enable pagination rendering by setting the `pagination` option to `true`. Customize header and footer size, content, font color/size, position, etc., via the pageConfig field.
 
 ```js
-import dompdf from "dompdf.js";
+import dompdf from 'dompdf.js';
 
-dompdf(document.querySelector("#capture"), {
-  pagination: true,
-  format: "a4",
-  pageConfig: {
-    header: {
-      content: "这是页眉",
-      height: 50,
-      contentColor: "#333333",
-      contentFontSize: 12,
-      contentPosition: "center",
-      padding: [0, 0, 0, 0],
-    },
-    footer: {
-      content: "第${currentPage}页/共${totalPages}页",
-      height: 50,
-      contentColor: "#333333",
-      contentFontSize: 12,
-      contentPosition: "center",
-      padding: [0, 0, 0, 0],
-    },
-  },
+dompdf(document.querySelector('#capture'), {
+    pagination: true,
+    format: 'a4',
+    pageConfig: {
+        header: {
+            content: 'This is the header',
+            height: 50,
+            contentColor: '#333333',
+            contentFontSize: 12,
+            contentPosition: 'center',
+            padding: [0, 0, 0, 0]
+        },
+        footer: {
+            content: 'Page ${currentPage} of ${totalPages}',
+            height: 50,
+            contentColor: '#333333',
+            contentFontSize: 12,
+            contentPosition: 'center',
+            padding: [0, 0, 0, 0]
+        }
+    }
 })
-  .then((blob) => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "example.pdf";
-    document.body.appendChild(a);
-    a.click();
-  })
-  .catch((err) => {
-    console.error(err);
-  });
+    .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'example.pdf';
+        document.body.appendChild(a);
+        a.click();
+    })
+    .catch((err) => {
+        console.error(err);
+    });
 ```
-##### 更精准的分页控制-`divisionDisable` 属性
 
-如果您不希望某个容器在分页时被拆分时，为该元素添加 `divisionDisable` 属性，跨页时它会整体移至下一页。
+##### Precise Pagination Control - `divisionDisable` Attribute
 
+If you do not want a container to be split during pagination, add the `divisionDisable` attribute to that element, and it will be moved to the next page entirely when crossing pages.
 
-#### options 参数
+#### ⚙️ options Parameters
 
-| 参数名             | 必传 | 默认值        | 类型                | 说明                                                           |
-| ------------------ | ---- | ------------- | ------------------- | -------------------------------------------------------------- |
-| `useCORS`          | 否   | `false`       | `boolean`           | 允许跨域资源（需服务端 CORS 配置）                             |
-| `backgroundColor`  | 否   | 自动解析/白色 | `string \| null`    | 覆盖页面背景色；传 `null` 生成透明背景                         |
-| `fontConfig`       | 否   | -             | `object \| Array`            | 非英文字体配置，见下表                                         |
-| `encryption`       | 否   | 空配置        | `object`            | PDF 加密配置，属性`userPassword` 用于给定权限列表下用户的密码；属性`ownerPassword` 需要设置userPassword和ownerPassword以进行正确的身份验证；属性`userPermissions` 用于指定用户权限，可选值为 `['print', 'modify', 'copy', 'annot-forms']` |
-| `precision`        | 否   | `16`          | `number`            | 元素位置的精度                                                           |
-| `compress`         | 否   | `false`       | `boolean`           | 是否压缩PDF                                                       |
-| `putOnlyUsedFonts` | 否   | `false`       | `boolean`           | 仅将实际使用的字体嵌入 PDF                                                 |
-| `pagination`       | 否   | `false`       | `boolean`           | 开启分页渲染                                                   |
-| `format`           | 否   | `'a4'`        | `string`            | 页面规格，支持 `a0–a10`、`b0–b10`、`c0–c10`、`letter` 等 |
-| `pageConfig`       | 否   | 见下表        | `object`            | 页眉页脚配置                                                   |
-| `onJspdfReady`      | 否   | ``                                                      | `Function(jspdf: jsPDF)`                     | jspdf实例初始化
-| `onJspdfFinish`      | 否   | ``                                                      | `Function(jspdf: jsPDF)`                     | jspdf实例绘制pdf完成
+| Parameter          | Required | Default    | Type                     | Description                                                                                                                                                                                                                                                                                                                                               |
+| :----------------- | :------- | :--------- | :----------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `useCORS`          | No       | `false`    | `boolean`                | Allow cross-origin resources (requires server-side CORS configuration)                                                                                                                                                                                                                                                                                    |
+| `backgroundColor`  | No       | Auto/White | `string \| null`         | Override page background color; pass `null` to generate transparent background                                                                                                                                                                                                                                                                            |
+| `fontConfig`       | No       | -          | `object \| Array`        | Non-English font configuration, see table below                                                                                                                                                                                                                                                                                                           |
+| `encryption`       | No       | Empty      | `object`                 | PDF encryption configuration. Property `userPassword` is used for the user password under the given permission list; property `ownerPassword` needs userPassword and ownerPassword to be set for correct authentication; property `userPermissions` is used to specify user permissions, optional values are `['print', 'modify', 'copy', 'annot-forms']` |
+| `precision`        | No       | `16`       | `number`                 | Element position precision                                                                                                                                                                                                                                                                                                                                |
+| `compress`         | No       | `false`    | `boolean`                | Whether to compress PDF                                                                                                                                                                                                                                                                                                                                   |
+| `putOnlyUsedFonts` | No       | `false`    | `boolean`                | Embed only actually used fonts into PDF                                                                                                                                                                                                                                                                                                                   |
+| `pagination`       | No       | `false`    | `boolean`                | Enable pagination rendering                                                                                                                                                                                                                                                                                                                               |
+| `format`           | No       | `'a4'`     | `string`                 | Page size, supports `a0–a10`, `b0–b10`, `c0–c10`, `letter`, etc.                                                                                                                                                                                                                                                                                          |
+| `pageConfig`       | No       | See below  | `object`                 | Header and footer configuration                                                                                                                                                                                                                                                                                                                           |
+| `onJspdfReady`     | No       | ``         | `Function(jspdf: jsPDF)` | jspdf instance initialization                                                                                                                                                                                                                                                                                                                             |
+| `onJspdfFinish`    | No       | ``         | `Function(jspdf: jsPDF)` | jspdf instance finished drawing PDF                                                                                                                                                                                                                                                                                                                       |
 
-##### `pageConfig`字段：
+##### `pageConfig` Fields:
 
-| 参数名   | 默认值                   | 类型   | 说明     |
-| -------- | ------------------------ | ------ | -------- |
-| `header` | 见下表 pageConfigOptions | object | 页眉设置 |
-| `footer` | 见下表 pageConfigOptions | object | 页脚设置 |
+| Parameter | Default                     | Type   | Description     |
+| :-------- | :-------------------------- | :----- | :-------------- |
+| `header`  | See pageConfigOptions below | object | Header settings |
+| `footer`  | See pageConfigOptions below | object | Footer settings |
 
+##### `pageConfigOptions` Fields:
 
-##### `pageConfigOptions` 字段：
+| Parameter         | Default                                                                   | Type                               | Description                                                                                                                                                      |
+| :---------------- | :------------------------------------------------------------------------ | :--------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `content`         | Header default is empty, footer default is `${currentPage}/${totalPages}` | `string`                           | Text content, supports `${currentPage}`, `${totalPages}`, `${currentPage}` is current page number, `${totalPages}` is total page number                          |
+| `height`          | `50`                                                                      | `number`                           | Area height (px)                                                                                                                                                 |
+| `contentPosition` | `'center'`                                                                | `string \| [number, number]`       | Text position enum `center`, `centerLeft`, `centerRight`, `centerTop`, `centerBottom`, `leftTop`, `leftBottom`, `rightTop`, `rightBottom` or coordinates `[x,y]` |
+| `contentColor`    | `'#333333'`                                                               | `string`                           | Text color                                                                                                                                                       |
+| `contentFontSize` | `16`                                                                      | `number`                           | Text font size (px)                                                                                                                                              |
+| `padding`         | `[0,24,0,24]`                                                             | `[number, number, number, number]` | Top/Right/Bottom/Left padding (px)                                                                                                                               |
 
-| 参数名            | 默认值                                                    | 类型                         | 说明                                                                                                  |
-| ----------------- | --------------------------------------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `content`         | 页眉默认值为空,页脚默认值为`${currentPage}/${totalPages}` | `string`                     | 文本内容，支持 `${currentPage}`、`${totalPages}`，`${currentPage}`为当前页码，`${totalPages}`为总页码 |
-| `height`          | `50`                                                      | `number`                     | 区域高度（px）                                                                                        |
-| `contentPosition` | `'center'`                                                | `string \| [number, number]` | 文本位置枚举 `center`、`centerLeft` 、 `centerRight`、`centerTop`、 `centerBottom`、`leftTop`、 `leftBottom`、`rightTop`、`rightBottom`或坐标 `[x,y]` |
-| `contentColor`    | `'#333333'`                                               | `string`                     | 文本颜色                                                                                              |
-| `contentFontSize` | `16`                                                      | `number`                     | 文本字号（px）                                                                                        |
-| `padding`         | `[0,24,0,24]`                                             | `[number, number, number, number]` | 上/右/下/左内边距（px）                                       |
+##### Font Configuration (`fontConfig`) Fields:
 
-##### 字体配置（`fontConfig`）字段：
+| Field        | Required                          | Default | Type     | Description                                |
+| :----------- | :-------------------------------- | :------ | :------- | :----------------------------------------- |
+| `fontFamily` | Yes (when using custom font)      | `''`    | `string` | Font family name (same as injected `.ttf`) |
+| `fontBase64` | Yes (when using custom font)      | `''`    | `string` | Base64 string content of `.ttf`            |
+| `fontStyle`  | Yes (when using custom font)      | `''`    | `string` | `normal \| italic`                         |
+| `fontWeight` | Yes (when using custom font bold) | `''`    | `number` | `400 \| 700`                               |
 
-| 字段         | 必传                   | 默认值 | 类型     | 说明                               |
-| ------------ | ---------------------- | ------ | -------- | ---------------------------------- |
-| `fontFamily` | 是（启用自定义字体时） | `''`   | `string` | 字体家族名（与注入的 `.ttf` 同名） |
-| `fontBase64` | 是（启用自定义字体时） | `''`   | `string` | `.ttf` 的 Base64 字符串内容        |
-| `fontStyle` | 是（启用自定义字体时） | `''`   | `string` | `normal \| italic`       |
-| `fontWeight` | 是（启用自定义字体时字体加粗） | `''`   | `number` | `400 \| 700`        |
+#### 🔣 Garbled Characters - Font Import Support
 
-#### 乱码问题-字体导入支持
+Since jspdf only supports English, other languages will appear as garbled characters, requiring the import of corresponding font files to resolve. If you need custom fonts, convert the font tff file to a base64 format js file [here](https://github.com/lmn1919/dompdf.js/tree/main/fontconverter). For Chinese fonts, [Source Han Sans](https://github.com/lmn1919/dompdf.js/blob/main/examples/SourceHanSansSC-Normal-Min-normal.js) is recommended due to its smaller size.
+Import the file in the code.
 
-由于 jspdf 只支持英文，所以其他语言会出现乱码的问题，需要导入对应的字体文件来解决，如果需要自定义字体，在[这里](https://github.com/lmn1919/dompdf.js/tree/main/fontconverter)将字体 tff 文件转化成 base64 格式的 js 文件，中文字体推荐使用[思源黑体](https://github.com/lmn1919/dompdf.js/blob/main/examples/SourceHanSansSC-Normal-Min-normal.js),体积较小。
-在代码中引入该文件即可。
+> **Note: Importing fonts will increase the final PDF file size. If there are requirements for the final PDF size, it is recommended to streamline the font, you can remove unnecessary fonts. Or use tools like `Fontmin` to slim down the font.**
 
-> **注意：导入字体会导致最终的pdf体积增大，如果对最终pdf体积有要求的，建议精简字体，可以剔除不需要的字体。或者使用`Fontmin‌`等工具对字体进行瘦身**
 ```js
 <script type="text/javascript" src="./SourceHanSansSC-Normal-Min-normal.js"></script>
 <script type="text/javascript" src="./SourceHanSansCNBold-bold.js"></script>
 <script type="text/javascript" src="./SourceHanSansCNNormal-normal.js"></script>
 <script type="text/javascript" src="./SourceHanSansCNRegularItalic-normal.js"></script>
 <script>
-  /* 导入字体 */
+  /* Import fonts */
   dompdf(document.querySelector('#capture'), {
     useCORS: true,
-    /* 单个字体导入 */
+    /* Single font import */
     /* fontConfig: {
       fontFamily: 'SourceHanSansSC-Normal-Min',
       fontBase64: window.fontBase64,
       fontStyle: 'normal',
       fontWeight: 400,
     }, */
-    /* 导入注册多种字体，需要支持什么语种，样式，就导入对应的字体 */
+    /* Import and register multiple fonts, import corresponding fonts for required languages and styles */
     fontConfig: [
         {
             fontFamily: 'SourceHanSansCNRegularItalic',
             fontBase64: window.SourceHanSansCNRegularItalic,
             fontUrl: '',
             fontWeight: 400,
-            fontStyle: 'italic' // 斜体
+            fontStyle: 'italic' // Italic
         },
         {
             fontFamily: 'SourceHanSansCNBold',
             fontBase64: window.SourceHanSansCNBold,
             fontUrl: '',
-            fontWeight: 700, // 加粗
+            fontWeight: 700, // Bold
             fontStyle: 'normal'
         },
         {
@@ -235,54 +234,55 @@ dompdf(document.querySelector("#capture"), {
 </script>
 ```
 
-####  绘制渐变色、阴影等复杂样式-foreignObjectRendering 使用
+#### 🎨 Rendering Complex Styles like Gradients, Shadows - Using foreignObjectRendering
 
-在 dom 十分复杂，或者 pdf 无法绘制的情况（比如：复杂的表格，边框阴影，渐变等），可以考虑使用 foreignObjectRendering。
-给要渲染的元素添加 foreignObjectRendering 属性，就可以通过 svg 的 foreignObject 将它渲染成一张背景图插入到 pdf 文件中。
+In cases where the DOM is very complex or the PDF cannot be drawn (e.g., complex tables, border shadows, gradients, etc.), consider using foreignObjectRendering.
+Add the foreignObjectRendering attribute to the element to be rendered, and it will be rendered as a background image inserted into the PDF file via svg's foreignObject.
 
-但是，由于 foreignObject 元素的渲染依赖于浏览器的实现，因此在不同的浏览器中可能会有不同的表现。
-所以，在使用 foreignObjectRendering 时，需要注意以下事项：
+However, since the rendering of foreignObject elements depends on the browser's implementation, it may behave differently in different browsers.
+Therefore, when using foreignObjectRendering, please note the following:
 
-1. foreignObject 元素的渲染依赖于浏览器的实现，因此在不同的浏览器中可能会有不同的表现。
-2. IE 浏览器完全不支持，推荐在 chrome 和 firefox,edge 中使用。
-3. 生成的图片会导致 pdf 文件体积变大。
+1. The rendering of foreignObject elements depends on the browser's implementation, so it may behave differently in different browsers.
+2. IE browser does not support it at all, recommended to use in Chrome, Firefox, Edge.
+3. The generated image will increase the PDF file size.
 
-示例
+Example
 
 ```html
 <div style="width: 100px;height: 100px;" foreignObjectRendering>
-  <div
-    style="width: 50px;height: 50px;border: 1px solid #000;box-shadow: 2px 2px 5px rgba(0,0,0,0.3);background: linear-gradient(45deg, #ff6b6b, #4ecdc4);"
-  >
-    这是一个div元素
-  </div>
+    <div
+        style="width: 50px;height: 50px;border: 1px solid #000;box-shadow: 2px 2px 5px rgba(0,0,0,0.3);background: linear-gradient(45deg, #ff6b6b, #4ecdc4);"
+    >
+        This is a div element
+    </div>
 </div>
 ```
 
-### 浏览器兼容性
+### 🌐 Browser Compatibility
 
-该库应该可以在以下浏览器上正常工作（需要 `Promise` polyfill）：
+The library should work properly on the following browsers (requires `Promise` polyfill):
 
-- Firefox 3.5+
-- Google Chrome
-- Opera 12+
-- IE9+
-- Safari 6+
+-   Firefox 3.5+
+-   Google Chrome
+-   Opera 12+
+-   IE9+
+-   Safari 6+
 
-### 构建
+### 🏗️ Build
 
-克隆 git 仓库：
+Clone git repository:
 
     $ git clone git@github.com:lmn1919/dompdf.js.git
 
-安装依赖：
+Install dependencies:
 
     $ npm install
 
-构建浏览器包：
+Build browser package:
 
     $ npm run build
 
-## Star History
+## 📈 Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=lmn1919/dompdf.js&type=Date)](https://www.star-history.com/#lmn1919/dompdf.js&Date)
+
