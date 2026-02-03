@@ -265,7 +265,7 @@ export class CanvasRenderer extends Renderer {
         }
         const fontFamilyCustom =
             (this.options.fontConfig as FontConfig[]).find(
-                (v) => v.fontWeight === styles.fontWeight && v.fontStyle === styles.fontStyle
+                (v) => v.fontWeight === (styles.fontWeight > 500 ? 700 : 400) && v.fontStyle === styles.fontStyle
             )?.fontFamily ?? '';
         fontFamilyCustom && this.jspdfCtx.setFont(fontFamilyCustom);
         return fontFamilyCustom;
@@ -378,7 +378,7 @@ export class CanvasRenderer extends Renderer {
         const [font, fontFamily, fontSize] = this.createFontStyle(styles);
         const fontFamilyFinal = this.setTextFont(styles);
         this.context2dCtx.font = fontFamilyFinal || font;
-        // console.log(fontFamilyFinal, 'render getFont', this.jspdfCtx.getFont());
+        // console.log(fontFamilyFinal, styles, 'render getFont', this.jspdfCtx.getFont());
         // jspdf context2d not supported ‘direction’
         // this.context2dCtx.direction = styles.direction === DIRECTION.RTL ? 'rtl' : 'ltr';
 
@@ -1347,4 +1347,3 @@ const fixIOSSystemFonts = (fontFamilies: string[]): string[] => {
         ? fontFamilies.filter((fontFamily) => iOSBrokenFonts.indexOf(fontFamily) === -1)
         : fontFamilies;
 };
-
