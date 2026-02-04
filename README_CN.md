@@ -86,6 +86,8 @@ dompdf(document.querySelector('#capture'), options)
 
 您可以通过设置 `pagination` 选项为 `true` 来开启分页渲染。通过 pageConfig 字段自定义页眉页脚的尺寸，内容，字体颜色/大小，位置等信息。
 
+**_ 需要注意，将要生成 PDF 的 dom 节点设置为对应的页面宽度（px）,比如 a4 要设置宽度为 794px,这里是页面尺寸对照表：[page_sizes.md](./page_sizes.md) _**
+
 ```js
 import dompdf from 'dompdf.js';
 

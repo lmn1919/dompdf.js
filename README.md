@@ -86,6 +86,8 @@ By default, dompdf renders the entire document onto a single page.
 
 You can enable pagination rendering by setting the `pagination` option to `true`. Customize header and footer size, content, font color/size, position, etc., via the pageConfig field.
 
+**_ Note: Please ensure that the DOM node to be generated as PDF is set to the corresponding page width (px). For example, set the width to 794px for A4. Here is the page size reference table: [page_sizes.md](./page_sizes.md) _**
+
 ```js
 import dompdf from 'dompdf.js';
 
