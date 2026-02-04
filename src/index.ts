@@ -25,7 +25,9 @@ export type Options = CloneOptions &
         onJspdfFinish?: (jspdfCtx: jsPDF) => void;
     };
 
-const dompdf = (element: HTMLElement, options: Partial<Options> = {}): Promise<HTMLCanvasElement> => {
+export type DompdfResult = HTMLCanvasElement | Blob;
+
+const dompdf = (element: HTMLElement, options: Partial<Options> = {}): Promise<DompdfResult> => {
     return renderElement(element, options);
 };
 
@@ -60,7 +62,7 @@ const parseBackgroundColor = (context: Context, element: HTMLElement, background
         : defaultBackgroundColor;
 };
 
-const renderElement = async (element: HTMLElement, opts: Partial<Options>): Promise<any> => {
+const renderElement = async (element: HTMLElement, opts: Partial<Options>): Promise<DompdfResult> => {
     if (!element || typeof element !== 'object') {
         return Promise.reject('Invalid element provided as first argument');
     }
@@ -184,7 +186,7 @@ const renderElement = async (element: HTMLElement, opts: Partial<Options>): Prom
         }
     };
 
-    let canvas;
+    let canvas: DompdfResult;
 
     if (foreignObjectRendering) {
         context.logger.debug(`Document cloned, using foreign object rendering`);
@@ -205,8 +207,8 @@ const renderElement = async (element: HTMLElement, opts: Partial<Options>): Prom
             renderOptions.y = 0;
             const adjustTop = (node: ElementContainer, delta: number) => {
                 node.bounds.top = node.bounds.top - delta;
-                for (const tn of node.textNodes as any[]) {
-                    for (const tb of tn.textBounds as any[]) {
+                for (const tn of node.textNodes) {
+                    for (const tb of tn.textBounds) {
                         tb.bounds.top = tb.bounds.top - delta;
                     }
                 }
