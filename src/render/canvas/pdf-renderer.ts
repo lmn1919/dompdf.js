@@ -1193,7 +1193,7 @@ export class CanvasRenderer extends Renderer {
     private textPdf(text: string, x: number, y: number, align: 'left' | 'center' | 'right'): void {
         const sx = this.safe(x);
         const sy = this.safe(y);
-        (this.jspdfCtx as any).text(String(text), sx, sy, {align});
+        this.jspdfCtx.text(String(text), sx, sy, {align});
     }
 
     private computeContentPosition(
@@ -1293,7 +1293,7 @@ export class CanvasRenderer extends Renderer {
         const sw = Math.max(1, this.safe(w, 1));
         const sh = Math.max(1, this.safe(h, 1));
         // draw a big image，jsPDF：Error: Invalid image dimensions: width and height must be positive numbers.
-        this.jspdfCtx.addImage(img as any, format, sx, sy, sw, sh, '', 'FAST');
+        this.jspdfCtx.addImage(img, format, sx, sy, sw, sh, '', 'FAST');
     }
 
     async output(): Promise<Blob> {
