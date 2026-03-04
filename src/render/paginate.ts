@@ -87,22 +87,9 @@ const filterTextNodesForPage = (container: ElementContainer, pageStart: number, 
                 const newTop = visibleTop - pageStart;
                 const newHeight = Math.max(0, visibleBottom - visibleTop);
 
-                // 根据可见区域生成新的 Bounds
+                // Generate new Bounds based on the visible area
                 const nb = new Bounds(tb.bounds.left, newTop + pageMarginTop, tb.bounds.width, newHeight);
-                // if (pageIndex == 3) {
-                //     console.log(
-                //         'nb',
-                //         nb,
-                //         'pageStart',
-                //         pageStart,
-                //         'tb.bounds.top',
-                //         tb.bounds.top,
-                //         'activePageOffset',
-                //         activePageOffset,
-                //         (tb as any).text
-                //     );
-                // }
-                // 把文字内容和新的 bounds 一起放进 filtered
+                // Put the text content and the new bounds into filtered
                 filtered.push({text: (tb as any).text, bounds: nb} as TextBounds);
             }
         }

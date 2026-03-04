@@ -10,7 +10,7 @@ import {ForeignObjectRenderer} from './render/canvas/foreignobject-renderer';
 import {CanvasRenderer, RenderConfigurations, RenderOptions} from './render/canvas/pdf-renderer';
 import {PAGE_FORMAT_MAP} from './render/page-format-map';
 import {paginateNode} from './render/paginate';
-import {FontConfig, isArray, isEmptyValue, isFunction, validateFontConfig} from './utils';
+import {FontConfig, isArray, isEmptyValue, isFunction, setOptionFontConfig} from './utils';
 
 export type Options = CloneOptions &
     WindowOptions &
@@ -154,11 +154,7 @@ const renderElement = async (element: HTMLElement, opts: Partial<Options>): Prom
         y: (opts.y ?? 0) + top,
         width: opts.width ?? Math.ceil(width),
         height: opts.height ?? Math.ceil(height),
-        fontConfig: validateFontConfig(opts.fontConfig)
-            ? isArray(opts.fontConfig)
-                ? opts.fontConfig
-                : [opts.fontConfig as FontConfig]
-            : undefined,
+        fontConfig: setOptionFontConfig(opts.fontConfig),
         encryption: isEmptyValue(opts.encryption) ? undefined : opts.encryption, // fix：jspdf encryption default value
         precision: opts.precision ?? 16,
         floatPrecision: opts.floatPrecision ?? 16,
