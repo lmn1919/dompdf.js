@@ -173,6 +173,7 @@ dompdf(document.querySelector('#capture'), {
 | `fontBase64` | 是（启用自定义字体时）         | `''`   | `string` | `.ttf` 的 Base64 字符串内容        |
 | `fontStyle`  | 是（启用自定义字体时）         | `''`   | `string` | `normal \| italic`                 |
 | `fontWeight` | 是（启用自定义字体时字体加粗） | `''`   | `number` | `400 \| 700`                       |
+| `iconFont`   | 否                          | `false` | `boolean`| `false \| true`                            |
 
 #### 🔣 乱码问题-字体导入支持
 
@@ -186,6 +187,7 @@ dompdf(document.querySelector('#capture'), {
 <script type="text/javascript" src="./SourceHanSansCNBold-bold.js"></script>
 <script type="text/javascript" src="./SourceHanSansCNNormal-normal.js"></script>
 <script type="text/javascript" src="./SourceHanSansCNRegularItalic-normal.js"></script>
+<script type="text/javascript" src="./iconfont-ttf.js"></script>
 <script>
   /* 导入字体 */
   dompdf(document.querySelector('#capture'), {
@@ -199,6 +201,14 @@ dompdf(document.querySelector('#capture'), {
     }, */
     /* 导入注册多种字体，需要支持什么语种，样式，就导入对应的字体 */
     fontConfig: [
+        {
+            fontFamily: 'iconfont',
+            fontBase64: window.iconfont,
+            fontUrl: '',
+            fontWeight: 400,
+            fontStyle: 'normal',
+            iconFont: true
+        },
         {
             fontFamily: 'SourceHanSansCNRegularItalic',
             fontBase64: window.SourceHanSansCNRegularItalic,
