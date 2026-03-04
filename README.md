@@ -173,6 +173,7 @@ If you do not want a container to be split during pagination, add the `divisionD
 | `fontBase64` | Yes (when using custom font)      | `''`    | `string` | Base64 string content of `.ttf`            |
 | `fontStyle`  | Yes (when using custom font)      | `''`    | `string` | `normal \| italic`                         |
 | `fontWeight` | Yes (when using custom font bold) | `''`    | `number` | `400 \| 700`                               |
+| `iconFont`   | No                                | `false` | `boolean`| `false \| true`                            |
 
 #### 🔣 Garbled Characters - Font Import Support
 
@@ -186,6 +187,7 @@ Import the file in the code.
 <script type="text/javascript" src="./SourceHanSansCNBold-bold.js"></script>
 <script type="text/javascript" src="./SourceHanSansCNNormal-normal.js"></script>
 <script type="text/javascript" src="./SourceHanSansCNRegularItalic-normal.js"></script>
+<script type="text/javascript" src="./iconfont-ttf.js"></script>
 <script>
   /* Import fonts */
   dompdf(document.querySelector('#capture'), {
@@ -199,6 +201,14 @@ Import the file in the code.
     }, */
     /* Import and register multiple fonts, import corresponding fonts for required languages and styles */
     fontConfig: [
+        {
+            fontFamily: 'iconfont',
+            fontBase64: window.iconfont,
+            fontUrl: '',
+            fontWeight: 400,
+            fontStyle: 'normal',
+            iconFont: true
+        },
         {
             fontFamily: 'SourceHanSansCNRegularItalic',
             fontBase64: window.SourceHanSansCNRegularItalic,
