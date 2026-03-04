@@ -14,7 +14,6 @@ import {SVGElementContainer} from './replaced-elements/svg-element-container';
 import {TextContainer} from './text-container';
 
 const LIST_OWNERS = ['OL', 'UL', 'MENU'];
-// let foreignObjectRendererList: any = []
 const parseNodeTree = (
     context: Context,
     node: Node,
@@ -22,7 +21,6 @@ const parseNodeTree = (
     root: ElementContainer,
     foreignObjectRendererList: Element[]
 ) => {
-    // console.log('parseNodeTree', context,node,parent,root)
     for (let childNode = node.firstChild, nextNode; childNode; childNode = nextNode) {
         nextNode = childNode.nextSibling;
 
@@ -64,9 +62,6 @@ const parseNodeTree = (
                     if (isElementNode(node) && node.hasAttribute('foreignobjectrendering')) {
                         foreignObjectRendererList.push(node);
                     }
-                    // if (parent.foreignobjectrendering){
-                    //     container.foreignobjectrendering = true;
-                    // }
                     parent.elements.push(container);
                     childNode.slot;
                     if (childNode.shadowRoot) {
@@ -124,14 +119,6 @@ const createContainer = (context: Context, element: Element): ElementContainer =
     return new ElementContainer(context, element);
 };
 
-// export const parseTree = (context: Context, element: HTMLElement): ElementContainer => {
-//     const container = createContainer(context, element);
-//     container.flags |= FLAGS.CREATES_REAL_STACKING_CONTEXT;
-//     console.log(element,'nodedom解析')
-//     parseNodeTree(context, element, container, container);
-//     return container;
-// };
-
 const createsRealStackingContext = (node: Element, container: ElementContainer, root: ElementContainer): boolean => {
     return (
         container.styles.isPositionedWithZIndex() ||
@@ -169,9 +156,6 @@ export const parseTree = async (context: Context, element: HTMLElement): Promise
             const itemNode = uniqueList[index] as HTMLElement;
             const width = itemNode.offsetWidth || itemNode.getBoundingClientRect().width || 100;
             const height = itemNode.offsetHeight || itemNode.getBoundingClientRect().height || 100;
-            // const rect = itemNode.getBoundingClientRect();
-            // const scrollX = window.scrollX || document.documentElement.scrollLeft;
-            // const scrollY = window.scrollY || document.documentElement.scrollTop;
 
             // 创建图片容器
             const bgContainer = document.createElement('div');
@@ -253,61 +237,6 @@ const renderForeignObject = async (element: HTMLElement) => {
         console.error('导出PNG格式失败:', error);
     }
 };
-
-// 修复3：安全截图（不修改原始 DOM）
-// const renderForeignObject = async (element: HTMLElement) => {
-//     // 1. 克隆元素（包括所有子元素）
-//     const clone = element.cloneNode(true) as HTMLElement;
-
-//     // 2. 创建临时容器（确保正确计算样式）
-//     const container = document.createElement('div');
-//     container.style.position = 'absolute';
-//     container.style.left = '-9999px';
-//     container.appendChild(clone);
-//     document.body.appendChild(container);
-
-//     // 3. 应用透明样式到克隆体
-//     const applyInvisibleStyle = (el: Element) => {
-//         if (el instanceof HTMLElement) {
-//             el.style.color = 'transparent';
-//             el.style.backgroundColor = 'transparent';
-//             Array.from(el.children).forEach(applyInvisibleStyle);
-//         }
-//     };
-//     applyInvisibleStyle(clone);
-
-//     // 4. 获取尺寸
-//     const rect = clone.getBoundingClientRect();
-//     if (rect.width === 0 || rect.height === 0) {
-//         document.body.removeChild(container);
-//         return null;
-//     }
-
-//     try {
-//         // 5. 截图克隆体
-//         const capture = await snapdom(clone, {
-//             // width: Math.ceil(rect.width),
-//             // height: Math.ceil(rect.height)
-//         });
-
-//         const pngData = await capture.toPng({
-//             quality: 0.9,
-//             // width: Math.ceil(rect.width),
-//             // height: Math.ceil(rect.height)
-//         });
-
-//         return pngData;
-//     } catch (error) {
-//         console.error('截图失败:', error);
-//         return null;
-//     } finally {
-//         // 6. 确保清理临时元素
-//         document.body.removeChild(container);
-//     }
-// };
-
-// 修复4：移除原有的 makeInvisible 函数
-// 不再需要，因为新方法使用克隆体
 
 const createsStackingContext = (styles: CSSParsedDeclaration): boolean => styles.isPositioned() || styles.isFloating();
 

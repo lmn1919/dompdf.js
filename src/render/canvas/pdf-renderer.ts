@@ -239,14 +239,7 @@ export class CanvasRenderer extends Renderer {
 
     // reset all font
     resetJsPDFFont(): void {
-        // if fontConfig is a single FontConfig object
-        if (
-            isObject(this.options.fontConfig) &&
-            this.options.fontConfig &&
-            (this.options.fontConfig as FontConfig).fontFamily
-        ) {
-            this.jspdfCtx.setFont((this.options.fontConfig as FontConfig).fontFamily);
-        } else if (isArray(this.options.fontConfig) && !isEmptyValue(this.options.fontConfig)) {
+        if (isArray(this.options.fontConfig) && !isEmptyValue(this.options.fontConfig)) {
             (this.options.fontConfig as FontConfig[]).forEach((v) => {
                 v.fontFamily && this.jspdfCtx.setFont(v.fontFamily);
             });
@@ -254,19 +247,28 @@ export class CanvasRenderer extends Renderer {
     }
     // setFont form options
     setTextFont(styles: CSSParsedDeclaration): string {
-        // console.log(styles.fontWeight, styles.fontStyle, 'styles');
+        // console.log(styles.fontWeight, styles.fontStyle, styles.fontFamily, 'styles');
         if (isEmptyValue(this.options.fontConfig)) {
             return '';
         }
-        if ((this.options.fontConfig as FontConfig[]).length === 1) {
-            const fontFamilyCustom = (this.options.fontConfig as FontConfig[])[0].fontFamily ?? '';
+        const fontConfigRef = this.options.fontConfig as FontConfig[];
+        // 处理字体图标场景
+        const isIconFont = fontConfigRef.find((v) => v.iconFont);
+        if (isIconFont && styles.fontFamily.some((family) => family.includes(isIconFont.fontFamily))) {
+            isIconFont.fontFamily && this.jspdfCtx.setFont(isIconFont.fontFamily);
+            return isIconFont.fontFamily;
+        }
+        // 除开字体图标场景
+        if ((fontConfigRef as FontConfig[]).length === 1) {
+            const fontFamilyCustom = fontConfigRef[0].fontFamily ?? '';
             fontFamilyCustom && this.jspdfCtx.setFont(fontFamilyCustom);
             return fontFamilyCustom;
         }
         const fontFamilyCustom =
-            (this.options.fontConfig as FontConfig[]).find(
-                (v) => v.fontWeight === (styles.fontWeight > 500 ? 700 : 400) && v.fontStyle === styles.fontStyle
-            )?.fontFamily ?? '';
+            fontConfigRef
+                .filter((v) => !v.iconFont)
+                .find((v) => v.fontWeight === (styles.fontWeight > 500 ? 700 : 400) && v.fontStyle === styles.fontStyle)
+                ?.fontFamily ?? '';
         fontFamilyCustom && this.jspdfCtx.setFont(fontFamilyCustom);
         return fontFamilyCustom;
     }
