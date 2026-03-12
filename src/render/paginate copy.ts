@@ -10,7 +10,6 @@ let offSetTotal = 0;
 let activePageHeight = 1123;
 let pageMarginTop = 0;
 let pageMarginBottom = 0;
-const pageTopOffset = 10;
 const cloneContainerShallow = (src: ElementContainer): ElementContainer => {
     const c = Object.create(Object.getPrototypeOf(src)) as any;
     const srcObj = src as unknown as Record<string, unknown>;
@@ -59,33 +58,16 @@ const filterTextNodesForPage = (container: ElementContainer, pageStart: number, 
             const pageIndex = Math.floor(pageEnd / activePageHeight);
             const maxKey = Math.max(...Object.keys(offSetPageObj).map((k) => +k));
             const activePageOffset = offSetPageObj[maxKey] || 0;
-            let top = tb.bounds.top + activePageOffset;
+            const top = tb.bounds.top + activePageOffset;
             let bottom = tb.bounds.top + tb.bounds.height + activePageOffset;
             const intersects = bottom > pageStart && top < pageEnd;
             const crossesToNextPage = bottom > pageEnd;
 
             if (intersects && !crossesToNextPage) {
                 let offsetNum = 0;
-                // if (top > pageStart && top - pageStart < pageTopOffset) {
-                //     offsetNum = pageTopOffset - (top - pageStart);
-                //     if (
-                //         !offSetPageObj[pageIndex] ||
-                //         (offSetPageObj[pageIndex] && offSetPageObj[pageIndex] < offsetNum)
-                //     ) {
-                //         if (offSetPageObj[pageIndex] && offSetPageObj[pageIndex] < offsetNum) {
-                //             offSetTotal = offSetTotal - offSetPageObj[pageIndex] + offsetNum;
-                //         } else {
-                //             offSetTotal += offsetNum;
-                //         }
-                //         offSetPageObj[pageIndex] = offSetTotal;
-                //     }
-                //     // Fix the issue where no offset is added for the first text container
-                //     bottom += offsetNum;
-                //     top += offsetNum;
-                //     container.bounds.top += offsetNum;
-                // }
                 if (top < pageStart) {
-                    offsetNum = pageStart - top + pageTopOffset;
+                    offsetNum = pageStart - top;
+
                     if (
                         !offSetPageObj[pageIndex] ||
                         (offSetPageObj[pageIndex] && offSetPageObj[pageIndex] < offsetNum)
@@ -99,12 +81,12 @@ const filterTextNodesForPage = (container: ElementContainer, pageStart: number, 
                     }
                     // Fix the issue where no offset is added for the first text container
                     bottom += offsetNum;
-                    top += offsetNum;
                 }
                 const visibleTop = Math.max(top, pageStart);
                 const visibleBottom = Math.min(bottom, pageEnd);
                 const newTop = visibleTop - pageStart;
                 const newHeight = Math.max(0, visibleBottom - visibleTop);
+
                 // Generate new Bounds based on the visible area
                 const nb = new Bounds(tb.bounds.left, newTop + pageMarginTop, tb.bounds.width, newHeight);
                 // Put the text content and the new bounds into filtered
