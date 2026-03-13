@@ -134,7 +134,7 @@ const filterElementForPage = (
     const bottom = container.bounds.top + container.bounds.height + activePageOffset;
 
     if (container.divisionDisable && bottom > pageEnd && top < pageEnd) {
-        const offsetNum = pageEnd - top;
+        const offsetNum = pageEnd - top + pageTopOffset;
         const prev = offSetPageObj[pageIndex] || 0;
         if (!offSetPageObj[pageIndex] || prev < offsetNum) {
             offSetTotal += offsetNum - prev;
