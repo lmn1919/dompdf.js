@@ -56,8 +56,8 @@
       var fontName = document.getElementById('fontName').value;
       var fontStyle = document.getElementById('fontStyle').value;
       var createdFileName = fontName + '-' + fontStyle + '.ttf';
-      jsFile += 'var ' + fontName + ' = \'' + window.loadedFileContents + '\';\n';
-      jsFile += 'window.fontBase64 = ' + fontName + ';\n';
+      jsFile += 'window. ' + fontName + ' = \'' + window.loadedFileContents + '\';\n';
+      // jsFile += 'window.' + fontBase64 + ' = ' + fontName + ';\n';
 
       var newJsfile = new File([jsFile], fontName + '-' + fontStyle + '.js', { type: 'text/plain;charset=utf-8' });
       saveAs(newJsfile);
