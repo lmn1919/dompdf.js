@@ -152,11 +152,12 @@ const filterElementForPage = (
     }
 
     const children: ElementContainer[] = [];
+    // Modify the order of `filterTextNodesForPage` and `filterElementForPage`, traversing text nodes first and then child elements, to avoid incorrect setting of `activePageOffset` when the current section spans multiple pages
+    const textNodes = filterTextNodesForPage(container, pageStart, pageEnd);
     for (const child of container.elements) {
         const part = filterElementForPage(child, pageStart, pageEnd);
         if (part) children.push(part);
     }
-    const textNodes = filterTextNodesForPage(container, pageStart, pageEnd);
     // Prevent the outer container from not synchronizing the offsetPage when the text spans multiple pages
     maxKey = Math.max(...Object.keys(offSetPageObj).map((k) => +k));
     activePageOffset = pageIndex === 1 ? 0 : offSetPageObj[maxKey] || 0;
