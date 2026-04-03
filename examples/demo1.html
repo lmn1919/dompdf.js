@@ -749,12 +749,11 @@
                         ],
                         pageConfig: {
                             header: {
-                                content: '',
-                                height: 0,
-                                contentColor: '#333333',
-                                contentFontSize: 0,
-                                contentPosition: 'center',
-                                padding: [0, 0, 0, 0]
+                                content: (dompdf, pageNum) => {
+                                    // 可以直接调用 dompdf.jspdfCtx 的任意 API
+                                    console.log(dompdf,pageNum,'pdf,pageNum');
+                                },
+                                height: 50
                             },
                             footer: {
                                 content: '',
@@ -802,7 +801,7 @@
                                 for (let x = 0; x < pageWidth; x += watermarkConfig.spacing) {
                                     for (let y = 0; y < pageHeight; y += watermarkConfig.spacing) {
                                         // 关键：设置带透明度的文本颜色（替代setTextOpacity）
-                                        jspdf.setTextColor(0,0,0,0.2);
+                                        jspdf.setTextColor(0, 0, 0, 0.2);
                                         jspdf.setFontSize(watermarkConfig.fontSize);
 
                                         // 绘制旋转的水印文字（4.0.0支持的写法）
@@ -853,3 +852,4 @@
         </script>
     </body>
 </html>
+

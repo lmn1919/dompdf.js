@@ -56,7 +56,7 @@ export type RenderConfigurations = RenderOptions & {
 
 export type pageConfigOptions = {
     header: {
-        content: string;
+        content: string | ((renderer: any, pageNum: string) => void);
         height: number;
         contentPosition:
             | 'center'
@@ -74,7 +74,7 @@ export type pageConfigOptions = {
         padding?: [number, number, number, number];
     };
     footer: {
-        content: string;
+        content: string | ((renderer: any, pageNum: string) => void);
         height: number;
         contentPosition:
             | 'center'
@@ -1121,41 +1121,49 @@ export class CanvasRenderer extends Renderer {
         this.applyEffects([]);
 
         if (cfg?.header) {
-            const headerText = String(cfg.header.content)
-                .replace('${currentPage}', String(pageNum))
-                .replace('${totalPages}', String(this.totalPages));
-            this.jspdfCtx.setFontSize(this.safe(this.pxToPt(cfg.header.contentFontSize), 1));
-            this.setTextColorFromString(cfg.header.contentColor);
-            const headerPos = this.computeContentPosition(
-                cfg.header.contentPosition,
-                pageW,
-                pageH,
-                cfg.header.height,
-                mt,
-                mb,
-                'header',
-                cfg.header.padding
-            );
-            this.textPdf(headerText, headerPos.x, headerPos.y, headerPos.align);
+            if (typeof cfg.header.content === 'function') {
+                cfg.header.content(this, String(pageNum));
+            } else {
+                const headerText = String(cfg.header.content)
+                    .replace('${currentPage}', String(pageNum))
+                    .replace('${totalPages}', String(this.totalPages));
+                this.jspdfCtx.setFontSize(this.safe(this.pxToPt(cfg.header.contentFontSize), 1));
+                this.setTextColorFromString(cfg.header.contentColor);
+                const headerPos = this.computeContentPosition(
+                    cfg.header.contentPosition,
+                    pageW,
+                    pageH,
+                    cfg.header.height,
+                    mt,
+                    mb,
+                    'header',
+                    cfg.header.padding
+                );
+                this.textPdf(headerText, headerPos.x, headerPos.y, headerPos.align);
+            }
         }
 
         if (cfg?.footer) {
-            const footerText = String(cfg.footer.content)
-                .replace('${currentPage}', String(pageNum))
-                .replace('${totalPages}', String(this.totalPages));
-            this.jspdfCtx.setFontSize(this.safe(this.pxToPt(cfg.footer.contentFontSize), 1));
-            this.setTextColorFromString(cfg.footer.contentColor);
-            const footerPos = this.computeContentPosition(
-                cfg.footer.contentPosition,
-                pageW,
-                pageH,
-                cfg.footer.height,
-                mt,
-                mb,
-                'footer',
-                cfg.footer.padding
-            );
-            this.textPdf(footerText, footerPos.x, footerPos.y, footerPos.align);
+            if (typeof cfg.footer.content === 'function') {
+                cfg.footer.content(this, String(pageNum));
+            } else {
+                const footerText = String(cfg.footer.content)
+                    .replace('${currentPage}', String(pageNum))
+                    .replace('${totalPages}', String(this.totalPages));
+                this.jspdfCtx.setFontSize(this.safe(this.pxToPt(cfg.footer.contentFontSize), 1));
+                this.setTextColorFromString(cfg.footer.contentColor);
+                const footerPos = this.computeContentPosition(
+                    cfg.footer.contentPosition,
+                    pageW,
+                    pageH,
+                    cfg.footer.height,
+                    mt,
+                    mb,
+                    'footer',
+                    cfg.footer.padding
+                );
+                this.textPdf(footerText, footerPos.x, footerPos.y, footerPos.align);
+            }
         }
     }
 
