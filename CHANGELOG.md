@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.2.0](https://github.com/lmn1919/dompdf.js/compare/v1.1.1...v1.2.0) (2026-04-03)
+
+
+### 📝 Docs
+
+* Add page size description ([ed3789f](https://github.com/lmn1919/dompdf.js/commit/ed3789fc107bdf19087ec1ad0365d148ddcc7a0d))
+* update doc ([66f7fbb](https://github.com/lmn1919/dompdf.js/commit/66f7fbb7d5797f797570bec41611882d41c6f356))
+
+
+### ✨ Feature
+
+* custom page header and footer ([6726ecb](https://github.com/lmn1919/dompdf.js/commit/6726ecb66e87dd5db067719f7e15e446e237e73e))
+* supports importing iconfont and exporting iconfont ([660d0e2](https://github.com/lmn1919/dompdf.js/commit/660d0e289bd104663621cac8faf2b6132f6144cd))
+
+
+### 🐛 Bugfix
+
+* add Bold font ([0aef4a0](https://github.com/lmn1919/dompdf.js/commit/0aef4a030b8e8b16b516c9b179f221518669a24f))
+* Excessive truncated text appears on the pagination ([8f5ef97](https://github.com/lmn1919/dompdf.js/commit/8f5ef9768c1ec3c9126dc812cc66fcc94f5c3052))
+* only iconfont not use default ([e3bb2f9](https://github.com/lmn1919/dompdf.js/commit/e3bb2f9494a202d503a039a9e61f40e514d90010))
+* pagination 'activePageOffset' error ([8428b20](https://github.com/lmn1919/dompdf.js/commit/8428b20dfe01bab39054d9e44061a33d0af704f0))
+* Use 'any' as a type in the code ([5f5ba7f](https://github.com/lmn1919/dompdf.js/commit/5f5ba7f2ba91c67d13c1603e092fd6d2c6121be1))
+
 ### 1.1.1 (2026-02-04)
 
 
