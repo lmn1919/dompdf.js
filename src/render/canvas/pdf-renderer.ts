@@ -168,6 +168,7 @@ export class CanvasRenderer extends Renderer {
     private readonly fontMetrics: FontMetrics;
     private readonly pxToPt: (px: number) => number;
     private totalPages = 1;
+    private fontMatchMode = false;
 
     constructor(context: Context, options: RenderConfigurations) {
         super(context, options);
@@ -230,10 +231,11 @@ export class CanvasRenderer extends Renderer {
             : (this.options.fontConfig as FontConfig[]);
         fonts.forEach((v) => {
             this.jspdfCtx.addFileToVFS(`${v.fontFamily}.ttf`, v.fontBase64);
-            this.jspdfCtx.addFont(`${v.fontFamily}.ttf`, v.fontFamily, 'normal');
-            this.jspdfCtx.setFont(v.fontFamily);
+            this.jspdfCtx.addFont(`${v.fontFamily}.ttf`, v.fontFamily, v.fontStyle);
         });
         // console.log('render getFont', this.jspdfCtx.getFont());
+
+        this.fontMatchMode = this.hasFontMatchConfig(fonts);
         this.context.logger.debug(`setFont renderer initialized`);
     }
 
@@ -271,6 +273,54 @@ export class CanvasRenderer extends Renderer {
             )?.fontFamily ?? '';
         fontFamilyCustom && this.jspdfCtx.setFont(fontFamilyCustom);
         return fontFamilyCustom;
+    }
+
+    // 判断字符的 Unicode 编码是否在指定范围内
+    private isCharInRange(charCode: number, ranges: [number, number][]): boolean {
+        return ranges.some(([start, end]) => charCode >= start && charCode <= end);
+    }
+
+    // 根据样式设置匹配的字体（取第一个字符匹配）
+    // 权重打分机制：
+    // charRange 匹配: +100（语言匹配，最高优先级）
+    // isDefault 匹配: +50 （默认兜底，次优先级）
+    // weight    匹配: +10 （粗细匹配）
+    // style     匹配: +1  （斜体匹配）
+    private setMatchedFont(text: TextBounds, styles: CSSParsedDeclaration): void {
+        const charCode = text.text.charCodeAt(0);
+        const fontConfigList = isArray(this.options.fontConfig)
+            ? (this.options.fontConfig as FontConfig[])
+            : [this.options.fontConfig as FontConfig];
+
+        const targetWeight = styles.fontWeight > 500 ? 700 : 400;
+        const targetStyle = styles.fontStyle === 'italic' ? 'italic' : 'normal';
+
+        let bestMatch: FontConfig | null = null;
+        let bestScore = -1;
+
+        for (const config of fontConfigList) {
+            let score = 0;
+            const hasCharRange = config.charRange && this.isCharInRange(charCode, config.charRange);
+
+            if (hasCharRange) {
+                score += 100;
+                if (config.fontWeight === targetWeight) score += 10;
+                if (config.fontStyle === targetStyle) score += 1;
+            } else if (config.isDefault) {
+                score += 50;
+                if (config.fontWeight === targetWeight) score += 10;
+                if (config.fontStyle === targetStyle) score += 1;
+            }
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestMatch = config;
+            }
+        }
+
+        if (bestMatch) {
+            this.jspdfCtx.setFont(bestMatch.fontFamily, bestMatch.fontStyle);
+        }
     }
 
     applyEffects(effects: IElementEffect[]): void {
@@ -332,7 +382,14 @@ export class CanvasRenderer extends Renderer {
         }
     }
 
-    renderTextWithLetterSpacing(text: TextBounds, letterSpacing: number, baseline: number): void {
+    renderTextWithLetterSpacing(text: TextBounds, styles: CSSParsedDeclaration, baseline: number): void {
+        // 是否需要使用逐段匹配模式
+        if (this.fontMatchMode) {
+            this.setMatchedFont(text, styles);
+        }
+
+        const letterSpacing = styles.letterSpacing;
+
         if (letterSpacing === 0) {
             this.context2dCtx.fillText(text.text, text.bounds.left, text.bounds.top + baseline);
         } else {
@@ -343,6 +400,12 @@ export class CanvasRenderer extends Renderer {
                 // return left + this.context2dCtx.measureText(letter).width;
             }, text.bounds.left);
         }
+    }
+
+    // 检查是否启用了字体匹配特性（有 charRange 或 isDefault 配置）
+    private hasFontMatchConfig(fonts: FontConfig[]): boolean {
+        const flag = fonts.some((config) => (config.charRange && config.charRange.length > 0) || config.isDefault);
+        return flag;
     }
 
     private createFontStyle(styles: CSSParsedDeclaration): string[] {
@@ -397,7 +460,7 @@ export class CanvasRenderer extends Renderer {
                     case PAINT_ORDER_LAYER.FILL:
                         this.context2dCtx.fillStyle = asString(styles.color);
 
-                        this.renderTextWithLetterSpacing(textItem, styles.letterSpacing, baseline);
+                        this.renderTextWithLetterSpacing(textItem, styles, baseline);
 
                         if (styles.textDecorationLine.length) {
                             this.context2dCtx.fillStyle = asString(styles.textDecorationColor || styles.color);
@@ -606,11 +669,7 @@ export class CanvasRenderer extends Renderer {
             ]);
 
             this.context2dCtx.clip();
-            this.renderTextWithLetterSpacing(
-                new TextBounds(container.value, textBounds),
-                styles.letterSpacing,
-                baseline
-            );
+            this.renderTextWithLetterSpacing(new TextBounds(container.value, textBounds), styles, baseline);
             this.context2dCtx.restore();
             this.context2dCtx.textBaseline = 'alphabetic';
             this.context2dCtx.textAlign = 'left';
@@ -653,7 +712,7 @@ export class CanvasRenderer extends Renderer {
                 );
                 this.renderTextWithLetterSpacing(
                     new TextBounds(paint.listValue, bounds),
-                    styles.letterSpacing,
+                    styles,
                     computeLineHeight(styles.lineHeight, styles.fontSize.number) / 2 + 2
                 );
                 this.context2dCtx.textBaseline = 'bottom';
