@@ -231,7 +231,7 @@ export class CanvasRenderer extends Renderer {
             : (this.options.fontConfig as FontConfig[]);
         fonts.forEach((v) => {
             this.jspdfCtx.addFileToVFS(`${v.fontFamily}.ttf`, v.fontBase64);
-            this.jspdfCtx.addFont(`${v.fontFamily}.ttf`, v.fontFamily, v.fontStyle);
+            this.jspdfCtx.addFont(`${v.fontFamily}.ttf`, v.fontFamily, v.fontStyle, v.fontWeight);
         });
         // console.log('render getFont', this.jspdfCtx.getFont());
 
@@ -319,7 +319,7 @@ export class CanvasRenderer extends Renderer {
         }
 
         if (bestMatch) {
-            this.jspdfCtx.setFont(bestMatch.fontFamily, bestMatch.fontStyle);
+            this.jspdfCtx.setFont(bestMatch.fontFamily, bestMatch.fontStyle, bestMatch.fontWeight);
         }
     }
 

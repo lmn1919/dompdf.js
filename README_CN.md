@@ -158,7 +158,7 @@ dompdf(document.querySelector('#capture'), {
 
 | 参数名            | 默认值                                                    | 类型                               | 说明                                                                                                                                                  |
 | ----------------- | --------------------------------------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `content`         | 页眉默认值为空,页脚默认值为`${currentPage}/${totalPages}` | `string`                           | 文本内容，支持 `${currentPage}`、`${totalPages}`，`${currentPage}`为当前页码，`${totalPages}`为总页码                                                 |
+| `content`         | 页眉默认值为空,页脚默认值为`${currentPage}/${totalPages}` | `string \| Function`              | 文本内容，支持 `${currentPage}`、`${totalPages}` 占位符。也可以是函数 `(renderer, pageNum) => void` 用于使用 jsPDF API 自定义绘制 |
 | `height`          | `50`                                                      | `number`                           | 区域高度（px）                                                                                                                                        |
 | `contentPosition` | `'center'`                                                | `string \| [number, number]`       | 文本位置枚举 `center`、`centerLeft` 、 `centerRight`、`centerTop`、 `centerBottom`、`leftTop`、 `leftBottom`、`rightTop`、`rightBottom`或坐标 `[x,y]` |
 | `contentColor`    | `'#333333'`                                               | `string`                           | 文本颜色                                                                                                                                              |
@@ -167,13 +167,15 @@ dompdf(document.querySelector('#capture'), {
 
 ##### 字体配置（`fontConfig`）字段：
 
-| 字段         | 必传                           | 默认值 | 类型     | 说明                               |
-| ------------ | ------------------------------ | ------ | -------- | ---------------------------------- |
-| `fontFamily` | 是（启用自定义字体时）         | `''`   | `string` | 字体家族名（与注入的 `.ttf` 同名） |
-| `fontBase64` | 是（启用自定义字体时）         | `''`   | `string` | `.ttf` 的 Base64 字符串内容        |
-| `fontStyle`  | 是（启用自定义字体时）         | `''`   | `string` | `normal \| italic`                 |
-| `fontWeight` | 是（启用自定义字体时字体加粗） | `''`   | `number` | `400 \| 700`                       |
-| `iconFont`   | 否                          | `false` | `boolean`| `false \| true`                            |
+| 字段         | 必传                           | 默认值  | 类型                  | 说明                                                                |
+| ------------ | ------------------------------ | ------- | --------------------- | ------------------------------------------------------------------- |
+| `fontFamily` | 是（启用自定义字体时）         | `''`    | `string`              | 字体家族名（与注入的 `.ttf` 同名）                                  |
+| `fontBase64` | 是（启用自定义字体时）         | `''`    | `string`              | `.ttf` 的 Base64 字符串内容                                          |
+| `fontStyle`  | 是（启用自定义字体时）         | `''`    | `string`              | `normal \| italic`                                                  |
+| `fontWeight` | 是（启用自定义字体时字体加粗） | `''`    | `number`              | `400 \| 700`                                                        |
+| `iconFont`   | 否                             | `false` | `boolean`             | `false \| true`                                                     |
+| `charRange`  | 否                             | -       | `[number, number][]`  | 该字体负责的 Unicode 字符范围，如 `[[0x4E00, 0x9FFF]]` 表示中文 CJK |
+| `default`    | 否                             | `false` | `boolean`             | 标记为默认兜底字体，用于不匹配任何 `charRange` 的字符               |
 
 #### 🔣 乱码问题-字体导入支持
 

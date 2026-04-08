@@ -158,7 +158,7 @@ If you do not want a container to be split during pagination, add the `divisionD
 
 | Parameter         | Default                                                                   | Type                               | Description                                                                                                                                                      |
 | :---------------- | :------------------------------------------------------------------------ | :--------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `content`         | Header default is empty, footer default is `${currentPage}/${totalPages}` | `string`                           | Text content, supports `${currentPage}`, `${totalPages}`, `${currentPage}` is current page number, `${totalPages}` is total page number                          |
+| `content`         | Header default is empty, footer default is `${currentPage}/${totalPages}` | `string \| Function`              | Text content, supports `${currentPage}`, `${totalPages}` placeholders. Can also be a function `(renderer, pageNum) => void` for custom drawing using jsPDF API |
 | `height`          | `50`                                                                      | `number`                           | Area height (px)                                                                                                                                                 |
 | `contentPosition` | `'center'`                                                                | `string \| [number, number]`       | Text position enum `center`, `centerLeft`, `centerRight`, `centerTop`, `centerBottom`, `leftTop`, `leftBottom`, `rightTop`, `rightBottom` or coordinates `[x,y]` |
 | `contentColor`    | `'#333333'`                                                               | `string`                           | Text color                                                                                                                                                       |
@@ -167,13 +167,15 @@ If you do not want a container to be split during pagination, add the `divisionD
 
 ##### Font Configuration (`fontConfig`) Fields:
 
-| Field        | Required                          | Default | Type     | Description                                |
-| :----------- | :-------------------------------- | :------ | :------- | :----------------------------------------- |
-| `fontFamily` | Yes (when using custom font)      | `''`    | `string` | Font family name (same as injected `.ttf`) |
-| `fontBase64` | Yes (when using custom font)      | `''`    | `string` | Base64 string content of `.ttf`            |
-| `fontStyle`  | Yes (when using custom font)      | `''`    | `string` | `normal \| italic`                         |
-| `fontWeight` | Yes (when using custom font bold) | `''`    | `number` | `400 \| 700`                               |
-| `iconFont`   | No                                | `false` | `boolean`| `false \| true`                            |
+| Field        | Required                          | Default | Type                      | Description                                                                                      |
+| :----------- | :-------------------------------- | :------ | :------------------------ | :----------------------------------------------------------------------------------------------- |
+| `fontFamily` | Yes (when using custom font)      | `''`    | `string`                  | Font family name (same as injected `.ttf`)                                                       |
+| `fontBase64` | Yes (when using custom font)      | `''`    | `string`                  | Base64 string content of `.ttf`                                                                  |
+| `fontStyle`  | Yes (when using custom font)      | `''`    | `'normal' \| 'italic'`   | Font style: `normal` for upright, `italic` for italic                                            |
+| `fontWeight` | Yes (when using custom font bold) | `''`    | `400 \| 700`             | Font weight: `400` for normal, `700` for bold                                                    |
+| `iconFont`   | No                                | `false` | `boolean`                 | Whether this is an icon font                                                                     |
+| `charRange`  | No                                | -       | `[number, number][]`      | Unicode character ranges this font handles, e.g., `[[0x4E00, 0x9FFF]]` for Chinese CJK           |
+| `isDefault`    | No                                | `false` | `boolean`                 | Mark as default fallback font for characters not matching any `charRange`                        |
 
 #### 🔣 Garbled Characters - Font Import Support
 
