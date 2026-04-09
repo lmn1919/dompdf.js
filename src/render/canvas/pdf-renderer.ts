@@ -107,6 +107,7 @@ export interface RenderOptions {
     compress?: boolean;
     putOnlyUsedFonts?: boolean;
     pagination?: boolean;
+    orientation?: 'p' | 'portrait' | 'l' | 'landscape';
     format?:
         | 'a0'
         | 'a1'
@@ -177,13 +178,13 @@ export class CanvasRenderer extends Renderer {
         this.pxToPt = (px: number) => px * (72 / 96);
         const pageWidth = this.pxToPt(options.width);
         const pageHeight = this.pxToPt(options.height);
-        // 如果 format 是数组，则将 px 转换为 pt
+        // if format is an array, convert px to pt
         const format = Array.isArray(options.format) ? options.format.map((v) => this.pxToPt(v)) : options.format;
 
         this.jspdfCtx = new jsPDF({
-            // orientation: pageWidth > pageHeight ? 'landscape' : 'landscape',
+            orientation: options.orientation,
             unit: 'pt',
-            format: options.pagination && format ? format : [pageHeight, pageWidth],
+            format: options.pagination && format ? format : [pageWidth, pageHeight],
             hotfixes: ['px_scaling'],
             putOnlyUsedFonts: options.putOnlyUsedFonts,
             compress: options.compress,

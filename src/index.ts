@@ -161,6 +161,7 @@ const renderElement = async (element: HTMLElement, opts: Partial<Options>): Prom
         compress: opts.compress ?? false,
         putOnlyUsedFonts: opts.putOnlyUsedFonts ?? false,
         pagination: opts.pagination ?? false,
+        orientation: opts.orientation ?? 'p',
         format: opts.format ?? 'a4',
         pageConfig: opts.pageConfig ?? {
             header: {
@@ -183,6 +184,7 @@ const renderElement = async (element: HTMLElement, opts: Partial<Options>): Prom
     };
 
     let canvas: DompdfResult;
+    let pageRoots: ElementContainer[] = [];
 
     if (foreignObjectRendering) {
         context.logger.debug(`Document cloned, using foreign object rendering`);
@@ -195,9 +197,6 @@ const renderElement = async (element: HTMLElement, opts: Partial<Options>): Prom
 
         context.logger.debug(`Starting DOM parsing`, context, clonedElement);
         const root = await parseTree(context, clonedElement);
-        const pageHeight = isArray(renderOptions.format)
-            ? renderOptions.format[1]
-            : PAGE_FORMAT_MAP[renderOptions.format || 'a4'].height;
         if (renderOptions.y !== 0) {
             const offsetY = renderOptions.y;
             renderOptions.y = 0;
@@ -214,39 +213,39 @@ const renderElement = async (element: HTMLElement, opts: Partial<Options>): Prom
             };
             adjustTop(root, offsetY);
         }
-        const pageRoots = paginateNode(
-            root,
-            pageHeight,
-            renderOptions.y,
-            renderOptions.height,
-            renderOptions.pageConfig
-        );
 
-        Reflect.deleteProperty(root, 'context');
+        if (renderOptions.pagination) {
+            const pageHeight = isArray(renderOptions.format)
+                ? renderOptions.format[1]
+                : ['p', 'portrait'].includes(renderOptions.orientation as string)
+                ? PAGE_FORMAT_MAP[renderOptions.format || 'a4'].height
+                : PAGE_FORMAT_MAP[renderOptions.format || 'a4'].width;
+            context.logger.debug(`Paginating content for page height ${pageHeight}`);
+
+            pageRoots = paginateNode(root, pageHeight, renderOptions.y, renderOptions.height, renderOptions.pageConfig);
+            Reflect.deleteProperty(root, 'context');
+        } else {
+            pageRoots = [root];
+        }
+        if (pageRoots.length === 0) {
+            throw new Error(`Unable to find element to render`);
+        }
         if (backgroundColor === root.styles.backgroundColor) {
             root.styles.backgroundColor = COLORS.TRANSPARENT;
         }
         context.logger.debug(
             `Starting renderer for element at ${renderOptions.x},${renderOptions.y} with size ${renderOptions.width}x${renderOptions.height}`
         );
-        // console.log('pageRootrenderOptions', root, renderOptions, pageRoots);
-        // , pageRoots, paginationState
         renderOptions.y = 0;
         const renderer = new CanvasRenderer(context, renderOptions);
         if (isFunction(opts.onJspdfReady)) {
             opts.onJspdfReady(renderer.jspdfCtx);
         }
-        // const renderPageRoots = pageRoots.filter((v) => !checkAllTextNodesEmpty(v));
-        // console.log(pageRoots, 'pageRoots');
-        // console.log(renderPageRoots, 'renderPageRoots');
         context.logger.info(`pdf render totalPage is ${pageRoots.length}`);
         renderer.setTotalPages(pageRoots.length);
-        if (pageRoots.length > 0) {
-            await renderer.renderPage(pageRoots[0], 1);
-            for (let i = 1; i < pageRoots.length; i++) {
-                renderer.addPage(0);
-                await renderer.renderPage(pageRoots[i], i + 1);
-            }
+        for (let i = 0; i < pageRoots.length; i++) {
+            if (i) renderer.addPage(0);
+            await renderer.renderPage(pageRoots[i], i + 1);
         }
         if (isFunction(opts.onJspdfFinish)) {
             opts.onJspdfFinish(renderer.jspdfCtx);
