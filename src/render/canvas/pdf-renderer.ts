@@ -52,6 +52,7 @@ import {Vector} from '../vector';
 export type RenderConfigurations = RenderOptions & {
     backgroundColor: Color | null;
     fontConfig: FontConfig | FontConfig[] | undefined;
+    langFontConfig?: FontConfig[];
 };
 
 export type pageConfigOptions = {
@@ -197,7 +198,7 @@ export class CanvasRenderer extends Renderer {
 
         this.context2dCtx.translate(-options.x, -options.y);
 
-        if (options.fontConfig) {
+        if (options.fontConfig || options.langFontConfig) {
             try {
                 this.addFontToJsPDF();
             } catch (error) {
@@ -223,6 +224,16 @@ export class CanvasRenderer extends Renderer {
     }
 
     addFontToJsPDF(): void {
+        if (this.options.langFontConfig && this.options.langFontConfig.length > 0) {
+            this.options.langFontConfig.forEach((config) => {
+                this.jspdfCtx.addFileToVFS(`${config.fontFamily}.ttf`, config.fontBase64);
+                this.jspdfCtx.addFont(`${config.fontFamily}.ttf`, config.fontFamily, config.fontStyle);
+            });
+            this.fontMatchMode = true;
+            this.context.logger.debug(`Lang font match mode enabled with ${this.options.langFontConfig.length} fonts`);
+            return;
+        }
+
         if (isEmptyValue(this.options.fontConfig as FontConfig)) {
             return;
         }
@@ -231,11 +242,10 @@ export class CanvasRenderer extends Renderer {
             : (this.options.fontConfig as FontConfig[]);
         fonts.forEach((v) => {
             this.jspdfCtx.addFileToVFS(`${v.fontFamily}.ttf`, v.fontBase64);
-            this.jspdfCtx.addFont(`${v.fontFamily}.ttf`, v.fontFamily, v.fontStyle, v.fontWeight);
+            this.jspdfCtx.addFont(`${v.fontFamily}.ttf`, v.fontFamily, 'normal');
+            this.jspdfCtx.setFont(v.fontFamily);
         });
         // console.log('render getFont', this.jspdfCtx.getFont());
-
-        this.fontMatchMode = this.hasFontMatchConfig(fonts);
         this.context.logger.debug(`setFont renderer initialized`);
     }
 
@@ -280,46 +290,70 @@ export class CanvasRenderer extends Renderer {
         return ranges.some(([start, end]) => charCode >= start && charCode <= end);
     }
 
-    // 根据样式设置匹配的字体（取第一个字符匹配）
-    // 权重打分机制：
-    // charRange 匹配: +100（语言匹配，最高优先级）
-    // isDefault 匹配: +50 （默认兜底，次优先级）
-    // weight    匹配: +10 （粗细匹配）
-    // style     匹配: +1  （斜体匹配）
+    // 合并 fontStyle 和 fontWeight 为 jsPDF 的 style 字符串
+    // fontWeight=400, fontStyle='normal'  -> 'normal'
+    // fontWeight=400, fontStyle='italic'  -> 'italic'
+    // fontWeight=700, fontStyle='normal'  -> 'bold'
+    // fontWeight=700, fontStyle='italic'  -> 'bolditalic'
+    private getCombinedFontStyle(fontStyle: string, fontWeight: number): string {
+        const isBold = fontWeight >= 700;
+        const isItalic = fontStyle === 'italic';
+
+        if (isBold && isItalic) return 'bolditalic';
+        if (isBold) return 'bold';
+        if (isItalic) return 'italic';
+        return 'normal';
+    }
+
+    // 根据样式设置匹配的字体（策略模式：单次循环按优先级匹配）
+    // 策略1: charRange 精确匹配（字符范围 + weight + style 都匹配）
+    // 策略2: default 精确匹配（默认字体 + weight + style 都匹配）
+    // 策略3: 无匹配，保留原字体
     private setMatchedFont(text: TextBounds, styles: CSSParsedDeclaration): void {
         const charCode = text.text.charCodeAt(0);
-        const fontConfigList = isArray(this.options.fontConfig)
+
+        // 优先使用 langFontConfig
+        const fontConfigList = this.options.langFontConfig
+            ? this.options.langFontConfig
+            : isArray(this.options.fontConfig)
             ? (this.options.fontConfig as FontConfig[])
             : [this.options.fontConfig as FontConfig];
 
         const targetWeight = styles.fontWeight > 500 ? 700 : 400;
         const targetStyle = styles.fontStyle === 'italic' ? 'italic' : 'normal';
 
-        let bestMatch: FontConfig | null = null;
-        let bestScore = -1;
+        let charRangeMatch: FontConfig | null = null;
+        let defaultMatch: FontConfig | null = null;
 
+        // 单次循环，同时收集两种策略的候选字体
         for (const config of fontConfigList) {
-            let score = 0;
-            const hasCharRange = config.charRange && this.isCharInRange(charCode, config.charRange);
+            const isWeightMatch = config.fontWeight === targetWeight;
+            const isStyleMatch = config.fontStyle === targetStyle;
 
-            if (hasCharRange) {
-                score += 100;
-                if (config.fontWeight === targetWeight) score += 10;
-                if (config.fontStyle === targetStyle) score += 1;
-            } else if (config.isDefault) {
-                score += 50;
-                if (config.fontWeight === targetWeight) score += 10;
-                if (config.fontStyle === targetStyle) score += 1;
-            }
+            // 必须 weight 和 style 都匹配
+            if (isWeightMatch && isStyleMatch) {
+                // 策略1: charRange 匹配（优先级最高，找到就可以提前退出）
+                if (config.charRange && this.isCharInRange(charCode, config.charRange)) {
+                    charRangeMatch = config;
+                    break; // 找到最高优先级匹配，立即退出
+                }
 
-            if (score > bestScore) {
-                bestScore = score;
-                bestMatch = config;
+                // 策略2: default 匹配（记录但继续找更高优先级的）
+                if (config.isDefault && !defaultMatch) {
+                    defaultMatch = config;
+                }
             }
         }
 
-        if (bestMatch) {
-            this.jspdfCtx.setFont(bestMatch.fontFamily, bestMatch.fontStyle, bestMatch.fontWeight);
+        // 按优先级应用字体
+        const matchedConfig = charRangeMatch || defaultMatch;
+
+        if (matchedConfig) {
+            const combinedStyle = this.getCombinedFontStyle(matchedConfig.fontStyle, matchedConfig.fontWeight);
+            this.jspdfCtx.setFont(matchedConfig.fontFamily, combinedStyle);
+        } else {
+            const combinedStyle = this.getCombinedFontStyle(styles.fontStyle, styles.fontWeight);
+            this.jspdfCtx.setFont('Helvetica', combinedStyle);
         }
     }
 
@@ -402,12 +436,6 @@ export class CanvasRenderer extends Renderer {
         }
     }
 
-    // 检查是否启用了字体匹配特性（有 charRange 或 isDefault 配置）
-    private hasFontMatchConfig(fonts: FontConfig[]): boolean {
-        const flag = fonts.some((config) => (config.charRange && config.charRange.length > 0) || config.isDefault);
-        return flag;
-    }
-
     private createFontStyle(styles: CSSParsedDeclaration): string[] {
         const fontVariant = styles.fontVariant
             .filter((variant) => variant === 'normal' || variant === 'small-caps')
@@ -441,8 +469,11 @@ export class CanvasRenderer extends Renderer {
 
     async renderTextNode(text: TextContainer, styles: CSSParsedDeclaration): Promise<void> {
         const [font, fontFamily, fontSize] = this.createFontStyle(styles);
-        const fontFamilyFinal = this.setTextFont(styles);
-        this.context2dCtx.font = fontFamilyFinal || font;
+        if (!this.fontMatchMode) {
+            const fontFamilyFinal = this.setTextFont(styles);
+            this.context2dCtx.font = fontFamilyFinal || font;
+        }
+
         // console.log(fontFamilyFinal, styles, 'render getFont', this.jspdfCtx.getFont());
         // jspdf context2d not supported ‘direction’
         // this.context2dCtx.direction = styles.direction === DIRECTION.RTL ? 'rtl' : 'ltr';
