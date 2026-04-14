@@ -158,7 +158,7 @@ dompdf(document.querySelector('#capture'), {
 
 | 参数名            | 默认值                                                    | 类型                               | 说明                                                                                                                                                  |
 | ----------------- | --------------------------------------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `content`         | 页眉默认值为空,页脚默认值为`${currentPage}/${totalPages}` | `string`                           | 文本内容，支持 `${currentPage}`、`${totalPages}`，`${currentPage}`为当前页码，`${totalPages}`为总页码                                                 |
+| `content`         | 页眉默认值为空,页脚默认值为`${currentPage}/${totalPages}` | `string \| Function`              | 文本内容，支持 `${currentPage}`、`${totalPages}` 占位符。也可以是函数 `(renderer, pageNum) => void` 用于使用 jsPDF API 自定义绘制 |
 | `height`          | `50`                                                      | `number`                           | 区域高度（px）                                                                                                                                        |
 | `contentPosition` | `'center'`                                                | `string \| [number, number]`       | 文本位置枚举 `center`、`centerLeft` 、 `centerRight`、`centerTop`、 `centerBottom`、`leftTop`、 `leftBottom`、`rightTop`、`rightBottom`或坐标 `[x,y]` |
 | `contentColor`    | `'#333333'`                                               | `string`                           | 文本颜色                                                                                                                                              |
@@ -167,13 +167,13 @@ dompdf(document.querySelector('#capture'), {
 
 ##### 字体配置（`fontConfig`）字段：
 
-| 字段         | 必传                           | 默认值 | 类型     | 说明                               |
-| ------------ | ------------------------------ | ------ | -------- | ---------------------------------- |
-| `fontFamily` | 是（启用自定义字体时）         | `''`   | `string` | 字体家族名（与注入的 `.ttf` 同名） |
-| `fontBase64` | 是（启用自定义字体时）         | `''`   | `string` | `.ttf` 的 Base64 字符串内容        |
-| `fontStyle`  | 是（启用自定义字体时）         | `''`   | `string` | `normal \| italic`                 |
-| `fontWeight` | 是（启用自定义字体时字体加粗） | `''`   | `number` | `400 \| 700`                       |
-| `iconFont`   | 否                          | `false` | `boolean`| `false \| true`                            |
+| 字段         | 必传                           | 默认值  | 类型                  | 说明                                                                |
+| ------------ | ------------------------------ | ------- | --------------------- | ------------------------------------------------------------------- |
+| `fontFamily` | 是（启用自定义字体时）         | `''`    | `string`              | 字体家族名（与注入的 `.ttf` 同名）                                  |
+| `fontBase64` | 是（启用自定义字体时）         | `''`    | `string`              | `.ttf` 的 Base64 字符串内容                                          |
+| `fontStyle`  | 是（启用自定义字体时）         | `''`    | `string`              | `normal \| italic`                                                  |
+| `fontWeight` | 是（启用自定义字体时字体加粗） | `''`    | `number`              | `400 \| 700`                                                        |
+| `iconFont`   | 否                             | `false` | `boolean`             | `false \| true`                                                     |
 
 #### 🔣 乱码问题-字体导入支持
 
@@ -245,6 +245,73 @@ dompdf(document.querySelector('#capture'), {
     });
 </script>
 ```
+
+#### 🌍 多语言字体支持 - `langFontConfig`
+
+> **⚠️ 注意：请不要混合使用 `fontConfig` 和 `langFontConfig`。如果同时配置了两者，`langFontConfig` 会完全顶掉 `fontConfig`，`fontConfig` 将被忽略。**
+
+对于混合语言场景（中英阿拉伯日韩等语言混排），若你想精准控制每个字可使用 `langFontConfig` 进行逐字字体匹配：
+
+```js
+dompdf(element, {
+    langFontConfig: [
+        {
+            fontFamily: 'Roboto',
+            fontBase64: window.robotoNormal,
+            fontWeight: 400,
+            fontStyle: 'normal',
+            isDefault: true  // 默认兜底字体
+        },
+        {
+            fontFamily: 'Roboto',
+            fontBase64: window.robotoBold,
+            fontWeight: 700,
+            fontStyle: 'normal',
+            isDefault: true
+        },
+        // 中文字体 - 指定 CJK 字符范围
+        {
+            fontFamily: 'NotoSansSC',
+            fontBase64: window.notoSansSCNormal,
+            fontWeight: 400,
+            fontStyle: 'normal',
+            charRange: [
+                [0x4E00, 0x9FFF],  // CJK 统一表意文字
+                [0x3000, 0x303F],  // CJK 符号和标点
+                [0xFF00, 0xFFEF],  // 全角 ASCII、全角标点
+                [0x2190, 0x21FF]   // 箭头符号
+            ]
+        },
+        {
+            fontFamily: 'NotoSansSC',
+            fontBase64: window.notoSansSCBold,
+            fontWeight: 700,
+            fontStyle: 'normal',
+            charRange: [[0x4E00, 0x9FFF], [0x3000, 0x303F], [0xFF00, 0xFFEF]]
+        }
+    ]
+});
+```
+
+##### 语言字体配置（`langFontConfig`）字段：
+
+| 字段         | 必传                           | 默认值  | 类型                  | 说明                                                                |
+| ------------ | ------------------------------ | ------- | --------------------- | ------------------------------------------------------------------- |
+| `fontFamily` | 是                             | `''`    | `string`              | 字体家族名（与注入的 `.ttf` 同名）                                  |
+| `fontBase64` | 是                             | `''`    | `string`              | `.ttf` 的 Base64 字符串内容                                          |
+| `fontStyle`  | 是                             | `''`    | `'normal' \| 'italic'`| 字体样式：`normal` 为正体，`italic` 为斜体                            |
+| `fontWeight` | 是                             | `''`    | `400 \| 700`          | 字体粗细：`400` 为正常，`700` 为粗体                                  |
+| `charRange`  | 否                             | -       | `[number, number][]`  | 该字体负责的 Unicode 字符范围，如 `[[0x4E00, 0x9FFF]]` 表示中文 CJK |
+| `isDefault`  | 否                             | `false` | `boolean`             | 标记为默认兜底字体，用于不匹配任何 `charRange` 的字符               |
+
+**工作原理**：
+- 库会根据字符的 Unicode 值自动选择字体
+- 带有 `charRange` 的字体优先匹配（如中文字符使用中文字体）
+- 如果没有 `charRange` 匹配，使用标记为 `isDefault: true` 的字体作为兜底
+- 如果 `isDefault` 也没有，使用 jsPDF 原生的 Helvetica 字体（中文会乱码）
+- `fontWeight` 和 `fontStyle` 决定使用哪个字体变体（正常/粗体/斜体）
+
+
 
 #### 🎨 绘制渐变色、阴影等复杂样式-foreignObjectRendering 使用
 

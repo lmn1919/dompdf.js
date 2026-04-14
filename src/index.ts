@@ -21,6 +21,7 @@ export type Options = CloneOptions &
         divisionDisable?: boolean; // 禁用分割
         removeContainer?: boolean;
         fontConfig?: FontConfig | FontConfig[] | undefined;
+        langFontConfig?: FontConfig[] | undefined;
         onJspdfReady?: (jspdfCtx: jsPDF) => void;
         onJspdfFinish?: (jspdfCtx: jsPDF) => void;
     };
@@ -180,7 +181,8 @@ const renderElement = async (element: HTMLElement, opts: Partial<Options>): Prom
                 contentFontSize: 16,
                 padding: [0, 24, 0, 24]
             }
-        }
+        },
+        langFontConfig: opts.langFontConfig ?? undefined
     };
 
     let canvas: DompdfResult;
