@@ -227,7 +227,12 @@ export class CanvasRenderer extends Renderer {
         if (this.options.langFontConfig && this.options.langFontConfig.length > 0) {
             this.options.langFontConfig.forEach((config) => {
                 this.jspdfCtx.addFileToVFS(`${config.fontFamily}.ttf`, config.fontBase64);
-                this.jspdfCtx.addFont(`${config.fontFamily}.ttf`, config.fontFamily, config.fontStyle);
+                this.jspdfCtx.addFont(
+                    `${config.fontFamily}.ttf`,
+                    config.fontFamily,
+                    config.fontStyle,
+                    config.fontWeight
+                );
             });
             this.fontMatchMode = true;
             this.context.logger.debug(`Lang font match mode enabled with ${this.options.langFontConfig.length} fonts`);
