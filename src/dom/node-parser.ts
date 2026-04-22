@@ -56,6 +56,9 @@ const parseNodeTree = (
                     ) {
                         container.divisionDisable = true;
                     }
+                    if (isElementNode(childNode) && childNode.hasAttribute('pageBreak')) {
+                        container.pageBreak = true;
+                    }
                     if (LIST_OWNERS.indexOf(childNode.tagName) !== -1) {
                         container.flags |= FLAGS.IS_LIST_OWNER;
                     }
