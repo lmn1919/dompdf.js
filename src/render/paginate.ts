@@ -10,8 +10,45 @@ let offSetTotal = 0;
 let activePageHeight = 1123;
 let pageMarginTop = 0;
 let pageMarginBottom = 0;
+let pageBreakStartPageMap = new WeakMap<ElementContainer, number>();
 // let realPageSize = 0;
 const pageTopOffset = 10;
+
+const getPageKeys = (): number[] =>
+    Object.keys(offSetPageObj)
+        .map((k) => +k)
+        .filter((k) => Number.isFinite(k))
+        .sort((a, b) => a - b);
+
+const getPreviousPageOffset = (pageIndex: number): number => {
+    const previousKeys = getPageKeys().filter((k) => k < pageIndex);
+    if (previousKeys.length === 0) {
+        return 0;
+    }
+    return offSetPageObj[previousKeys[previousKeys.length - 1]] || 0;
+};
+
+const getPageOffset = (pageIndex: number): number => {
+    const pageKeys = getPageKeys().filter((k) => k <= pageIndex);
+    if (pageKeys.length === 0) {
+        return 0;
+    }
+    return offSetPageObj[pageKeys[pageKeys.length - 1]] || 0;
+};
+
+const updatePageOffset = (pageIndex: number, offsetNum: number): number => {
+    const previousPageOffset = getPreviousPageOffset(pageIndex);
+    const nextOffset = previousPageOffset + offsetNum;
+    const currentOffset = offSetPageObj[pageIndex] || previousPageOffset;
+
+    if (nextOffset > currentOffset) {
+        offSetPageObj[pageIndex] = nextOffset;
+        offSetTotal = Math.max(offSetTotal, nextOffset);
+        return nextOffset;
+    }
+
+    return currentOffset;
+};
 const cloneContainerShallow = (src: ElementContainer): ElementContainer => {
     const c = Object.create(Object.getPrototypeOf(src)) as any;
     const srcObj = src as unknown as Record<string, unknown>;
@@ -58,14 +95,8 @@ const filterTextNodesForPage = (container: ElementContainer, pageStart: number, 
 
         for (const tb of tc.textBounds) {
             const pageIndex = Math.floor(pageEnd / activePageHeight);
-            const maxKey = Math.max(...Object.keys(offSetPageObj).map((k) => +k));
-            const activePageOffset = pageIndex === 1 ? 0 : offSetPageObj[maxKey] || 0;
-            const prevMaxKey = Math.max(
-                ...Object.keys(offSetPageObj)
-                    .filter((k) => +k < pageIndex)
-                    .map((k) => +k)
-            );
-            const prevPageOffset = offSetPageObj[prevMaxKey] || 0;
+            const activePageOffset = getPageOffset(pageIndex);
+            const prevPageOffset = getPreviousPageOffset(pageIndex);
             let top = tb.bounds.top + activePageOffset;
             let bottom = tb.bounds.top + tb.bounds.height + activePageOffset;
             const intersects = bottom > pageStart && top < pageEnd;
@@ -87,18 +118,11 @@ const filterTextNodesForPage = (container: ElementContainer, pageStart: number, 
                         }
                     }
                     offsetNum = pageStart - top + pageTopOffset;
-                    const prev = offSetPageObj[pageIndex] || 0;
-                    if (!offSetPageObj[pageIndex] || prev < offsetNum) {
-                        if (prev < offsetNum) {
-                            offSetTotal = offSetTotal - prev + offsetNum;
-                        } else {
-                            offSetTotal += offsetNum;
-                        }
-                        offSetPageObj[pageIndex] = offSetTotal;
-                    }
+                    const nextOffset = updatePageOffset(pageIndex, offsetNum);
                     // Fix the issue where no offset is added for the first text container
-                    bottom += offsetNum;
-                    top += offsetNum;
+                    const appliedOffset = nextOffset - activePageOffset;
+                    bottom += appliedOffset;
+                    top += appliedOffset;
                     // fix add realpageSize
                     // TODO
                     // if (offsetNum && realPageSize <= pageIndex) {
@@ -131,18 +155,25 @@ const filterElementForPage = (
     pageEnd: number
 ): ElementContainer | null => {
     const pageIndex = Math.floor(pageEnd / activePageHeight);
-    let maxKey = Math.max(...Object.keys(offSetPageObj).map((k) => +k));
-    let activePageOffset = pageIndex === 1 ? 0 : offSetPageObj[maxKey] || 0;
-    let top = container.bounds.top + activePageOffset;
-    let bottom = container.bounds.top + container.bounds.height + activePageOffset;
+    const containerPageOffset = getPageOffset(pageIndex);
+    let top = container.bounds.top + containerPageOffset;
+    let bottom = container.bounds.top + container.bounds.height + containerPageOffset;
+
+    const pageBreakStartPage = pageBreakStartPageMap.get(container);
+    if (pageBreakStartPage && pageIndex < pageBreakStartPage) {
+        return null;
+    }
+
+    if (container.pageBreak && !pageBreakStartPage && bottom > pageStart && top < pageEnd) {
+        const offsetNum = pageEnd - top + pageTopOffset;
+        updatePageOffset(pageIndex, offsetNum);
+        pageBreakStartPageMap.set(container, pageIndex + 1);
+        return null;
+    }
 
     if (container.divisionDisable && bottom > pageEnd && top < pageEnd) {
         const offsetNum = pageEnd - top + pageTopOffset;
-        const prev = offSetPageObj[pageIndex] || 0;
-        if (!offSetPageObj[pageIndex] || prev < offsetNum) {
-            offSetTotal += offsetNum - prev;
-            offSetPageObj[pageIndex] = offSetTotal;
-        }
+        updatePageOffset(pageIndex, offsetNum);
         // fix add realpageSize
         // TODO
         // if (offsetNum && realPageSize <= pageIndex) {
@@ -158,11 +189,6 @@ const filterElementForPage = (
         const part = filterElementForPage(child, pageStart, pageEnd);
         if (part) children.push(part);
     }
-    // Prevent the outer container from not synchronizing the offsetPage when the text spans multiple pages
-    maxKey = Math.max(...Object.keys(offSetPageObj).map((k) => +k));
-    activePageOffset = pageIndex === 1 ? 0 : offSetPageObj[maxKey] || 0;
-    top = container.bounds.top + activePageOffset;
-    bottom = container.bounds.top + container.bounds.height + activePageOffset;
     const visibleTop = Math.max(top, pageStart);
     const visibleBottom = Math.min(bottom, pageEnd);
     const newHeight = Math.max(0, visibleBottom - visibleTop);
@@ -186,11 +212,15 @@ export const paginateNode = (
     if (initialOffset < 0) initialOffset = 0;
     offSetTotal = 0;
     offSetPageObj = {};
+    pageBreakStartPageMap = new WeakMap<ElementContainer, number>();
     const maxBottom = totalHeight || computeMaxBottom(root);
     pageMarginTop = pageConfig?.header?.height || 0;
     pageMarginBottom = pageConfig?.footer?.height || 0;
     activePageHeight = pageHeight - pageMarginTop - pageMarginBottom;
-    const totalPages = Math.max(1, Math.ceil((maxBottom - initialOffset) / activePageHeight));
+    if (activePageHeight <= 0) {
+        throw new Error(`Invalid page height: header and footer exceed the available page height`);
+    }
+    let totalPages = Math.max(1, Math.ceil((maxBottom - initialOffset) / activePageHeight));
     // realPageSize = totalPages;
     const pages: ElementContainer[] = [];
     for (let i = 0; i < totalPages; i++) {
@@ -198,6 +228,11 @@ export const paginateNode = (
         const pageEnd = pageStart + activePageHeight;
         const pageRoot = filterElementForPage(root, pageStart, pageEnd);
         if (pageRoot) pages.push(pageRoot);
+
+        const recalculatedPages = Math.max(1, Math.ceil((maxBottom + offSetTotal - initialOffset) / activePageHeight));
+        if (recalculatedPages > totalPages) {
+            totalPages = recalculatedPages;
+        }
     }
     // If the number of pages increases due to divisionDisable or text truncation, recalculation of pages is required
     // TODO
