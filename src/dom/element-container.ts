@@ -21,6 +21,7 @@ export class ElementContainer {
     foreignobjectrendering = false;
     parentforeignobjectrendering = false;
     divisionDisable = false;
+    pageBreak = false;
     offset = 0;
 
     constructor(protected readonly context: Context, element: Element) {
