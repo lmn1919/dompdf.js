@@ -130,6 +130,16 @@ dompdf(document.querySelector('#capture'), {
 
 If you do not want a container to be split during pagination, add the `divisionDisable` attribute to that element, and it will be moved to the next page entirely when crossing pages.
 
+##### Force Rendering From the Next Page - `pageBreak` Attribute
+
+If you want an element to skip the current page and start rendering from the next page, add the `pageBreak` attribute to that element. Once triggered, that element and the content that follows it continue layout with the new pagination offset.
+
+```html
+<div pageBreak>
+    This block starts rendering from the next page.
+</div>
+```
+
 #### ⚙️ options Parameters
 
 | Parameter          | Required | Default    | Type                     | Description                                                                                                                                                                                                                                                                                                                                               |
