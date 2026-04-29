@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.3.0](https://github.com/lmn1919/dompdf.js/compare/v1.2.0...v1.3.0) (2026-04-29)
+
+
+### ✨ Feature
+
+* font match ([9498dd4](https://github.com/lmn1919/dompdf.js/commit/9498dd4611bdaece3ce6aa0e1a823d5fce022700))
+* lang font config & revert code ([da95b62](https://github.com/lmn1919/dompdf.js/commit/da95b62632cbabd8809246e35ee4f53e9f96ba06))
+
+
+### 🐛 Bugfix
+
+*  add font params and readme ([8e2fb11](https://github.com/lmn1919/dompdf.js/commit/8e2fb116b6c79c0a9e55e0bfe6d35af079c88b86))
+* font weight bug ([ad438e1](https://github.com/lmn1919/dompdf.js/commit/ad438e1c5d02be537d2df5cdce0a754cbecb7ebe))
+* readme ([aa85766](https://github.com/lmn1919/dompdf.js/commit/aa85766bf32c91ab2cfc51067104d415787d97e0))
+
 ## [1.2.0](https://github.com/lmn1919/dompdf.js/compare/v1.1.1...v1.2.0) (2026-04-03)
 
 

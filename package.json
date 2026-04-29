@@ -6,7 +6,7 @@
   "module": "dist/dompdf.esm.js",
   "typings": "dist/types/index.d.ts",
   "browser": "dist/dompdf.js",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "author": {
     "name": "lfc",
     "email": "lfc191910@gmail.com",
