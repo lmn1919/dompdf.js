@@ -58,7 +58,7 @@ Installation:
 CDN Import:
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/dompdf.js@latest/dist/dompdf.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompdf.js@latest/dist/dompdf.min.js"></script>
 ```
 
 #### Basic Usage
