@@ -1,0 +1,17 @@
+{
+  "name": "html2pdf-glm",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build:wasm": "node scripts/build-wasm.mjs",
+    "build:lib": "npm -w dom2pdf run build",
+    "build:playground": "npm -w playground run build",
+    "verify": "node scripts/verify.mjs",
+    "dev": "npm run build:wasm && npm -w playground run dev",
+    "build": "npm run build:wasm && npm run build:lib && npm run build:playground"
+  }
+}

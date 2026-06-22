@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>dom2pdf playground</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="toolbar">
+      <h1>dom2pdf</h1>
+      <span class="muted">pure-frontend DOM → PDF (WASM, no third-party PDF libs)</span>
+      <div class="spacer"></div>
+      <label class="template-picker">
+        <span>Template</span>
+        <select id="template-select">
+          <option value="report">Quarterly Report</option>
+          <option value="demo1">dompdf.js demo1</option>
+          <option value="interactive">dompdf.js Interactive Demo</option>
+        </select>
+      </label>
+      <button id="btn-export">Export PDF</button>
+      <button id="btn-inspect">Inspect</button>
+      <button id="btn-overlay">Toggle overlay</button>
+      <span id="status" class="status"></span>
+    </header>
+
+    <main>
+      <div id="document-host"></div>
+    </main>
+
+    <template id="tpl-report">
+      <!-- This is the node that gets exported. -->
+      <article id="document" class="doc" data-template-id="report">
+        <h1>Quarterly Product Report</h1>
+        <p class="lede">
+          This document is rendered live by the browser, then snapshotted and
+          re-emitted as a vector PDF by a Rust/WASM module. Text remains
+          selectable and copyable; images are embedded as JPEG XObjects.
+        </p>
+
+        <h2>1. Executive summary</h2>
+        <p>
+          The quarter delivered strong, predictable results across the board.
+          Revenue grew <strong>18%</strong> quarter-over-quarter, driven by
+          adoption in the enterprise segment and expansion of the partner
+          channel. Margins held steady despite continued investment in
+          infrastructure and people.
+        </p>
+        <p>
+          The headline number is the result of many small wins compounded over
+          time. This report walks through the components, the risks, and the
+          plan for the next quarter.
+        </p>
+
+        <h2>2. A card with an image</h2>
+        <div class="card">
+          <img id="sample-img" alt="sample chart" />
+          <div class="card-body">
+            <h3>Engagement trend</h3>
+            <p>
+              The chart above is generated on a canvas, converted to a JPEG, and
+              embedded into the PDF via a DCTDecode image XObject.
+            </p>
+          </div>
+        </div>
+
+        <h2>3. Overflow &amp; clipping</h2>
+        <div class="clip-box">
+          <p>
+            This container has <code>overflow: hidden</code> and rounded
+            corners. In the PDF, its subtree is clipped to the box rectangle so
+            content that spills outside does not leak onto the page.
+          </p>
+          <div class="spill">I am a child that overflows the clipped parent.</div>
+        </div>
+
+        <h2>4. A long list (pagination test)</h2>
+        <p>
+          The list below is intentionally long so it spans several pages. Text
+          lines are the minimum unsplittable unit: a line that would straddle a
+          page boundary is moved to the next page instead of being cut.
+        </p>
+        <ol id="long-list"></ol>
+
+        <h2>5. Conclusion</h2>
+        <p>
+          The pipeline is intentionally split into three stages: snapshot
+          collection on the main thread, pagination and PDF emission in WASM,
+          and assembly on a Web Worker so the UI never blocks. See the toolbar
+          above to export this very article to PDF.
+        </p>
+
+        <h2>6. 中文嵌入测试</h2>
+        <p style="font-family: 'SourceHanSansSC-Regular', sans-serif;">
+          本段用于验证自定义 TTF 字体（思源黑体）的 CID 嵌入：中文应正常显示且可复制。
+          导出的 PDF 中，这些字符通过 Type0 + CIDFontType2 + Identity-H + ToUnicode 嵌入，
+          文本可被搜索与选中。
+        </p>
+        <p style="font-family: 'SourceHanSansSC-Regular', sans-serif;">
+          分页属性测试：下面这个带 <code>pageBreak</code> 的卡片会强制从下一页开始渲染。
+        </p>
+        <div class="card" pageBreak>
+          <div class="card-body">
+            <h3>强制分页卡片</h3>
+            <p style="font-family: 'SourceHanSansSC-Regular', sans-serif;">
+              这个卡片带有 pageBreak 属性，应当出现在新的一页。
+            </p>
+          </div>
+        </div>
+
+        <h2>7. divisionDisable 测试</h2>
+        <div class="clip-box" divisionDisable>
+          <p style="font-family: 'SourceHanSansSC-Regular', sans-serif;">
+            这个容器带有 divisionDisable 属性：跨页时它会被整体移动到下一页，而不会被拆分。
+          </p>
+        </div>
+      </article>
+    </template>
+
+    <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

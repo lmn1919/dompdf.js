@@ -1,0 +1,10 @@
+{
+  "name": "dom2pdf-wasm",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DOM snapshot -> PDF writer compiled to WASM (pure std, no third-party PDF libs).",
+  "files": ["pkg"],
+  "exports": {
+    "./dom2pdf_wasm.wasm": "./pkg/dom2pdf_wasm.wasm"
+  }
+}

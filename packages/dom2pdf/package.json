@@ -1,0 +1,54 @@
+{
+  "name": "dom2pdf",
+  "version": "0.1.0",
+  "description": "Pure-frontend DOM-to-PDF library. DOM snapshot -> WASM PDF writer (no third-party PDF libs, no server).",
+  "license": "MIT",
+  "private": false,
+  "type": "module",
+  "main": "./dist/dom2pdf.umd.js",
+  "module": "./dist/dom2pdf.es.js",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/dom2pdf.es.js",
+      "require": "./dist/dom2pdf.umd.js",
+      "default": "./dist/dom2pdf.umd.js"
+    },
+    "./snapshot": {
+      "types": "./dist/types/snapshot.d.ts",
+      "import": "./dist/dom2pdf.es.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "scripts",
+    "vite.config.ts",
+    "tsconfig.json",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build:wasm": "node scripts/inline-wasm.mjs",
+    "build:types": "tsc -p tsconfig.json",
+    "build": "npm run build:wasm && vite build && npm run build:types",
+    "dev": "vite build --watch"
+  },
+  "dependencies": {
+    "dom2pdf-wasm": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vite": "^5.2.0"
+  },
+  "keywords": [
+    "pdf",
+    "html-to-pdf",
+    "dom-to-pdf",
+    "wasm",
+    "rust",
+    "frontend",
+    "client-side"
+  ]
+}

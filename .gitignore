@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# Build output
+/dist
+/tmp
+/build
+packages/*/dist/
+apps/*/dist/
+
+# Rust / WASM build artifacts
+packages/dom2pdf-wasm/target/
+packages/dom2pdf-wasm/pkg/
+
+# IDE & editor
+/.project
+/.settings/
+/nbproject/
+.idea/
+*.iml
+*.sublime-workspace
+.vscode/
+.trae/
+
+# OS files
+.DS_Store
+
+# Logs & debug
+*.log
+npm-debug.log
+debug.log
+*.baseline
+.rpt2_cache
+
+# Env & local
+.envrc
+.claude
+
+# Test artifacts
+tests/reftests.js
+
+# Misc temp output
+diagnose-output.txt
+diagnose-stderr.txt

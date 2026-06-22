@@ -1,0 +1,18 @@
+[package]
+name = "dom2pdf-wasm"
+version = "0.1.0"
+edition = "2021"
+description = "DOM snapshot -> PDF writer (pure std, no third-party PDF libs)"
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# Intentionally none: pure std, no wasm-bindgen (sandbox cannot run build scripts,
+# and the design forbids third-party PDF libs). JS glue is hand-written.
+
+[profile.release]
+opt-level = "s"
+lto = true
+panic = "abort"
