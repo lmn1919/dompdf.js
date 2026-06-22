@@ -12,7 +12,7 @@
 
 use crate::font::{encode_cid, encode_winansi, text_width_units, CidFont, FontCtx};
 use crate::pdf::PdfWriter;
-use crate::snapshot::{HFSpec, Snapshot, Node};
+use crate::snapshot::{HFSpec, Image, Node, Snapshot};
 
 pub const PX_TO_PT: f32 = 0.75;
 const ASCENT: f32 = 0.8; // approx Helvetica ascent / em, for baseline placement
@@ -241,6 +241,14 @@ fn collect_subtree(snap: &Snapshot, children: &[Vec<usize>], root: usize, out: &
     }
 }
 
+fn shift_node_y(n: &mut Node, gap: f32) {
+    n.y += gap;
+    for l in n.lines.iter_mut() {
+        l.y += gap;
+        l.draw_y += gap;
+    }
+}
+
 /// Shift a subtree (node + descendants) by `gap` in document y.
 fn shift_subtree(snap: &mut Snapshot, children: &[Vec<usize>], root: usize, gap: f32) {
     if gap == 0.0 {
@@ -249,12 +257,22 @@ fn shift_subtree(snap: &mut Snapshot, children: &[Vec<usize>], root: usize, gap:
     let mut ids = Vec::new();
     collect_subtree(snap, children, root, &mut ids);
     for &i in ids.iter() {
-        let n = &mut snap.nodes[i];
-        n.y += gap;
-        for l in n.lines.iter_mut() {
-            l.y += gap;
-            l.draw_y += gap;
-        }
+        shift_node_y(&mut snap.nodes[i], gap);
+    }
+}
+
+/// Shift the node subtree and every later node in document order so block-level
+/// flow remains stable after pagination moves.
+fn shift_flow_tail(snap: &mut Snapshot, children: &[Vec<usize>], root: usize, gap: f32) {
+    if gap == 0.0 {
+        return;
+    }
+    let mut ids = Vec::new();
+    collect_subtree(snap, children, root, &mut ids);
+    let tail_start = ids.iter().copied().max().map(|v| v + 1).unwrap_or(root + 1);
+    shift_subtree(snap, children, root, gap);
+    for i in tail_start..snap.nodes.len() {
+        shift_node_y(&mut snap.nodes[i], gap);
     }
 }
 
@@ -286,7 +304,7 @@ fn apply_break_directives(snap: &mut Snapshot, children: &[Vec<usize>], content_
             let target = ((y / content_h_px).floor() + 1.0) * content_h_px;
             let gap = target - y;
             if gap > 0.0 {
-                shift_subtree(snap, children, idx, gap);
+                shift_flow_tail(snap, children, idx, gap);
             }
         }
         let kids: Vec<usize> = children[idx].clone();
@@ -330,7 +348,7 @@ fn apply_break_directives(snap: &mut Snapshot, children: &[Vec<usize>], content_
                 let target = (top_page + 1.0) * content_h_px;
                 let gap = target - lo;
                 if gap > 0.0 {
-                    shift_subtree(snap, children, i, gap);
+                    shift_flow_tail(snap, children, i, gap);
                     moved = true;
                 }
             }
@@ -534,6 +552,41 @@ fn rect_pt(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h_px: f32
     (x0, bottom, w, h)
 }
 
+fn find_image<'a>(snap: &'a Snapshot, image_id: u32) -> Option<&'a Image> {
+    snap.images.iter().find(|img| img.id == image_id)
+}
+
+fn image_draw_rect_pt(node: &Node, img: &Image, box_x: f32, box_bottom: f32, box_w: f32, box_h: f32) -> (f32, f32, f32, f32) {
+    let natural_w = (img.width as f32).max(1.0) * PX_TO_PT;
+    let natural_h = (img.height as f32).max(1.0) * PX_TO_PT;
+    let fit = node.image.as_ref().map(|r| r.object_fit).unwrap_or(0);
+    let (draw_w, draw_h) = match fit {
+        1 => {
+            let s = (box_w / natural_w).min(box_h / natural_h);
+            (natural_w * s, natural_h * s)
+        }
+        2 => {
+            let s = (box_w / natural_w).max(box_h / natural_h);
+            (natural_w * s, natural_h * s)
+        }
+        3 => (natural_w, natural_h),
+        4 => {
+            let s = (box_w / natural_w).min(box_h / natural_h).min(1.0);
+            (natural_w * s, natural_h * s)
+        }
+        _ => (box_w, box_h),
+    };
+    let draw_x = box_x + (box_w - draw_w) / 2.0;
+    let draw_y = box_bottom + (box_h - draw_h) / 2.0;
+    (draw_x, draw_y, draw_w, draw_h)
+}
+
+fn image_needs_clip(node: &Node, draw_w: f32, draw_h: f32, box_w: f32, box_h: f32) -> bool {
+    node.radius.is_some()
+        || draw_w > box_w + 0.01
+        || draw_h > box_h + 0.01
+}
+
 fn draw_node(
     snap: &Snapshot,
     fontctx: &FontCtx,
@@ -606,27 +659,51 @@ fn draw_node(
         }
         2 => {
             if vis && node.render_mode != 2 {
+                draw_box_bg(snap, &geo, node, page, content_h_px, out);
                 if let Some(img) = node.image.as_ref() {
-                    let (x0, bottom, w, h) = rect_pt(snap, &geo, node, page, content_h_px);
-                    out.push_str(&format!(
-                        "q {} 0 0 {} {} {} cm /Im{} Do Q\n",
-                        f(w),
-                        f(h),
-                        f(x0),
-                        f(bottom),
-                        img.id
-                    ));
-                    if !image_ids.contains(&img.id) {
-                        image_ids.push(img.id);
+                    if let Some(src) = find_image(snap, img.id) {
+                        let (x0, bottom, w, h) = rect_pt(snap, &geo, node, page, content_h_px);
+                        let (draw_x, draw_y, draw_w, draw_h) = image_draw_rect_pt(node, src, x0, bottom, w, h);
+                        let needs_clip = image_needs_clip(node, draw_w, draw_h, w, h);
+                        if needs_clip {
+                            out.push_str("q\n");
+                            if let Some(radii) = rounded_rect_radii_pt(node, w, h) {
+                                push_rounded_rect_path(out, x0, bottom, w, h, radii);
+                                out.push_str("W n\n");
+                            } else {
+                                out.push_str(&format!(
+                                    "{} {} {} {} re W n\n",
+                                    f(x0),
+                                    f(bottom),
+                                    f(w),
+                                    f(h)
+                                ));
+                            }
+                        }
+                        out.push_str(&format!(
+                            "q {} 0 0 {} {} {} cm /Im{} Do Q\n",
+                            f(draw_w),
+                            f(draw_h),
+                            f(draw_x),
+                            f(draw_y),
+                            img.id
+                        ));
+                        if needs_clip {
+                            out.push_str("Q\n");
+                        }
+                        if !image_ids.contains(&img.id) {
+                            image_ids.push(img.id);
+                        }
                     }
                 }
+                draw_box_border(snap, &geo, node, page, content_h_px, out);
             }
         }
         _ => {}
     }
 }
 
-fn draw_box(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h_px: f32, out: &mut String) {
+fn draw_box_bg(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h_px: f32, out: &mut String) {
     let (x0, bottom, w, h) = rect_pt(snap, geo, node, page, content_h_px);
     let radii = rounded_rect_radii_pt(node, w, h);
     if let Some(bg) = node.bg {
@@ -640,6 +717,11 @@ fn draw_box(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h_px: f3
             }
         }
     }
+}
+
+fn draw_box_border(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h_px: f32, out: &mut String) {
+    let (x0, bottom, w, h) = rect_pt(snap, geo, node, page, content_h_px);
+    let radii = rounded_rect_radii_pt(node, w, h);
     if let Some(b) = &node.border {
         if let (Some(radii), Some(bw), Some(style)) =
             (radii, uniform_border_width_pt(node), uniform_border_style(node))
@@ -706,6 +788,11 @@ fn draw_box(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h_px: f3
             out.push_str("[] 0 d\n");
         }
     }
+}
+
+fn draw_box(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h_px: f32, out: &mut String) {
+    draw_box_bg(snap, geo, node, page, content_h_px, out);
+    draw_box_border(snap, geo, node, page, content_h_px, out);
 }
 
 /// Resolve `${currentPage}` / `${totalPages}` placeholders.
@@ -876,22 +963,18 @@ fn draw_text_lines(
                 _ => snap.margin_left + line.x * PX_TO_PT,
             };
             let tc = if font.letter_spacing_px != 0.0 {
-                font.letter_spacing_px / font.size_px * 1000.0
+                font.letter_spacing_px * PX_TO_PT
             } else {
                 0.0
             };
             let tw = if font.word_spacing_px != 0.0 {
-                font.word_spacing_px / font.size_px * 1000.0
+                font.word_spacing_px * PX_TO_PT
             } else {
                 0.0
             };
             out.push_str(&format!("/F{} {} Tf\n", cf.key, f(fs_pt)));
-            if tc != 0.0 {
-                out.push_str(&format!("{} Tc\n", f(tc)));
-            }
-            if tw != 0.0 {
-                out.push_str(&format!("{} Tw\n", f(tw)));
-            }
+            out.push_str(&format!("{} Tc\n", f(tc)));
+            out.push_str(&format!("{} Tw\n", f(tw)));
             out.push_str(&format!("1 0 0 1 {} {} Tm\n", f(x_pt), f(y_pt)));
             out.push_str(&format!("<{}> Tj\n", hex(&gbytes)));
         } else {
@@ -911,22 +994,18 @@ fn draw_text_lines(
                 _ => snap.margin_left + line.x * PX_TO_PT,
             };
             let tc = if font.letter_spacing_px != 0.0 {
-                font.letter_spacing_px / font.size_px * 1000.0
+                font.letter_spacing_px * PX_TO_PT
             } else {
                 0.0
             };
             let tw = if font.word_spacing_px != 0.0 {
-                font.word_spacing_px / font.size_px * 1000.0
+                font.word_spacing_px * PX_TO_PT
             } else {
                 0.0
             };
             out.push_str(&format!("{} {} Tf\n", latin_font_token(font.weight, font.italic), f(fs_pt)));
-            if tc != 0.0 {
-                out.push_str(&format!("{} Tc\n", f(tc)));
-            }
-            if tw != 0.0 {
-                out.push_str(&format!("{} Tw\n", f(tw)));
-            }
+            out.push_str(&format!("{} Tc\n", f(tc)));
+            out.push_str(&format!("{} Tw\n", f(tw)));
             out.push_str(&format!("1 0 0 1 {} {} Tm\n", f(x_pt), f(y_pt)));
             out.push_str(&format!("<{}> Tj\n", hex(&bytes)));
         }

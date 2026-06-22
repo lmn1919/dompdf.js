@@ -145,6 +145,7 @@ interface NodeRec {
     wordSpacingPx: number;
   };
   imageId?: number;
+  objectFit?: number; // 0 fill, 1 contain, 2 cover, 3 none, 4 scale-down
   renderMode: number;
   divisionDisable: boolean;
   pageBreak: boolean;
@@ -223,6 +224,16 @@ function alignNum(a: string): number {
   }
 }
 
+function objectFitNum(v: string): number {
+  switch ((v || '').trim()) {
+    case 'contain': return 1;
+    case 'cover': return 2;
+    case 'none': return 3;
+    case 'scale-down': return 4;
+    default: return 0;
+  }
+}
+
 function borderStyleNum(style: string): number {
   return style === 'dashed' ? BORDER_DASHED : BORDER_SOLID;
 }
@@ -284,6 +295,156 @@ async function convertImage(
   } catch {
     return null;
   }
+}
+
+interface ParsedGradientStop {
+  color: [number, number, number, number];
+  pos: number;
+}
+
+interface ParsedLinearGradient {
+  angleDeg: number;
+  stops: ParsedGradientStop[];
+}
+
+function splitTopLevelComma(input: string): string[] {
+  const out: string[] = [];
+  let start = 0;
+  let depth = 0;
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i];
+    if (ch === '(') depth++;
+    else if (ch === ')') depth = Math.max(0, depth - 1);
+    else if (ch === ',' && depth === 0) {
+      out.push(input.slice(start, i).trim());
+      start = i + 1;
+    }
+  }
+  out.push(input.slice(start).trim());
+  return out.filter(Boolean);
+}
+
+function gradientAngleDeg(token: string): number | null {
+  const v = token.trim().toLowerCase();
+  const deg = /^([+-]?\d+(?:\.\d+)?)deg$/.exec(v);
+  if (deg) return parseFloat(deg[1]);
+  switch (v) {
+    case 'to top': return 0;
+    case 'to right': return 90;
+    case 'to bottom': return 180;
+    case 'to left': return 270;
+    case 'to top right':
+    case 'to right top': return 45;
+    case 'to bottom right':
+    case 'to right bottom': return 135;
+    case 'to bottom left':
+    case 'to left bottom': return 225;
+    case 'to top left':
+    case 'to left top': return 315;
+    default: return null;
+  }
+}
+
+function parseLinearGradient(input: string): ParsedLinearGradient | null {
+  const src = input.trim();
+  if (!src.startsWith('linear-gradient(') || !src.endsWith(')')) return null;
+  const inner = src.slice('linear-gradient('.length, -1).trim();
+  const parts = splitTopLevelComma(inner);
+  if (parts.length < 2) return null;
+
+  let angleDeg = 180;
+  let stopStart = 0;
+  const maybeAngle = gradientAngleDeg(parts[0]);
+  if (maybeAngle !== null) {
+    angleDeg = maybeAngle;
+    stopStart = 1;
+  }
+
+  const rawStops = parts.slice(stopStart).map((part) => {
+    const m = /^(.*?)(?:\s+([+-]?\d+(?:\.\d+)?)%)?$/.exec(part.trim());
+    if (!m) return null;
+    const color = parseColor(m[1].trim());
+    return {
+      color,
+      pos: m[2] == null ? null : parseFloat(m[2]) / 100,
+    };
+  }).filter((v): v is { color: [number, number, number, number]; pos: number | null } => !!v);
+
+  if (rawStops.length < 2) return null;
+  if (rawStops[0].pos == null) rawStops[0].pos = 0;
+  if (rawStops[rawStops.length - 1].pos == null) rawStops[rawStops.length - 1].pos = 1;
+  for (let i = 0; i < rawStops.length; i++) {
+    if (rawStops[i].pos != null) continue;
+    let j = i + 1;
+    while (j < rawStops.length && rawStops[j].pos == null) j++;
+    const left = rawStops[i - 1].pos ?? 0;
+    const right = j < rawStops.length ? (rawStops[j].pos ?? 1) : 1;
+    const span = j - i + 1;
+    for (let k = i; k < j; k++) {
+      rawStops[k].pos = left + ((right - left) * (k - i + 1)) / span;
+    }
+    i = j - 1;
+  }
+
+  return {
+    angleDeg,
+    stops: rawStops.map((stop) => ({
+      color: stop.color,
+      pos: Math.min(1, Math.max(0, stop.pos ?? 0)),
+    })),
+  };
+}
+
+function rgbaCss(c: [number, number, number, number]): string {
+  return `rgba(${Math.round(c[0] * 255)}, ${Math.round(c[1] * 255)}, ${Math.round(c[2] * 255)}, ${c[3]})`;
+}
+
+function convertLinearGradientToImage(
+  gradientText: string,
+  width: number,
+  height: number,
+  quality: number,
+  fallbackBg: [number, number, number, number] | null,
+): { bytes: Uint8Array; width: number; height: number } | null {
+  const spec = parseLinearGradient(gradientText);
+  if (!spec) return null;
+  const w = Math.max(1, Math.round(width));
+  const h = Math.max(1, Math.round(height));
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  if (fallbackBg && fallbackBg[3] > 0.001) {
+    ctx.fillStyle = rgbaCss(fallbackBg);
+    ctx.fillRect(0, 0, w, h);
+  } else {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  const rad = (spec.angleDeg * Math.PI) / 180;
+  const dx = Math.sin(rad);
+  const dy = -Math.cos(rad);
+  const cx = w / 2;
+  const cy = h / 2;
+  const half = Math.abs(dx) * w / 2 + Math.abs(dy) * h / 2;
+  const grad = ctx.createLinearGradient(cx - dx * half, cy - dy * half, cx + dx * half, cy + dy * half);
+  for (const stop of spec.stops) {
+    grad.addColorStop(stop.pos, rgbaCss(stop.color));
+  }
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+
+  const dataUrl = canvas.toDataURL('image/jpeg', quality);
+  const comma = dataUrl.indexOf(',');
+  if (comma < 0) return null;
+  return {
+    bytes: base64ToBytes(dataUrl.slice(comma + 1)),
+    width: w,
+    height: h,
+  };
 }
 
 interface ResolvedHF {
@@ -508,6 +669,9 @@ export async function collectSnapshotData(
 
     const bg = parseColor(cs.backgroundColor);
     const hasBg = bg[3] > 0.001;
+    const gradientImage = !isImg && kind === 0 && r.w > 0 && r.h > 0
+      ? convertLinearGradientToImage(cs.backgroundImage, r.w, r.h, quality, hasBg ? bg : null)
+      : null;
     const bw: [number, number, number, number] = [
       (parseFloat(cs.borderTopWidth) || 0) * layoutScale,
       (parseFloat(cs.borderRightWidth) || 0) * layoutScale,
@@ -569,6 +733,7 @@ export async function collectSnapshotData(
       divisionDisable,
       pageBreak,
       imageId: isImg ? imgToId.get(el) : undefined,
+      objectFit: isImg ? objectFitNum(cs.objectFit) : undefined,
     };
 
     if (el.tagName === 'SVG' || el.tagName === 'CANVAS') {
@@ -579,6 +744,29 @@ export async function collectSnapshotData(
     }
 
     nodes.push(node);
+
+    if (gradientImage) {
+      const imageId = images.length + 1;
+      images.push({ id: imageId, ...gradientImage });
+      const bgImageNode: NodeRec = {
+        id: nodes.length,
+        parent: id,
+        kind: 2,
+        x: r.x,
+        y: r.y,
+        w: r.w,
+        h: r.h,
+        flags: F_IMAGE | (hasRadius ? F_RADIUS : 0),
+        radius: hasRadius ? radius : undefined,
+        overflowHidden: false,
+        renderMode: 0,
+        divisionDisable: false,
+        pageBreak: false,
+        imageId,
+        objectFit: 0,
+      };
+      nodes.push(bgImageNode);
+    }
 
     for (let child = el.firstChild; child; child = child.nextSibling) {
       if (child.nodeType === 1) {
@@ -786,7 +974,7 @@ function encode(a: EncodeArgs): Uint8Array {
     }
     if (n.imageId !== undefined) {
       w.u32(n.imageId);
-      w.u8(0); // objectFit: 0 fill (MVP)
+      w.u8(n.objectFit ?? 0);
     }
     if (n.renderMode !== 0) w.u8(n.renderMode);
     if (n.kind === 1) {
