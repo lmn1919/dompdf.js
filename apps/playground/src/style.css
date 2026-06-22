@@ -171,6 +171,38 @@ main {
   flex: 1;
 }
 
+.gradient-panel {
+  margin: 14px 0;
+  padding: 20px 22px;
+  border: 1px solid #bfdbfe;
+  border-radius: 16px;
+  background-color: #eff6ff;
+  background-image: linear-gradient(180deg, #eff6ff 0%, #dbeafe 52%, #bfdbfe 100%);
+  color: #0f172a;
+}
+
+.gradient-panel h3 {
+  margin: 8px 0 6px;
+  font-size: 18px;
+}
+
+.gradient-panel p {
+  margin: 0;
+  color: #1e3a8a;
+}
+
+.gradient-pill {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
 .clip-box {
   position: relative;
   height: 90px;

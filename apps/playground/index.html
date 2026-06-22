@@ -65,7 +65,18 @@
           </div>
         </div>
 
-        <h2>3. Overflow &amp; clipping</h2>
+        <h2>3. Gradient background</h2>
+        <div class="gradient-panel">
+          <div class="gradient-pill">线性渐变</div>
+          <h3>从 HTML 渲染到 PDF</h3>
+          <p>
+            这个面板使用了 CSS <code>linear-gradient(...)</code> 渐变背景。
+            导出时，dom2pdf 会将渐变栅格化为背景图像，从而让 PDF
+            更接近 HTML 页面中的实际样式效果。
+          </p>
+        </div>
+
+        <h2>4. Overflow &amp; clipping</h2>
         <div class="clip-box">
           <p>
             This container has <code>overflow: hidden</code> and rounded
@@ -75,7 +86,7 @@
           <div class="spill">I am a child that overflows the clipped parent.</div>
         </div>
 
-        <h2>4. A long list (pagination test)</h2>
+        <h2>5. A long list (pagination test)</h2>
         <p>
           The list below is intentionally long so it spans several pages. Text
           lines are the minimum unsplittable unit: a line that would straddle a
@@ -83,7 +94,7 @@
         </p>
         <ol id="long-list"></ol>
 
-        <h2>5. Conclusion</h2>
+        <h2>6. Conclusion</h2>
         <p>
           The pipeline is intentionally split into three stages: snapshot
           collection on the main thread, pagination and PDF emission in WASM,
@@ -91,7 +102,7 @@
           above to export this very article to PDF.
         </p>
 
-        <h2>6. 中文嵌入测试</h2>
+        <h2>7. 中文嵌入测试</h2>
         <p style="font-family: 'SourceHanSansSC-Regular', sans-serif;">
           本段用于验证自定义 TTF 字体（思源黑体）的 CID 嵌入：中文应正常显示且可复制。
           导出的 PDF 中，这些字符通过 Type0 + CIDFontType2 + Identity-H + ToUnicode 嵌入，
@@ -109,7 +120,7 @@
           </div>
         </div>
 
-        <h2>7. divisionDisable 测试</h2>
+        <h2>8. divisionDisable 测试</h2>
         <div class="clip-box" divisionDisable>
           <p style="font-family: 'SourceHanSansSC-Regular', sans-serif;">
             这个容器带有 divisionDisable 属性：跨页时它会被整体移动到下一页，而不会被拆分。
