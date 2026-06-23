@@ -29,6 +29,21 @@ export {
 } from './snapshot';
 export type { FontConfig, PageConfig, PageConfigOptions, PageRegionConfig } from './snapshot';
 
+type Dom2pdfApi = ((
+  root: HTMLElement,
+  options?: ExportOptions,
+) => Promise<Blob>) & {
+  default: typeof exportPDF;
+  exportPDF: typeof exportPDF;
+  renderToBytes: typeof renderToBytes;
+  downloadPDF: typeof downloadPDF;
+  inspect: typeof inspect;
+  collectSnapshot: typeof collectSnapshot;
+  collectSnapshotData: typeof collectSnapshotData;
+  encodeSnapshot: typeof encodeSnapshot;
+  computePageBreaks: typeof computePageBreaks;
+};
+
 let worker: Worker | null = null;
 let seq = 0;
 const pending = new Map<number, (res: WorkerResponse) => void>();
@@ -172,5 +187,27 @@ export async function inspect(
  * API compatibility but are no-ops (this engine has no jsPDF instance and emits
  * uncompressed, unencrypted PDFs).
  */
-const dom2pdf = exportPDF;
+const dom2pdfFn = (root: HTMLElement, options?: ExportOptions) => exportPDF(root, options);
+
+const dom2pdf: Dom2pdfApi = Object.assign(dom2pdfFn, {
+  default: exportPDF,
+  exportPDF,
+  renderToBytes,
+  downloadPDF,
+  inspect,
+  collectSnapshot,
+  collectSnapshotData,
+  encodeSnapshot,
+  computePageBreaks,
+});
+
+// Browser-friendly global for direct <script> usage.
+if (typeof globalThis !== 'undefined') {
+  (
+    globalThis as typeof globalThis & {
+      dom2pdf?: Dom2pdfApi;
+    }
+  ).dom2pdf = dom2pdf;
+}
+
 export default dom2pdf;

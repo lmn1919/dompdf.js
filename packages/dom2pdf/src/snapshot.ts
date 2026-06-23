@@ -130,6 +130,13 @@ interface NodeRec {
     c: [number, number, number, number];
     s: [number, number, number, number];
   };
+  shadow?: {
+    x: number;
+    y: number;
+    blur: number;
+    spread: number;
+    color: [number, number, number, number];
+  };
   radius?: [number, number, number, number];
   overflowHidden: boolean;
   opacity?: number;
@@ -164,6 +171,7 @@ const F_IMAGE = 0x40;
 const F_RENDER_MODE = 0x80;
 const F_DIVISION_DISABLE = 0x100;
 const F_PAGE_BREAK = 0x200;
+const F_SHADOW = 0x400;
 
 // header/footer position enum (must match Rust HFSpec.position)
 function positionNum(p: ContentPosition | undefined): number {
@@ -324,6 +332,271 @@ function splitTopLevelComma(input: string): string[] {
   return out.filter(Boolean);
 }
 
+interface EdgePadding {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
+interface BoxShadowSpec {
+  x: number;
+  y: number;
+  blur: number;
+  spread: number;
+  color: [number, number, number, number];
+}
+
+function pxNumber(value: string | null | undefined): number {
+  const n = parseFloat(value || '');
+  return Number.isFinite(n) ? n : 0;
+}
+
+function cssQuotedContentToText(content: string): string | null {
+  const trimmed = (content || '').trim();
+  if (!trimmed || trimmed === 'none' || trimmed === 'normal') return null;
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"'))
+    || (trimmed.startsWith('\'') && trimmed.endsWith('\''))
+  ) {
+    const quote = trimmed[0];
+    let body = trimmed.slice(1, -1);
+    body = body.replace(/\\A\s*/g, '\n');
+    body = body.replace(/\\(['"\\])/g, '$1');
+    if (quote === '\'') body = body.replace(/\\"/g, '"');
+    return body;
+  }
+  return trimmed;
+}
+
+function hasVisibleBorder(cs: CSSStyleDeclaration): boolean {
+  return (
+    (pxNumber(cs.borderTopWidth) > 0 && cs.borderTopStyle !== 'none' && cs.borderTopStyle !== 'hidden')
+    || (pxNumber(cs.borderRightWidth) > 0 && cs.borderRightStyle !== 'none' && cs.borderRightStyle !== 'hidden')
+    || (pxNumber(cs.borderBottomWidth) > 0 && cs.borderBottomStyle !== 'none' && cs.borderBottomStyle !== 'hidden')
+    || (pxNumber(cs.borderLeftWidth) > 0 && cs.borderLeftStyle !== 'none' && cs.borderLeftStyle !== 'hidden')
+  ) && parseColor(cs.borderTopColor)[3] > 0.001;
+}
+
+function pseudoHasVisual(cs: CSSStyleDeclaration): boolean {
+  const hasContent = cs.content !== 'none' && cs.content !== 'normal';
+  const bg = parseColor(cs.backgroundColor);
+  const hasBg = bg[3] > 0.001;
+  const hasBox = pxNumber(cs.width) > 0 || pxNumber(cs.height) > 0;
+  return hasContent || hasBg || hasBox || hasVisibleBorder(cs);
+}
+
+function hasPseudoVisual(el: HTMLElement): boolean {
+  const before = getComputedStyle(el, '::before');
+  if (pseudoHasVisual(before)) return true;
+  const after = getComputedStyle(el, '::after');
+  return pseudoHasVisual(after);
+}
+
+function hasComplexBackground(cs: CSSStyleDeclaration): boolean {
+  const bgImage = (cs.backgroundImage || '').trim();
+  if (!bgImage || bgImage === 'none') return false;
+  if (bgImage.includes('url(')) return true;
+  const size = (cs.backgroundSize || '').trim();
+  const position = (cs.backgroundPosition || '').trim();
+  const repeat = (cs.backgroundRepeat || '').trim();
+  return !(
+    (size === '' || size === 'auto' || size === 'auto auto')
+    && (position === '' || position === '0% 0%')
+    && (repeat === '' || repeat === 'repeat' || repeat === 'repeat repeat')
+  );
+}
+
+function computeBoxShadowPadding(boxShadow: string): EdgePadding {
+  const pad: EdgePadding = { top: 0, right: 0, bottom: 0, left: 0 };
+  const layers = splitTopLevelComma(boxShadow || '');
+  for (const layer of layers) {
+    const trimmed = layer.trim();
+    if (!trimmed || trimmed === 'none' || /\binset\b/i.test(trimmed)) continue;
+    const lengths = Array.from(trimmed.matchAll(/-?\d+(?:\.\d+)?px/g)).map((m) => parseFloat(m[0]));
+    if (lengths.length < 2) continue;
+    const offsetX = lengths[0] || 0;
+    const offsetY = lengths[1] || 0;
+    const blur = Math.max(0, lengths[2] || 0);
+    const spread = lengths[3] || 0;
+    const extent = Math.max(0, blur * 2 + spread);
+    pad.left = Math.max(pad.left, extent - offsetX);
+    pad.right = Math.max(pad.right, extent + offsetX);
+    pad.top = Math.max(pad.top, extent - offsetY);
+    pad.bottom = Math.max(pad.bottom, extent + offsetY);
+  }
+  pad.top = Math.max(0, Math.ceil(pad.top));
+  pad.right = Math.max(0, Math.ceil(pad.right));
+  pad.bottom = Math.max(0, Math.ceil(pad.bottom));
+  pad.left = Math.max(0, Math.ceil(pad.left));
+  return pad;
+}
+
+function parseBoxShadow(boxShadow: string): BoxShadowSpec | null {
+  const layers = splitTopLevelComma(boxShadow || '');
+  for (const layer of layers) {
+    const trimmed = layer.trim();
+    if (!trimmed || trimmed === 'none' || /\binset\b/i.test(trimmed)) continue;
+    const lengths = Array.from(trimmed.matchAll(/-?\d+(?:\.\d+)?px/g)).map((m) => parseFloat(m[0]));
+    if (lengths.length < 2) continue;
+    const x = lengths[0] || 0;
+    const y = lengths[1] || 0;
+    const blur = Math.max(0, lengths[2] || 0);
+    const spread = lengths[3] || 0;
+    const colorMatch = trimmed.match(/(rgba?\([^)]+\)|hsla?\([^)]+\)|#[0-9a-fA-F]+|transparent)/);
+    const color = parseColor(colorMatch ? colorMatch[1] : 'rgba(0,0,0,0.25)');
+    if (color[3] <= 0.001) continue;
+    return { x, y, blur, spread, color };
+  }
+  return null;
+}
+
+function findOpaqueBackdropColor(el: HTMLElement): string {
+  for (let cur: HTMLElement | null = el.parentElement; cur; cur = cur.parentElement) {
+    const bg = getComputedStyle(cur).backgroundColor;
+    const parsed = parseColor(bg);
+    if (parsed[3] > 0.001) return bg;
+  }
+  return '#ffffff';
+}
+
+function copyComputedStyles(
+  target: HTMLElement,
+  computed: CSSStyleDeclaration,
+  exclude: Set<string> = new Set(),
+) {
+  for (let i = 0; i < computed.length; i++) {
+    const prop = computed[i];
+    if (exclude.has(prop) || prop === 'content') continue;
+    const value = computed.getPropertyValue(prop);
+    const priority = computed.getPropertyPriority(prop);
+    if (value) target.style.setProperty(prop, value, priority);
+  }
+}
+
+function buildPseudoClone(
+  owner: HTMLElement,
+  pseudo: '::before' | '::after',
+): HTMLElement | null {
+  const computed = getComputedStyle(owner, pseudo);
+  if (!pseudoHasVisual(computed)) return null;
+  const pseudoEl = document.createElement('span');
+  pseudoEl.setAttribute('data-dom2pdf-pseudo', pseudo);
+  copyComputedStyles(pseudoEl, computed);
+  const text = cssQuotedContentToText(computed.content);
+  if (text) pseudoEl.textContent = text;
+  return pseudoEl;
+}
+
+function cloneElementForRaster(src: HTMLElement): HTMLElement {
+  if (src instanceof HTMLCanvasElement) {
+    const img = document.createElement('img');
+    img.src = src.toDataURL('image/png');
+    img.width = src.width;
+    img.height = src.height;
+    const computed = getComputedStyle(src);
+    copyComputedStyles(img, computed);
+    return img;
+  }
+
+  const clone = src.cloneNode(false) as HTMLElement;
+  const computed = getComputedStyle(src);
+  copyComputedStyles(clone, computed);
+
+  const before = buildPseudoClone(src, '::before');
+  if (before) clone.appendChild(before);
+
+  for (let child = src.firstChild; child; child = child.nextSibling) {
+    if (child.nodeType === Node.ELEMENT_NODE) {
+      clone.appendChild(cloneElementForRaster(child as HTMLElement));
+    } else if (child.nodeType === Node.TEXT_NODE) {
+      clone.appendChild(document.createTextNode((child as Text).data));
+    }
+  }
+
+  const after = buildPseudoClone(src, '::after');
+  if (after) clone.appendChild(after);
+  return clone;
+}
+
+function loadImageFromUrl(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.decoding = 'async';
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('failed to load rasterized element image'));
+    img.src = url;
+  });
+}
+
+async function rasterizeElement(
+  el: HTMLElement,
+  rawRect: DOMRect,
+  quality: number,
+  cs: CSSStyleDeclaration,
+): Promise<{ bytes: Uint8Array; width: number; height: number; rawLeft: number; rawTop: number } | null> {
+  try {
+    const shadowPad = computeBoxShadowPadding(cs.boxShadow);
+    const captureWidth = Math.max(1, Math.ceil(rawRect.width + shadowPad.left + shadowPad.right));
+    const captureHeight = Math.max(1, Math.ceil(rawRect.height + shadowPad.top + shadowPad.bottom));
+
+    const wrapper = document.createElement('div');
+    wrapper.style.position = 'relative';
+    wrapper.style.width = `${captureWidth}px`;
+    wrapper.style.height = `${captureHeight}px`;
+    wrapper.style.overflow = 'hidden';
+    wrapper.style.background = findOpaqueBackdropColor(el);
+
+    const clone = cloneElementForRaster(el);
+    clone.style.position = 'absolute';
+    clone.style.left = `${shadowPad.left}px`;
+    clone.style.top = `${shadowPad.top}px`;
+    clone.style.width = `${Math.max(1, Math.ceil(rawRect.width))}px`;
+    clone.style.height = `${Math.max(1, Math.ceil(rawRect.height))}px`;
+    clone.style.margin = '0';
+    clone.style.transform = 'none';
+    clone.style.transformOrigin = 'top left';
+    wrapper.appendChild(clone);
+    // #region debug-point A:raster-input
+    fetch("http://127.0.0.1:7777/event",{method:"POST",body:JSON.stringify({sessionId:"page-offset-raster",runId:"post-fix",hypothesisId:"A",location:"snapshot.ts:rasterizeElement",msg:"[DEBUG] raster input",data:{tag:el.tagName,className:el.className,rawRect:{left:rawRect.left,top:rawRect.top,width:rawRect.width,height:rawRect.height},shadowPad,captureWidth,captureHeight,cloneLeft:clone.style.left,cloneTop:clone.style.top,cloneWidth:clone.style.width,cloneHeight:clone.style.height},ts:Date.now()})}).catch(()=>{});
+    // #endregion
+
+    const serialized = new XMLSerializer().serializeToString(wrapper);
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${captureWidth}" height="${captureHeight}" viewBox="0 0 ${captureWidth} ${captureHeight}"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml">${serialized}</div></foreignObject></svg>`;
+    const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+    const img = await loadImageFromUrl(url);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = captureWidth;
+    canvas.height = captureHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    ctx.drawImage(img, 0, 0, captureWidth, captureHeight);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
+    if (!blob) return null;
+
+    return {
+      bytes: new Uint8Array(await blob.arrayBuffer()),
+      width: captureWidth,
+      height: captureHeight,
+      rawLeft: rawRect.left - shadowPad.left,
+      rawTop: rawRect.top - shadowPad.top,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function shouldRasterizeElement(el: HTMLElement, cs: CSSStyleDeclaration): boolean {
+  const mode = el.dataset.dom2pdfMode;
+  if (mode === 'vector' || mode === 'skip') return false;
+  if (el.tagName === 'SVG' || el.tagName === 'CANVAS') return true;
+  if (hasPseudoVisual(el)) return true;
+  if ((cs.transform || '').trim() !== 'none') return true;
+  if (hasComplexBackground(cs)) return true;
+  return false;
+}
+
 function gradientAngleDeg(token: string): number | null {
   const v = token.trim().toLowerCase();
   const deg = /^([+-]?\d+(?:\.\d+)?)deg$/.exec(v);
@@ -475,6 +748,27 @@ interface RadialGradientSpec {
 }
 
 type RasterGradientSpec = LinearGradientSpec | RadialGradientSpec;
+
+interface PreparedLinearGradientLayer {
+  kind: 'linear';
+  repeating: boolean;
+  stops: ResolvedGradientStop[];
+  dx: number;
+  dy: number;
+  lineLen: number;
+  cx: number;
+  cy: number;
+}
+
+interface PreparedRadialGradientLayer {
+  kind: 'radial';
+  repeating: boolean;
+  stops: ResolvedGradientStop[];
+  centerX: number;
+  centerY: number;
+}
+
+type PreparedGradientLayer = PreparedLinearGradientLayer | PreparedRadialGradientLayer;
 
 function parseGradientStop(part: string): RawGradientStop | null {
   const m = /^(.*?)(?:\s+([+-]?\d+(?:\.\d+)?)(px|%)?)?$/.exec(part.trim());
@@ -665,6 +959,66 @@ function sampleGradientStops(
   return stops[stops.length - 1].color;
 }
 
+function parseGradientLayer(
+  layerText: string,
+  width: number,
+  height: number,
+): PreparedGradientLayer | null {
+  const text = layerText.trim();
+  if (!text || text === 'none') return null;
+
+  const linearSpec = parseLinearOrRepeatingLinearGradient(text);
+  if (linearSpec) {
+    const rad = (linearSpec.angleDeg * Math.PI) / 180;
+    const dx = Math.sin(rad);
+    const dy = -Math.cos(rad);
+    const lineLen = Math.max(1, Math.abs(dx) * width + Math.abs(dy) * height);
+    return {
+      kind: 'linear',
+      repeating: linearSpec.repeating,
+      stops: resolveGradientStops(linearSpec.stops, lineLen),
+      dx,
+      dy,
+      lineLen,
+      cx: width / 2,
+      cy: height / 2,
+    };
+  }
+
+  const radialSpec = parseRadialGradient(text, width, height);
+  if (radialSpec) {
+    return {
+      kind: 'radial',
+      repeating: radialSpec.repeating,
+      stops: resolveGradientStops(radialSpec.stops, radialSpec.radius),
+      centerX: radialSpec.centerX,
+      centerY: radialSpec.centerY,
+    };
+  }
+
+  return null;
+}
+
+function sampleGradientLayer(
+  layer: PreparedGradientLayer,
+  x: number,
+  y: number,
+): [number, number, number, number] {
+  if (layer.kind === 'linear') {
+    return sampleGradientStops(
+      layer.stops,
+      (x + 0.5 - layer.cx) * layer.dx + (y + 0.5 - layer.cy) * layer.dy + layer.lineLen / 2,
+      layer.repeating,
+    );
+  }
+
+  return sampleGradientStops(
+    layer.stops,
+    Math.hypot(x + 0.5 - layer.centerX, y + 0.5 - layer.centerY),
+    layer.repeating,
+  );
+}
+
 function convertBackgroundImageToImage(
   backgroundImageText: string,
   width: number,
@@ -677,9 +1031,10 @@ function convertBackgroundImageToImage(
 
   const w = Math.max(1, Math.round(width));
   const h = Math.max(1, Math.round(height));
-  let spec: RasterGradientSpec | null = parseLinearOrRepeatingLinearGradient(text);
-  if (!spec) spec = parseRadialGradient(text, w, h);
-  if (!spec) return null;
+  const layers = splitTopLevelComma(text)
+    .map((layer) => parseGradientLayer(layer, w, h))
+    .filter((layer): layer is PreparedGradientLayer => !!layer);
+  if (layers.length === 0) return null;
 
   const canvas = document.createElement('canvas');
   canvas.width = w;
@@ -689,31 +1044,13 @@ function convertBackgroundImageToImage(
   const imageData = ctx.createImageData(w, h);
   const data = imageData.data;
   const base = blendOver([1, 1, 1, 1], fallbackBg ?? [1, 1, 1, 1]);
-
-  let linearStops: ResolvedGradientStop[] = [];
-  let radialStops: ResolvedGradientStop[] = [];
-  let dx = 0;
-  let dy = -1;
-  let lineLen = 1;
-  if (spec.kind === 'linear') {
-    const rad = (spec.angleDeg * Math.PI) / 180;
-    dx = Math.sin(rad);
-    dy = -Math.cos(rad);
-    lineLen = Math.max(1, Math.abs(dx) * w + Math.abs(dy) * h);
-    linearStops = resolveGradientStops(spec.stops, lineLen);
-  } else {
-    radialStops = resolveGradientStops(spec.stops, spec.radius);
-  }
-
-  const cx = w / 2;
-  const cy = h / 2;
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const idx = (y * w + x) * 4;
-      const sample = spec.kind === 'linear'
-        ? sampleGradientStops(linearStops, (x + 0.5 - cx) * dx + (y + 0.5 - cy) * dy + lineLen / 2, spec.repeating)
-        : sampleGradientStops(radialStops, Math.hypot(x + 0.5 - spec.centerX, y + 0.5 - spec.centerY), spec.repeating);
-      const out = blendOver(base, sample);
+      let out = base;
+      for (let i = layers.length - 1; i >= 0; i--) {
+        out = blendOver(out, sampleGradientLayer(layers[i], x, y));
+      }
       data[idx] = Math.round(out[0] * 255);
       data[idx + 1] = Math.round(out[1] * 255);
       data[idx + 2] = Math.round(out[2] * 255);
@@ -944,13 +1281,51 @@ export async function collectSnapshotData(
     };
   }
 
-  function visit(el: HTMLElement, parentId: number) {
+  async function visit(el: HTMLElement, parentId: number): Promise<void> {
     const id = nodes.length;
     const cs = getComputedStyle(el);
-    const r = docRect(el.getBoundingClientRect());
+    const rawRect = el.getBoundingClientRect();
+    const r = docRect(rawRect);
 
     const isImg = el.tagName === 'IMG' && imgToId.has(el);
     const kind = isImg ? 2 : 0;
+
+    if (!isImg && shouldRasterizeElement(el, cs) && r.w > 0 && r.h > 0) {
+      const raster = await rasterizeElement(el, rawRect, quality, cs);
+      if (raster) {
+        const imageId = images.length + 1;
+        images.push({
+          id: imageId,
+          bytes: raster.bytes,
+          width: raster.width,
+          height: raster.height,
+        });
+        const rawX = raster.rawLeft + window.scrollX - offX;
+        const rawY = raster.rawTop + window.scrollY - offY;
+        const scaledW = raster.width * layoutScale;
+        const scaledH = raster.height * layoutScale;
+        // #region debug-point B:raster-node
+        fetch("http://127.0.0.1:7777/event",{method:"POST",body:JSON.stringify({sessionId:"page-offset-raster",runId:"post-fix",hypothesisId:"B",location:"snapshot.ts:visit",msg:"[DEBUG] raster node placement",data:{tag:el.tagName,className:el.className,docRect:{x:r.x,y:r.y,w:r.w,h:r.h},rawRect:{left:rawRect.left,top:rawRect.top,width:rawRect.width,height:rawRect.height},raster:{rawLeft:raster.rawLeft,rawTop:raster.rawTop,width:raster.width,height:raster.height},rawX,rawY,scaledW,scaledH,layoutScale,offX,offY,scrollX:window.scrollX,scrollY:window.scrollY},ts:Date.now()})}).catch(()=>{});
+        // #endregion
+        nodes.push({
+          id,
+          parent: parentId,
+          kind: 2,
+          x: rawX * layoutScale,
+          y: rawY * layoutScale,
+          w: scaledW,
+          h: scaledH,
+          flags: F_IMAGE,
+          overflowHidden: false,
+          renderMode: 0,
+          divisionDisable: el.hasAttribute('divisionDisable'),
+          pageBreak: el.hasAttribute('pageBreak'),
+          imageId,
+          objectFit: 0,
+        });
+        return;
+      }
+    }
 
     const bg = parseColor(cs.backgroundColor);
     const hasBg = bg[3] > 0.001;
@@ -975,6 +1350,7 @@ export async function collectSnapshotData(
       || (bw[2] > 0 && cs.borderBottomStyle !== 'none' && cs.borderBottomStyle !== 'hidden')
       || (bw[3] > 0 && cs.borderLeftStyle !== 'none' && cs.borderLeftStyle !== 'hidden');
     const visibleBorder = hasBorder && bc[3] > 0.001;
+    const shadow = kind === 0 ? parseBoxShadow(cs.boxShadow) : null;
     const radius: [number, number, number, number] = [
       (parseFloat(cs.borderTopLeftRadius) || 0) * layoutScale,
       (parseFloat(cs.borderTopRightRadius) || 0) * layoutScale,
@@ -995,6 +1371,7 @@ export async function collectSnapshotData(
     let flags = 0;
     if (hasBg) flags |= F_BG;
     if (visibleBorder) flags |= F_BORDER;
+    if (shadow) flags |= F_SHADOW;
     if (hasRadius) flags |= F_RADIUS;
     if (overflowHidden) flags |= F_OVERFLOW;
     if (hasOpacity) flags |= F_OPACITY;
@@ -1011,6 +1388,13 @@ export async function collectSnapshotData(
       flags,
       bg: hasBg ? bg : undefined,
       border: visibleBorder ? { w: bw, c: bc, s: bs } : undefined,
+      shadow: shadow ? {
+        x: shadow.x * layoutScale,
+        y: shadow.y * layoutScale,
+        blur: shadow.blur * layoutScale,
+        spread: shadow.spread * layoutScale,
+        color: shadow.color,
+      } : undefined,
       radius: hasRadius ? radius : undefined,
       overflowHidden,
       opacity: hasOpacity ? opacity : undefined,
@@ -1055,7 +1439,7 @@ export async function collectSnapshotData(
 
     for (let child = el.firstChild; child; child = child.nextSibling) {
       if (child.nodeType === 1) {
-        visit(child as HTMLElement, id);
+                await visit(child as HTMLElement, id);
       } else if (child.nodeType === 3) {
         const text = (child as Text).data;
         if (!text || !text.trim()) continue;
@@ -1085,7 +1469,7 @@ export async function collectSnapshotData(
     }
   }
 
-  visit(root, -1);
+  await visit(root, -1);
 
   // Resolve config-level HF geometry.
   const staticHeader = staticHF ? resolveRegion(staticHF.header, false) : null;
@@ -1168,7 +1552,7 @@ function writeOptHF(w: BinWriter, hf: ResolvedHF | null) {
 function encode(a: EncodeArgs): Uint8Array {
   const w = new BinWriter();
   w.bytes(new Uint8Array([0x44, 0x32, 0x50, 0x31])); // "D2P1"
-  w.u32(3); // version 3
+  w.u32(4); // version 4
   w.f32(a.pageWidthPt);
   w.f32(a.pageHeightPt);
   w.f32(a.mTop);
@@ -1223,6 +1607,7 @@ function encode(a: EncodeArgs): Uint8Array {
     let flags = n.flags;
     if (n.bg) flags |= F_BG;
     if (n.border) flags |= F_BORDER;
+    if (n.shadow) flags |= F_SHADOW;
     if (n.radius) flags |= F_RADIUS;
     if (n.overflowHidden) flags |= F_OVERFLOW;
     if (n.opacity !== undefined) flags |= F_OPACITY;
@@ -1239,6 +1624,10 @@ function encode(a: EncodeArgs): Uint8Array {
       w.f32(n.border.w[0]); w.f32(n.border.w[1]); w.f32(n.border.w[2]); w.f32(n.border.w[3]);
       w.f32(n.border.c[0]); w.f32(n.border.c[1]); w.f32(n.border.c[2]); w.f32(n.border.c[3]);
       w.u8(n.border.s[0]); w.u8(n.border.s[1]); w.u8(n.border.s[2]); w.u8(n.border.s[3]);
+    }
+    if (n.shadow) {
+      w.f32(n.shadow.x); w.f32(n.shadow.y); w.f32(n.shadow.blur); w.f32(n.shadow.spread);
+      w.f32(n.shadow.color[0]); w.f32(n.shadow.color[1]); w.f32(n.shadow.color[2]); w.f32(n.shadow.color[3]);
     }
     if (n.radius) {
       w.f32(n.radius[0]); w.f32(n.radius[1]); w.f32(n.radius[2]); w.f32(n.radius[3]);

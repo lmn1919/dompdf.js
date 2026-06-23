@@ -16,6 +16,13 @@ use crate::snapshot::{HFSpec, Image, Node, Snapshot};
 
 pub const PX_TO_PT: f32 = 0.75;
 const ASCENT: f32 = 0.8; // approx Helvetica ascent / em, for baseline placement
+const SHADOW_LAYERS: [(f32, f32); 5] = [
+    (0.18, 0.16),
+    (0.36, 0.12),
+    (0.58, 0.08),
+    (0.82, 0.05),
+    (1.10, 0.03),
+];
 
 thread_local! {
     pub static DEBUG_LOG: std::cell::RefCell<String> = const { std::cell::RefCell::new(String::new()) };
@@ -106,6 +113,17 @@ fn rounded_rect_radii_pt(node: &Node, w: f32, h: f32) -> Option<[f32; 4]> {
     } else {
         Some([rtl, rtr, rbr, rbl])
     }
+}
+
+fn expanded_radii(radii: Option<[f32; 4]>, expand: f32) -> Option<[f32; 4]> {
+    radii.map(|[rtl, rtr, rbr, rbl]| {
+        [
+            (rtl + expand).max(0.0),
+            (rtr + expand).max(0.0),
+            (rbr + expand).max(0.0),
+            (rbl + expand).max(0.0),
+        ]
+    })
 }
 
 fn push_rounded_rect_path(
@@ -762,6 +780,71 @@ fn draw_box_bg(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h_px:
     }
 }
 
+fn draw_box_shadow(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h_px: f32, out: &mut String) {
+    let shadow = match &node.shadow {
+        Some(shadow) if shadow.color[3] > 0.001 => shadow,
+        _ => return,
+    };
+    let (x0, bottom, w, h) = rect_pt(snap, geo, node, page, content_h_px);
+    let base_radii = rounded_rect_radii_pt(node, w, h);
+    let dx = shadow.x * PX_TO_PT;
+    let dy = -shadow.y * PX_TO_PT;
+    let spread = shadow.spread.max(0.0) * PX_TO_PT;
+    let blur = shadow.blur.max(0.0) * PX_TO_PT;
+    if blur <= 0.01 {
+        let alpha = shadow.color[3].clamp(0.0, 1.0);
+        if alpha <= 0.001 {
+            return;
+        }
+        let sx = x0 + dx - spread;
+        let sy = bottom + dy - spread;
+        let sw = w + spread * 2.0;
+        let sh = h + spread * 2.0;
+        out.push_str("q\n");
+        out.push_str(&format!("/{} gs\n", opacity_resource_name(opacity_key(alpha))));
+        out.push_str(&format!(
+            "{} {} {} rg\n",
+            f(shadow.color[0]),
+            f(shadow.color[1]),
+            f(shadow.color[2])
+        ));
+        if let Some(radii) = expanded_radii(base_radii, spread) {
+            push_rounded_rect_path(out, sx, sy, sw, sh, radii);
+            out.push_str("f\n");
+        } else {
+            out.push_str(&format!("{} {} {} {} re f\n", f(sx), f(sy), f(sw), f(sh)));
+        }
+        out.push_str("Q\n");
+        return;
+    }
+    for (blur_mul, alpha_mul) in SHADOW_LAYERS {
+        let alpha = (shadow.color[3] * alpha_mul).clamp(0.0, 1.0);
+        if alpha <= 0.001 {
+            continue;
+        }
+        let expand = spread + blur * blur_mul;
+        let sx = x0 + dx - expand;
+        let sy = bottom + dy - expand;
+        let sw = w + expand * 2.0;
+        let sh = h + expand * 2.0;
+        out.push_str("q\n");
+        out.push_str(&format!("/{} gs\n", opacity_resource_name(opacity_key(alpha))));
+        out.push_str(&format!(
+            "{} {} {} rg\n",
+            f(shadow.color[0]),
+            f(shadow.color[1]),
+            f(shadow.color[2])
+        ));
+        if let Some(radii) = expanded_radii(base_radii, expand) {
+            push_rounded_rect_path(out, sx, sy, sw, sh, radii);
+            out.push_str("f\n");
+        } else {
+            out.push_str(&format!("{} {} {} {} re f\n", f(sx), f(sy), f(sw), f(sh)));
+        }
+        out.push_str("Q\n");
+    }
+}
+
 fn draw_box_border(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h_px: f32, out: &mut String) {
     let (x0, bottom, w, h) = rect_pt(snap, geo, node, page, content_h_px);
     let radii = rounded_rect_radii_pt(node, w, h);
@@ -834,6 +917,7 @@ fn draw_box_border(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h
 }
 
 fn draw_box(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h_px: f32, out: &mut String) {
+    draw_box_shadow(snap, geo, node, page, content_h_px, out);
     draw_box_bg(snap, geo, node, page, content_h_px, out);
     draw_box_border(snap, geo, node, page, content_h_px, out);
 }
@@ -997,9 +1081,15 @@ fn draw_text_lines(
                 continue;
             }
             let space_count = normalized.chars().filter(|c| *c == ' ').count() as f32;
-            let extra_px = font.letter_spacing_px * (normalized.chars().count() as f32)
+            let base_extra_px = font.letter_spacing_px * (normalized.chars().count() as f32)
                 + font.word_spacing_px * space_count;
-            let text_w_px = (width_1000 as f32 / 1000.0) * font.size_px + extra_px;
+            let base_text_w_px = (width_1000 as f32 / 1000.0) * font.size_px + base_extra_px;
+            let justify_extra_px = if font.align == 3 && space_count > 0.0 {
+                (line.w - base_text_w_px).max(0.0)
+            } else {
+                0.0
+            };
+            let text_w_px = base_text_w_px + justify_extra_px;
             let x_pt = match font.align {
                 1 => snap.margin_left + (line.x + line.w - text_w_px) * PX_TO_PT,
                 2 => snap.margin_left + (line.x + line.w / 2.0 - text_w_px / 2.0) * PX_TO_PT,
@@ -1010,8 +1100,13 @@ fn draw_text_lines(
             } else {
                 0.0
             };
-            let tw = if font.word_spacing_px != 0.0 {
-                font.word_spacing_px * PX_TO_PT
+            let justify_word_spacing_px = if justify_extra_px > 0.0 && space_count > 0.0 {
+                justify_extra_px / space_count
+            } else {
+                0.0
+            };
+            let tw = if font.word_spacing_px != 0.0 || justify_word_spacing_px != 0.0 {
+                (font.word_spacing_px + justify_word_spacing_px) * PX_TO_PT
             } else {
                 0.0
             };
@@ -1028,9 +1123,15 @@ fn draw_text_lines(
             }
             let width_units = text_width_units(&bytes);
             let space_count = bytes.iter().filter(|&&b| b == b' ').count() as f32;
-            let extra_px = font.letter_spacing_px * (bytes.len() as f32)
+            let base_extra_px = font.letter_spacing_px * (bytes.len() as f32)
                 + font.word_spacing_px * space_count;
-            let text_w_px = (width_units as f32 / 1000.0) * font.size_px + extra_px;
+            let base_text_w_px = (width_units as f32 / 1000.0) * font.size_px + base_extra_px;
+            let justify_extra_px = if font.align == 3 && space_count > 0.0 {
+                (line.w - base_text_w_px).max(0.0)
+            } else {
+                0.0
+            };
+            let text_w_px = base_text_w_px + justify_extra_px;
             let x_pt = match font.align {
                 1 => snap.margin_left + (line.x + line.w - text_w_px) * PX_TO_PT,
                 2 => snap.margin_left + (line.x + line.w / 2.0 - text_w_px / 2.0) * PX_TO_PT,
@@ -1041,8 +1142,13 @@ fn draw_text_lines(
             } else {
                 0.0
             };
-            let tw = if font.word_spacing_px != 0.0 {
-                font.word_spacing_px * PX_TO_PT
+            let justify_word_spacing_px = if justify_extra_px > 0.0 && space_count > 0.0 {
+                justify_extra_px / space_count
+            } else {
+                0.0
+            };
+            let tw = if font.word_spacing_px != 0.0 || justify_word_spacing_px != 0.0 {
+                (font.word_spacing_px + justify_word_spacing_px) * PX_TO_PT
             } else {
                 0.0
             };
@@ -1233,9 +1339,24 @@ pub fn build_pdf(snap: &Snapshot, pages: &[PagePlan], fontctx: &FontCtx) -> Vec<
     let opacity_keys: std::collections::BTreeSet<u16> = snap
         .nodes
         .iter()
-        .filter_map(|n| n.opacity)
-        .map(opacity_key)
-        .filter(|k| *k < 1000)
+        .flat_map(|n| {
+            let mut keys = Vec::new();
+            if let Some(opacity) = n.opacity {
+                let key = opacity_key(opacity);
+                if key < 1000 {
+                    keys.push(key);
+                }
+            }
+            if let Some(shadow) = &n.shadow {
+                for (_, alpha_mul) in SHADOW_LAYERS {
+                    let key = opacity_key(shadow.color[3] * alpha_mul);
+                    if key < 1000 && key > 0 {
+                        keys.push(key);
+                    }
+                }
+            }
+            keys
+        })
         .collect();
     let opacity_count = opacity_keys.len() as u32;
     let opacity_first_id = w.alloc(opacity_count);

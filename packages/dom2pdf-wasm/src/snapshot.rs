@@ -4,7 +4,7 @@
 //!
 //! Header:
 //!   magic: 4 bytes = "D2P1"
-//!   version: u32 = 3
+//!   version: u32 = 4
 //!   pageWidthPt, pageHeightPt, marginTop, marginRight, marginBottom, marginLeft: f32
 //!
 //! Config block:
@@ -121,6 +121,7 @@ pub struct Node {
     pub flags: u16,
     pub bg: Option<[f32; 4]>,
     pub border: Option<Border>,
+    pub shadow: Option<BoxShadow>,
     pub radius: Option<[f32; 4]>,
     pub overflow_hidden: bool,
     pub opacity: Option<f32>,
@@ -144,12 +145,22 @@ pub const F_IMAGE: u16 = 0x40;
 pub const F_RENDER_MODE: u16 = 0x80;
 pub const F_DIVISION_DISABLE: u16 = 0x100;
 pub const F_PAGE_BREAK: u16 = 0x200;
+pub const F_SHADOW: u16 = 0x400;
 
 #[derive(Clone)]
 pub struct Border {
     pub w: [f32; 4], // top,right,bottom,left px
     pub c: [f32; 4], // rgba
     pub s: [u8; 4],  // 0 solid, 1 dashed
+}
+
+#[derive(Clone)]
+pub struct BoxShadow {
+    pub x: f32,
+    pub y: f32,
+    pub blur: f32,
+    pub spread: f32,
+    pub color: [f32; 4],
 }
 
 #[derive(Clone)]
@@ -305,8 +316,8 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
         return Err(format!("bad magic: {:?}", magic));
     }
     let version = c.u32()?;
-    if version != 3 {
-        return Err(format!("unsupported version {} (expected 3)", version));
+    if version != 4 {
+        return Err(format!("unsupported version {} (expected 4)", version));
     }
     let page_width_pt = c.f32()?;
     let page_height_pt = c.f32()?;
@@ -404,6 +415,17 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
         } else {
             None
         };
+        let shadow = if flags & F_SHADOW != 0 {
+            Some(BoxShadow {
+                x: c.f32()?,
+                y: c.f32()?,
+                blur: c.f32()?,
+                spread: c.f32()?,
+                color: [c.f32()?, c.f32()?, c.f32()?, c.f32()?],
+            })
+        } else {
+            None
+        };
         let radius = if flags & F_RADIUS != 0 {
             Some([c.f32()?, c.f32()?, c.f32()?, c.f32()?])
         } else {
@@ -489,6 +511,7 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
             flags,
             bg,
             border,
+            shadow,
             radius,
             overflow_hidden,
             opacity,

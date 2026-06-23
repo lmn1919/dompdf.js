@@ -22,6 +22,7 @@ export default defineConfig({
       // 整个库是一个自包含的 JS 文件。
       output: {
         // 单文件输出，inlineDynamicImports 避免 worker 动态导入产生额外 chunk。
+        exports: 'named',
         inlineDynamicImports: true,
       },
     },
