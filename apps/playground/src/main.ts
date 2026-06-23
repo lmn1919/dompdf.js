@@ -168,7 +168,7 @@ function buildList(root: ParentNode) {
     'Use DCTDecode for JPEG XObjects; no third-party PDF libraries.',
     'Verify the output opens in Chrome, Acrobat, and Preview.',
   ];
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i <840; i++) {
     const li = document.createElement('li');
     li.textContent = `${i + 1}. ${items[i % items.length]}`;
     list.appendChild(li);
