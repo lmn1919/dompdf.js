@@ -155,20 +155,20 @@ function buildList(root: ParentNode) {
   if (!(list instanceof HTMLOListElement)) return;
   list.innerHTML = '';
   const items = [
-    'Define the snapshot contract before touching PDF bytes.',
-    'Collect rects in document space, not viewport space.',
-    'Slice text nodes into line boxes with UTF-8 byte offsets.',
-    'Convert every image to JPEG on the JS side to avoid PNG flate.',
-    'Push heavy work into a Web Worker; keep the main thread free.',
-    'Treat each text line as the minimum unsplittable unit.',
-    'Move straddling lines to the next page; allow whitespace.',
-    'Clip overflow:hidden subtrees to their box rectangle.',
-    'Emit a Base14 Helvetica font with WinAnsiEncoding for L0/L1.',
-    'Hand-write the PDF object table, xref, and trailer in pure std.',
-    'Use DCTDecode for JPEG XObjects; no third-party PDF libraries.',
-    'Verify the output opens in Chrome, Acrobat, and Preview.',
+    'Define the snapshot contract before touching PDF bytes, and keep the runtime input deterministic enough that regressions are attributable to layout changes rather than missing metadata.',
+    'Collect rects in document space, not viewport space, especially when sticky toolbars and centered preview canvases are involved.',
+    'Slice text nodes into line boxes with UTF-8 byte offsets so the renderer can preserve selection order across long bilingual paragraphs.',
+    'Convert every image to JPEG on the JS side to avoid PNG flate complexity and to keep the PDF writer focused on deterministic embedding rules.',
+    'Push heavy work into a Web Worker; keep the main thread free even when the page includes large gradient panels, tables, and long ordered lists.',
+    'Treat each text line as the minimum unsplittable unit, even when one list item wraps into multiple visual rows near a page boundary.',
+    'Move straddling lines to the next page and allow whitespace instead of squeezing the following content upward into unreadable spacing.',
+    'Clip overflow:hidden subtrees to their box rectangle so overlapping cards and decorative panels do not bleed outside their intended bounds.',
+    'Emit a Base14 Helvetica font with WinAnsiEncoding for L0/L1 text while allowing custom CID fonts to handle Chinese copy and mixed-language paragraphs.',
+    'Hand-write the PDF object table, xref, and trailer in pure std so the byte structure remains inspectable and independent of third-party PDF libraries.',
+    'Use DCTDecode for JPEG XObjects and verify that repeated assets, canvases, and generated charts remain visually stable across pages.',
+    'Verify the output opens in Chrome, Acrobat, and Preview, then compare pagination, clipping, and text selection behavior across readers.',
   ];
-  for (let i = 0; i <840; i++) {
+  for (let i = 0; i < 72; i++) {
     const li = document.createElement('li');
     li.textContent = `${i + 1}. ${items[i % items.length]}`;
     list.appendChild(li);

@@ -32,28 +32,87 @@
     <template id="tpl-report">
       <!-- This is the node that gets exported. -->
       <article id="document" class="doc" data-template-id="report">
-        <h1>Quarterly Product Report</h1>
-        <p class="lede">
-          This document is rendered live by the browser, then snapshotted and
-          re-emitted as a vector PDF by a Rust/WASM module. Text remains
-          selectable and copyable; images are embedded as JPEG XObjects.
-        </p>
+        <section class="report-hero">
+          <div class="hero-copy">
+            <div class="hero-eyebrow">Stress Template · Layout / Paint / Pagination</div>
+            <h1>Quarterly Product Report</h1>
+            <p class="lede">
+              This document is rendered live by the browser, then snapshotted and
+              re-emitted as a vector PDF by a Rust/WASM module. The playground now
+              behaves like a richer acceptance suite: mixed typography, grids,
+              tables, layered decorations, clipping, and long content all live in
+              one export target.
+            </p>
+            <div class="hero-tags">
+              <span class="hero-tag">CSS gradients</span>
+              <span class="hero-tag">Nested flex/grid</span>
+              <span class="hero-tag">Absolute overlays</span>
+              <span class="hero-tag">Mixed CN/EN text</span>
+              <span class="hero-tag">Forced page breaks</span>
+            </div>
+          </div>
+          <aside class="hero-panel">
+            <div class="hero-panel-label">Export surface</div>
+            <div class="hero-panel-value">DOM -> snapshot -> WASM -> PDF</div>
+            <ul class="hero-panel-list">
+              <li>Selectable text</li>
+              <li>JPEG image embedding</li>
+              <li>Line-aware pagination</li>
+              <li>Worker offload</li>
+            </ul>
+          </aside>
+        </section>
+
+        <section class="metric-grid" aria-label="Top metrics">
+          <div class="metric-card accent-blue">
+            <div class="metric-label">Revenue</div>
+            <strong>$18.4M</strong>
+            <span class="metric-delta positive">+18% QoQ</span>
+          </div>
+          <div class="metric-card accent-green">
+            <div class="metric-label">Expansion</div>
+            <strong>42 deals</strong>
+            <span class="metric-delta positive">+9 net-new logos</span>
+          </div>
+          <div class="metric-card accent-amber">
+            <div class="metric-label">Incident Cost</div>
+            <strong>0.42%</strong>
+            <span class="metric-delta neutral">Within target band</span>
+          </div>
+          <div class="metric-card accent-slate">
+            <div class="metric-label">Roadmap</div>
+            <strong>81%</strong>
+            <span class="metric-delta positive">On-track completion</span>
+          </div>
+        </section>
 
         <h2>1. Executive summary</h2>
-        <p>
-          The quarter delivered strong, predictable results across the board.
-          Revenue grew <strong>18%</strong> quarter-over-quarter, driven by
-          adoption in the enterprise segment and expansion of the partner
-          channel. Margins held steady despite continued investment in
-          infrastructure and people.
-        </p>
-        <p>
-          The headline number is the result of many small wins compounded over
-          time. This report walks through the components, the risks, and the
-          plan for the next quarter.
-        </p>
+        <div class="summary-grid">
+          <div>
+            <p>
+              The quarter delivered strong, predictable results across the board.
+              Revenue grew <strong>18%</strong> quarter-over-quarter, driven by
+              adoption in the enterprise segment and expansion of the partner
+              channel. Margins held steady despite continued investment in
+              infrastructure and people.
+            </p>
+            <p>
+              The headline number is the result of many small wins compounded over
+              time. This report walks through the components, the risks, the
+              operational bottlenecks, and the plan for the next quarter.
+            </p>
+          </div>
+          <div class="note-card">
+            <h3>Snapshot acceptance notes</h3>
+            <ul class="compact-list">
+              <li>Tests nested spacing and border rendering.</li>
+              <li>Mixes prose, badges, numbers, and list bullets.</li>
+              <li>Provides a realistic density baseline before long pagination.</li>
+            </ul>
+          </div>
+        </div>
 
-        <h2>2. A card with an image</h2>
+        <h2>2. Media card, gallery, and image density</h2>
         <div class="card">
           <img id="sample-img" alt="sample chart" />
           <div class="card-body">
@@ -62,7 +121,29 @@
               The chart above is generated on a canvas, converted to a JPEG, and
               embedded into the PDF via a DCTDecode image XObject.
             </p>
+            <div class="inline-stat-row">
+              <span class="mini-stat">WAU +12%</span>
+              <span class="mini-stat">Retention +6%</span>
+              <span class="mini-stat">Latency -18%</span>
+            </div>
           </div>
+        </div>
+        <div class="mosaic-grid">
+          <figure class="mosaic-card mosaic-large">
+            <div class="feature-tag">ratio / border-radius</div>
+            <h3>Hero mosaic tile</h3>
+            <p>Large panel with layered background and compact copy.</p>
+          </figure>
+          <figure class="mosaic-card mosaic-gradient">
+            <div class="feature-tag">background layers</div>
+            <h3>Gradient tile</h3>
+            <p>Used to verify rasterized gradient backgrounds.</p>
+          </figure>
+          <figure class="mosaic-card mosaic-dark">
+            <div class="feature-tag">contrast</div>
+            <h3>Dark surface</h3>
+            <p>Checks light text on dark fills and shadows.</p>
+          </figure>
         </div>
 
         <h2>3. New CSS support showcase</h2>
@@ -107,7 +188,178 @@
           </div>
         </div>
 
-        <h2>4. Overflow &amp; clipping</h2>
+        <h2>4. Complex layout composition</h2>
+        <div class="two-column-layout">
+          <div class="content-stack">
+            <section class="nested-card">
+              <div class="section-badge">Flex + nested cards</div>
+              <h3>Rollout readiness board</h3>
+              <div class="check-grid">
+                <div class="check-item">
+                  <span class="check-dot"></span>
+                  <div>
+                    <strong>Release channel</strong>
+                    <p>Staged rollout is configured for 10%, 30%, and 100% cohorts.</p>
+                  </div>
+                </div>
+                <div class="check-item">
+                  <span class="check-dot"></span>
+                  <div>
+                    <strong>Telemetry</strong>
+                    <p>Error, latency, and conversion counters are sampled in one bundle.</p>
+                  </div>
+                </div>
+                <div class="check-item">
+                  <span class="check-dot"></span>
+                  <div>
+                    <strong>Fallback path</strong>
+                    <p>Legacy export remains available to de-risk unsupported styles.</p>
+                  </div>
+                </div>
+                <div class="check-item">
+                  <span class="check-dot"></span>
+                  <div>
+                    <strong>Visual QA</strong>
+                    <p>Report covers gradients, clipping, absolute layers, and long text.</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="nested-card">
+              <div class="section-badge">Progress + labels</div>
+              <h3>Initiative health</h3>
+              <div class="progress-list">
+                <div class="progress-row">
+                  <div class="progress-meta"><span>Snapshot fidelity</span><strong>84%</strong></div>
+                  <div class="progress-track"><div class="progress-fill fill-a"></div></div>
+                </div>
+                <div class="progress-row">
+                  <div class="progress-meta"><span>Pagination stability</span><strong>76%</strong></div>
+                  <div class="progress-track"><div class="progress-fill fill-b"></div></div>
+                </div>
+                <div class="progress-row">
+                  <div class="progress-meta"><span>Typography coverage</span><strong>68%</strong></div>
+                  <div class="progress-track"><div class="progress-fill fill-c"></div></div>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <aside class="side-rail">
+            <section class="rail-card">
+              <h3>Risk memo</h3>
+              <p>
+                Absolute positioning, layered opacity, and large repeating
+                backgrounds are intentionally bundled here to make clipping and
+                page-break regressions easier to spot.
+              </p>
+            </section>
+            <section class="rail-card quote-card">
+              <div class="quote-mark">"</div>
+              <p>
+                A useful playground should be visually dense enough to break
+                assumptions before production documents do.
+              </p>
+              <span>Internal rendering checklist</span>
+            </section>
+          </aside>
+        </div>
+
+        <h2>5. Tabular data and alignment</h2>
+        <div class="table-shell">
+          <table class="report-table">
+            <thead>
+              <tr>
+                <th>Region</th>
+                <th>ARR</th>
+                <th>Growth</th>
+                <th>Primary risk</th>
+                <th>Owner</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>North America</td>
+                <td>$7.6M</td>
+                <td class="positive-text">+21%</td>
+                <td>Expansion capacity</td>
+                <td>Sales</td>
+              </tr>
+              <tr>
+                <td>Europe</td>
+                <td>$4.2M</td>
+                <td class="positive-text">+14%</td>
+                <td>Localization backlog</td>
+                <td>Product</td>
+              </tr>
+              <tr>
+                <td>APAC</td>
+                <td>$3.1M</td>
+                <td class="positive-text">+19%</td>
+                <td>Support coverage</td>
+                <td>Operations</td>
+              </tr>
+              <tr>
+                <td>LATAM</td>
+                <td>$1.4M</td>
+                <td class="neutral-text">+8%</td>
+                <td>Billing complexity</td>
+                <td>Finance</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2>6. Rich text density and semantic blocks</h2>
+        <div class="rich-grid">
+          <div class="rich-card">
+            <h3>Definition list</h3>
+            <dl class="definition-list">
+              <div>
+                <dt>Snapshot</dt>
+                <dd>Resolved DOM geometry, text runs, and images collected on the main thread.</dd>
+              </div>
+              <div>
+                <dt>Pagination</dt>
+                <dd>WASM-side page assignment that treats each line as an unsplittable unit.</dd>
+              </div>
+              <div>
+                <dt>Emission</dt>
+                <dd>PDF object generation without third-party PDF libraries.</dd>
+              </div>
+            </dl>
+          </div>
+          <div class="rich-card">
+            <h3>Preformatted block</h3>
+            <pre class="report-code"><code>render(root)
+  -> collectSnapshotData(root)
+  -> encodeSnapshot(data)
+  -> worker.postMessage(snapshot)
+  -> wasm.render_pdf(snapshot)
+  -> Blob(application/pdf)</code></pre>
+          </div>
+        </div>
+        <blockquote class="callout-quote">
+          The more layout primitives this single page exercises, the faster we can
+          spot edge cases in clipping, background painting, pagination, and font handling.
+        </blockquote>
+
+        <h2>7. Positioning, layering, and clipping</h2>
+        <div class="overlay-panel">
+          <div class="overlay-card overlay-card-a">
+            <strong>Absolute badge</strong>
+            <span>top-left block</span>
+          </div>
+          <div class="overlay-card overlay-card-b">
+            <strong>Offset card</strong>
+            <span>partially overlapping</span>
+          </div>
+          <div class="overlay-card overlay-card-c">
+            <strong>Bottom layer</strong>
+            <span>tests stacking order</span>
+          </div>
+        </div>
         <div class="clip-box">
           <p>
             This container has <code>overflow: hidden</code> and rounded
@@ -117,44 +369,80 @@
           <div class="spill">I am a child that overflows the clipped parent.</div>
         </div>
 
-        <h2>5. A long list (pagination test)</h2>
+        <h2>8. A long list (pagination test)</h2>
         <p>
           The list below is intentionally long so it spans several pages. Text
           lines are the minimum unsplittable unit: a line that would straddle a
           page boundary is moved to the next page instead of being cut.
         </p>
         <ol id="long-list"></ol>
+        <div class="timeline-card">
+          <h3>Release timeline</h3>
+          <div class="timeline">
+            <div class="timeline-item">
+              <div class="timeline-dot"></div>
+              <div>
+                <strong>Week 1</strong>
+                <p>Lock snapshot schema and cross-browser geometry normalization.</p>
+              </div>
+            </div>
+            <div class="timeline-item">
+              <div class="timeline-dot"></div>
+              <div>
+                <strong>Week 2</strong>
+                <p>Refine pagination under long lists, multi-line paragraphs, and footer bands.</p>
+              </div>
+            </div>
+            <div class="timeline-item">
+              <div class="timeline-dot"></div>
+              <div>
+                <strong>Week 3</strong>
+                <p>Audit clipping, image rasterization, and absolute-position overlap behavior.</p>
+              </div>
+            </div>
+          </div>
+        </div>
 
-        <h2>6. Conclusion</h2>
-        <p>
-          The pipeline is intentionally split into three stages: snapshot
-          collection on the main thread, pagination and PDF emission in WASM,
-          and assembly on a Web Worker so the UI never blocks. See the toolbar
-          above to export this very article to PDF.
-        </p>
-
-        <h2>7. 中文嵌入测试</h2>
-        <p style="font-family: 'SourceHanSansSC-Regular', sans-serif;">
+        <h2>9. 中文嵌入与混排测试</h2>
+        <p class="cn-copy">
           本段用于验证自定义 TTF 字体（思源黑体）的 CID 嵌入：中文应正常显示且可复制。
           导出的 PDF 中，这些字符通过 Type0 + CIDFontType2 + Identity-H + ToUnicode 嵌入，
           文本可被搜索与选中。
         </p>
-        <p style="font-family: 'SourceHanSansSC-Regular', sans-serif;">
+        <div class="bilingual-card">
+          <div>
+            <h3>中英文混排</h3>
+            <p class="cn-copy">
+              混合使用数字、英文缩写、中文说明和内联代码 <code>pageBreak</code>，
+              用来验证不同字符集在同一段落中的测量和换行。
+            </p>
+          </div>
+          <div class="bilingual-note">
+            Mixed-language paragraphs are useful because they stress glyph mapping,
+            font fallback, and line box width calculations at the same time.
+          </div>
+        </div>
+        <p class="cn-copy">
           分页属性测试：下面这个带 <code>pageBreak</code> 的卡片会强制从下一页开始渲染。
         </p>
         <div class="card" pageBreak>
           <div class="card-body">
             <h3>强制分页卡片</h3>
-            <p style="font-family: 'SourceHanSansSC-Regular', sans-serif;">
+            <p class="cn-copy">
               这个卡片带有 pageBreak 属性，应当出现在新的一页。
             </p>
           </div>
         </div>
 
-        <h2>8. divisionDisable 测试</h2>
-        <div class="clip-box" divisionDisable>
-          <p style="font-family: 'SourceHanSansSC-Regular', sans-serif;">
+        <h2>10. divisionDisable 测试</h2>
+        <div class="clip-box division-box" divisionDisable>
+          <p class="cn-copy">
             这个容器带有 divisionDisable 属性：跨页时它会被整体移动到下一页，而不会被拆分。
+            容器内部额外放入更长的文本、强调标签和背景色，以便观察整体移动时的边框、填充和
+            行内样式是否完整保留。
+          </p>
+          <p class="cn-copy">
+            如果此块被拆开，就说明 divisionDisable 在复杂内容容器上的边界处理仍有问题。
           </p>
         </div>
       </article>
