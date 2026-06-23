@@ -101,8 +101,11 @@ function buildSnapshot(opts = {}) {
   // node 0: box with bg
   w.u32(0); w.i32(-1); w.u8(0);
   w.f32(0); w.f32(0); w.f32(500); w.f32(60);
-  w.u16(F_BG);
+  let boxFlags = F_BG;
+  if (opts.boxOpacity != null) boxFlags |= F_OPACITY;
+  w.u16(boxFlags);
   w.f32(0.1); w.f32(0.2); w.f32(0.8); w.f32(1);
+  if (opts.boxOpacity != null) w.f32(opts.boxOpacity);
 
   // node 1: text
   w.u32(1); w.i32(0); w.u8(1);
@@ -248,6 +251,15 @@ if (existsSync(fontPath)) {
 } else {
   console.log('  SKIP: Source Han font not found at', fontPath);
 }
+
+// ---- Test 4: node opacity via ExtGState ----
+console.log('Test 4: opacity uses ExtGState resources');
+const snap4 = buildSnapshot({ pagination: true, background: true, boxOpacity: 0.5 });
+const pdf4 = render(snap4);
+const latin4 = Buffer.from(pdf4).toString('latin1');
+check('has ExtGState resource dictionary', latin4.includes('/ExtGState <<'));
+check('has opacity object', latin4.includes('/Type /ExtGState /ca 0.5 /CA 0.5'));
+check('content stream applies gs operator', latin4.includes('/GS500 gs'));
 
 console.log('');
 if (failures === 0) {
