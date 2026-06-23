@@ -257,6 +257,17 @@ fn shift_node_y(n: &mut Node, gap: f32) {
     }
 }
 
+fn shift_lines_from(node: &mut Node, start: usize, gap: f32) {
+    if gap == 0.0 {
+        return;
+    }
+    for line in node.lines.iter_mut().skip(start) {
+        line.y += gap;
+        line.draw_y += gap;
+    }
+    node.h += gap;
+}
+
 /// Shift a subtree (node + descendants) by `gap` in document y.
 fn shift_subtree(snap: &mut Snapshot, children: &[Vec<usize>], root: usize, gap: f32) {
     if gap == 0.0 {
@@ -414,28 +425,43 @@ pub fn assign_pages(snap: &mut Snapshot) -> u32 {
     apply_break_directives(snap, &children, geo.content_h_px);
 
     let content_h_px = geo.content_h_px;
-    for node in snap.nodes.iter_mut() {
+    for idx in 0..snap.nodes.len() {
+        let (_, right) = snap.nodes.split_at_mut(idx);
+        let (node, tail) = right.split_first_mut().unwrap();
         if node.kind != 1 {
             continue;
         }
-        for line in node.lines.iter_mut() {
-            let top = line.y;
-            let bottom = line.y + line.h;
+        for li in 0..node.lines.len() {
+            let top = node.lines[li].y;
+            let bottom = top + node.lines[li].h;
             let mut page = (top / content_h_px).floor() as i64;
             if page < 0 {
                 page = 0;
             }
             let band_bottom = (page + 1) as f32 * content_h_px;
             if bottom > band_bottom && (bottom - top) < content_h_px {
-                page += 1;
-                line.draw_y = page as f32 * content_h_px;
+                let gap = band_bottom - top;
+                if gap > 0.0 {
+                    // Preserve whitespace at the page break by inserting the gap
+                    // into document flow instead of only snapping this one line.
+                    shift_lines_from(node, li, gap);
+                    for later in tail.iter_mut() {
+                        shift_node_y(later, gap);
+                    }
+                }
+                let moved_top = node.lines[li].y;
+                page = (moved_top / content_h_px).floor() as i64;
+                if page < 0 {
+                    page = 0;
+                }
+                node.lines[li].draw_y = moved_top;
             } else {
-                line.draw_y = top;
+                node.lines[li].draw_y = top;
             }
             if page < 0 {
                 page = 0;
             }
-            line.page = page as u32;
+            node.lines[li].page = page as u32;
         }
     }
 
