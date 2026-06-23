@@ -33,6 +33,7 @@
       <!-- This is the node that gets exported. -->
       <article id="document" class="doc" data-template-id="report">
         <section class="report-hero">
+          <div class="report-hero-bg" aria-hidden="true"></div>
           <div class="hero-copy">
             <div class="hero-eyebrow">Stress Template · Layout / Paint / Pagination</div>
             <h1>Quarterly Product Report</h1>
@@ -65,24 +66,36 @@
 
         <section class="metric-grid" aria-label="Top metrics">
           <div class="metric-card accent-blue">
-            <div class="metric-label">Revenue</div>
-            <strong>$18.4M</strong>
-            <span class="metric-delta positive">+18% QoQ</span>
+            <div class="metric-card-bg" aria-hidden="true"></div>
+            <div class="metric-card-body">
+              <div class="metric-label">Revenue</div>
+              <strong>$18.4M</strong>
+              <span class="metric-delta positive">+18% QoQ</span>
+            </div>
           </div>
           <div class="metric-card accent-green">
-            <div class="metric-label">Expansion</div>
-            <strong>42 deals</strong>
-            <span class="metric-delta positive">+9 net-new logos</span>
+            <div class="metric-card-bg" aria-hidden="true"></div>
+            <div class="metric-card-body">
+              <div class="metric-label">Expansion</div>
+              <strong>42 deals</strong>
+              <span class="metric-delta positive">+9 net-new logos</span>
+            </div>
           </div>
           <div class="metric-card accent-amber">
-            <div class="metric-label">Incident Cost</div>
-            <strong>0.42%</strong>
-            <span class="metric-delta neutral">Within target band</span>
+            <div class="metric-card-bg" aria-hidden="true"></div>
+            <div class="metric-card-body">
+              <div class="metric-label">Incident Cost</div>
+              <strong>0.42%</strong>
+              <span class="metric-delta neutral">Within target band</span>
+            </div>
           </div>
           <div class="metric-card accent-slate">
-            <div class="metric-label">Roadmap</div>
-            <strong>81%</strong>
-            <span class="metric-delta positive">On-track completion</span>
+            <div class="metric-card-bg" aria-hidden="true"></div>
+            <div class="metric-card-body">
+              <div class="metric-label">Roadmap</div>
+              <strong>81%</strong>
+              <span class="metric-delta positive">On-track completion</span>
+            </div>
           </div>
         </section>
 
@@ -103,12 +116,15 @@
             </p>
           </div>
           <div class="note-card">
-            <h3>Snapshot acceptance notes</h3>
-            <ul class="compact-list">
-              <li>Tests nested spacing and border rendering.</li>
-              <li>Mixes prose, badges, numbers, and list bullets.</li>
-              <li>Provides a realistic density baseline before long pagination.</li>
-            </ul>
+            <div class="note-card-bg" aria-hidden="true"></div>
+            <div class="note-card-body">
+              <h3>Snapshot acceptance notes</h3>
+              <ul class="compact-list">
+                <li>Tests nested spacing and border rendering.</li>
+                <li>Mixes prose, badges, numbers, and list bullets.</li>
+                <li>Provides a realistic density baseline before long pagination.</li>
+              </ul>
+            </div>
           </div>
         </div>
 
@@ -130,48 +146,66 @@
         </div>
         <div class="mosaic-grid">
           <figure class="mosaic-card mosaic-large">
-            <div class="feature-tag">ratio / border-radius</div>
-            <h3>Hero mosaic tile</h3>
-            <p>Large panel with layered background and compact copy.</p>
+            <div class="mosaic-card-bg" aria-hidden="true"></div>
+            <div class="mosaic-card-body">
+              <div class="feature-tag">ratio / border-radius</div>
+              <h3>Hero mosaic tile</h3>
+              <p>Large panel with layered background and compact copy.</p>
+            </div>
           </figure>
           <figure class="mosaic-card mosaic-gradient">
-            <div class="feature-tag">background layers</div>
-            <h3>Gradient tile</h3>
-            <p>Used to verify rasterized gradient backgrounds.</p>
+            <div class="mosaic-card-bg" aria-hidden="true"></div>
+            <div class="mosaic-card-body">
+              <div class="feature-tag">background layers</div>
+              <h3>Gradient tile</h3>
+              <p>Used to verify rasterized gradient backgrounds.</p>
+            </div>
           </figure>
           <figure class="mosaic-card mosaic-dark">
-            <div class="feature-tag">contrast</div>
-            <h3>Dark surface</h3>
-            <p>Checks light text on dark fills and shadows.</p>
+            <div class="mosaic-card-bg" aria-hidden="true"></div>
+            <div class="mosaic-card-body">
+              <div class="feature-tag">contrast</div>
+              <h3>Dark surface</h3>
+              <p>Checks light text on dark fills and shadows.</p>
+            </div>
           </figure>
         </div>
 
         <h2>3. New CSS support showcase</h2>
         <div class="gradient-panel">
-          <div class="gradient-pill">线性渐变</div>
-          <h3>从 HTML 渲染到 PDF</h3>
-          <p>
-            这个面板使用了 CSS <code>linear-gradient(...)</code> 渐变背景。
-            导出时，dom2pdf 会将渐变栅格化为背景图像，从而让 PDF
-            更接近 HTML 页面中的实际样式效果。
-          </p>
+          <div class="gradient-panel-bg" aria-hidden="true"></div>
+          <div class="gradient-panel-body">
+            <div class="gradient-pill">线性渐变</div>
+            <h3>从 HTML 渲染到 PDF</h3>
+            <p>
+              这个面板使用了 CSS <code>linear-gradient(...)</code> 渐变背景。
+              导出时，dom2pdf 会将渐变栅格化为背景图像，从而让 PDF
+              更接近 HTML 页面中的实际样式效果。
+            </p>
+          </div>
         </div>
         <div class="feature-grid">
           <section class="feature-card radial-card">
-            <div class="feature-tag">radial-gradient</div>
-            <h3>径向渐变背景</h3>
-            <p>
-              使用 <code>radial-gradient(...)</code> 模拟聚光灯式背景，PDF
-              中应保留中心到边缘的过渡层次。
-            </p>
+            <div class="feature-card-bg" aria-hidden="true"></div>
+            <div class="feature-card-body">
+              <div class="feature-tag">radial-gradient</div>
+              <h3>径向渐变背景</h3>
+              <p>
+                使用 <code>radial-gradient(...)</code> 模拟聚光灯式背景，PDF
+                中应保留中心到边缘的过渡层次。
+              </p>
+            </div>
           </section>
           <section class="feature-card stripe-card">
-            <div class="feature-tag">repeating-linear-gradient</div>
-            <h3>重复条纹渐变</h3>
-            <p>
-              使用 <code>repeating-linear-gradient(...)</code> 生成重复斜纹，
-              用于验证 PDF 对重复渐变纹理的导出效果。
-            </p>
+            <div class="feature-card-bg" aria-hidden="true"></div>
+            <div class="feature-card-body">
+              <div class="feature-tag">repeating-linear-gradient</div>
+              <h3>重复条纹渐变</h3>
+              <p>
+                使用 <code>repeating-linear-gradient(...)</code> 生成重复斜纹，
+                用于验证 PDF 对重复渐变纹理的导出效果。
+              </p>
+            </div>
           </section>
         </div>
         <div class="opacity-panel">
@@ -182,7 +216,10 @@
             是否保留透明叠加效果，而不是直接渲染成不透明实色。
           </p>
           <div class="opacity-stack">
-            <div class="opacity-base">Base Layer</div>
+            <div class="opacity-base">
+              <div class="opacity-base-bg" aria-hidden="true"></div>
+              <span class="opacity-base-label">Base Layer</span>
+            </div>
             <div class="opacity-float opacity-float-a">Opacity 0.72</div>
             <div class="opacity-float opacity-float-b">Opacity 0.48</div>
           </div>
@@ -256,12 +293,15 @@
               </p>
             </section>
             <section class="rail-card quote-card">
+              <div class="quote-card-bg" aria-hidden="true"></div>
               <div class="quote-mark">"</div>
-              <p>
-                A useful playground should be visually dense enough to break
-                assumptions before production documents do.
-              </p>
-              <span>Internal rendering checklist</span>
+              <div class="quote-card-body">
+                <p>
+                  A useful playground should be visually dense enough to break
+                  assumptions before production documents do.
+                </p>
+                <span>Internal rendering checklist</span>
+              </div>
             </section>
           </aside>
         </div>
@@ -347,6 +387,7 @@
 
         <h2>7. Positioning, layering, and clipping</h2>
         <div class="overlay-panel">
+          <div class="overlay-panel-bg" aria-hidden="true"></div>
           <div class="overlay-card overlay-card-a">
             <strong>Absolute badge</strong>
             <span>top-left block</span>
@@ -410,17 +451,61 @@
           文本可被搜索与选中。
         </p>
         <div class="bilingual-card">
-          <div>
-            <h3>中英文混排</h3>
-            <p class="cn-copy">
-              混合使用数字、英文缩写、中文说明和内联代码 <code>pageBreak</code>，
-              用来验证不同字符集在同一段落中的测量和换行。
-            </p>
+          <div class="bilingual-card-bg" aria-hidden="true"></div>
+          <div class="bilingual-card-body">
+            <div>
+              <h3>中英文混排</h3>
+              <p class="cn-copy">
+                混合使用数字、英文缩写、中文说明和内联代码 <code>pageBreak</code>，
+                用来验证不同字符集在同一段落中的测量和换行。
+              </p>
+            </div>
+            <div class="bilingual-note">
+              Mixed-language paragraphs are useful because they stress glyph mapping,
+              font fallback, and line box width calculations at the same time.
+            </div>
           </div>
-          <div class="bilingual-note">
-            Mixed-language paragraphs are useful because they stress glyph mapping,
-            font fallback, and line box width calculations at the same time.
-          </div>
+        </div>
+        <div class="table-shell">
+          <table class="report-table" aria-label="Copyable bilingual table">
+            <thead>
+              <tr>
+                <th class="cn-copy" rowspan="2">字段</th>
+                <th class="cn-copy" colspan="2">导出文本样例</th>
+                <th class="cn-copy" rowspan="2">复制预期</th>
+              </tr>
+              <tr>
+                <th class="cn-copy">中文 / English</th>
+                <th class="cn-copy">结构特征</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="cn-copy">项目名称</td>
+                <td class="cn-copy">城市更新试点 2026 / Urban Renewal Pilot</td>
+                <td class="cn-copy">中英混排 + 年份数字</td>
+                <td class="cn-copy">中英文都应可选中并按原顺序复制</td>
+              </tr>
+              <tr>
+                <td class="cn-copy">负责人</td>
+                <td class="cn-copy">张明明 · PMO-17</td>
+                <td class="cn-copy">中文姓名 + 英文缩写 + 短横线</td>
+                <td class="cn-copy">中文姓名、数字与短横线不应丢字</td>
+              </tr>
+              <tr>
+                <td class="cn-copy">状态摘要</td>
+                <td class="cn-copy">已完成 81%，风险等级 Low，下一里程碑 2026-09-30</td>
+                <td class="cn-copy">百分比 + 英文等级 + 日期</td>
+                <td class="cn-copy">百分比、日期、英文单词应保持连续可复制</td>
+              </tr>
+              <tr>
+                <td class="cn-copy">验收说明</td>
+                <td class="cn-copy">复制后应得到完整表格文本，不应出现乱码、换序或缺字。</td>
+                <td class="cn-copy">完整句子 + 中文标点</td>
+                <td class="cn-copy">用于验证表格单元格文本的 PDF ToUnicode 映射</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
         <p class="cn-copy">
           分页属性测试：下面这个带 <code>pageBreak</code> 的卡片会强制从下一页开始渲染。

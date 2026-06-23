@@ -172,13 +172,27 @@ main {
 }
 
 .gradient-panel {
+  position: relative;
   margin: 14px 0;
-  padding: 20px 22px;
+  overflow: hidden;
   border: 1px solid #bfdbfe;
   border-radius: 16px;
   background-color: #eff6ff;
-  background-image: linear-gradient(180deg, #eff6ff 0%, #dbeafe 52%, #bfdbfe 100%);
   color: #0f172a;
+}
+
+.gradient-panel-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background-image: linear-gradient(180deg, #eff6ff 0%, #dbeafe 52%, #bfdbfe 100%);
+}
+
+.gradient-panel-body {
+  position: relative;
+  z-index: 1;
+  padding: 20px 22px;
 }
 
 .gradient-panel h3 {
@@ -199,11 +213,27 @@ main {
 }
 
 .feature-card {
+  position: relative;
   min-height: 150px;
-  padding: 18px 20px;
+  overflow: hidden;
   border: 1px solid #cbd5e1;
   border-radius: 16px;
+  background: #f8fafc;
   color: #0f172a;
+}
+
+.feature-card-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+}
+
+.feature-card-body {
+  position: relative;
+  z-index: 1;
+  min-height: 150px;
+  padding: 18px 20px;
 }
 
 .feature-card h3 {
@@ -229,11 +259,17 @@ main {
 
 .radial-card {
   background-color: #e0f2fe;
+}
+
+.radial-card .feature-card-bg {
   background-image: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.92), rgba(125, 211, 252, 0.72) 35%, rgba(14, 116, 144, 0.88) 100%);
 }
 
 .stripe-card {
   background-color: #f8fafc;
+}
+
+.stripe-card .feature-card-bg {
   background-image: repeating-linear-gradient(
     135deg,
     rgba(14, 165, 233, 0.18) 0,
@@ -288,9 +324,22 @@ main {
   align-items: flex-end;
   justify-content: flex-start;
   padding: 18px;
-  background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.88), rgba(148, 163, 184, 0.4) 45%, rgba(51, 65, 85, 0.18) 100%);
+  overflow: hidden;
+  background: #e2e8f0;
   color: #0f172a;
   font-weight: 700;
+}
+
+.opacity-base-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.88), rgba(148, 163, 184, 0.4) 45%, rgba(51, 65, 85, 0.18) 100%);
+}
+
+.opacity-base-label {
+  position: relative;
+  z-index: 1;
 }
 
 .opacity-float {
@@ -356,10 +405,23 @@ main {
   padding: 28px;
   border: 1px solid #dbeafe;
   border-radius: 24px;
+  overflow: hidden;
+  background: #dbeafe;
+}
+
+.report-hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+.report-hero-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
   background:
     radial-gradient(circle at top left, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.2) 40%, transparent 60%),
     linear-gradient(135deg, #eff6ff 0%, #dbeafe 42%, #c7d2fe 100%);
-  overflow: hidden;
 }
 
 .hero-eyebrow {
@@ -431,12 +493,26 @@ main {
 }
 
 .metric-card {
-  padding: 16px;
+  position: relative;
+  overflow: hidden;
   border-radius: 18px;
   color: #0f172a;
   border: 1px solid #e2e8f0;
   background: #fff;
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.05);
+}
+
+.metric-card-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+}
+
+.metric-card-body {
+  position: relative;
+  z-index: 1;
+  padding: 16px;
 }
 
 .metric-card strong {
@@ -461,19 +537,19 @@ main {
   font-weight: 600;
 }
 
-.accent-blue {
+.accent-blue .metric-card-bg {
   background: linear-gradient(180deg, #eff6ff, #ffffff);
 }
 
-.accent-green {
+.accent-green .metric-card-bg {
   background: linear-gradient(180deg, #ecfdf5, #ffffff);
 }
 
-.accent-amber {
+.accent-amber .metric-card-bg {
   background: linear-gradient(180deg, #fffbeb, #ffffff);
 }
 
-.accent-slate {
+.accent-slate .metric-card-bg {
   background: linear-gradient(180deg, #f8fafc, #ffffff);
 }
 
@@ -494,7 +570,6 @@ main {
   align-items: start;
 }
 
-.note-card,
 .nested-card,
 .rail-card,
 .rich-card,
@@ -506,7 +581,25 @@ main {
 }
 
 .note-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  background: #fff;
+}
+
+.note-card-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
   background: linear-gradient(180deg, #f8fafc, #ffffff);
+}
+
+.note-card-body {
+  position: relative;
+  z-index: 1;
+  padding: 18px;
 }
 
 .compact-list {
@@ -543,11 +636,33 @@ main {
 }
 
 .mosaic-card {
+  position: relative;
   min-height: 170px;
-  padding: 18px;
+  margin: 0;
+  overflow: hidden;
   border-radius: 18px;
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.15);
+  background: #0f172a;
+}
+
+.mosaic-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.mosaic-card-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+}
+
+.mosaic-card-body {
+  position: relative;
+  z-index: 1;
+  min-height: 170px;
+  padding: 18px;
 }
 
 .mosaic-card h3 {
@@ -559,19 +674,23 @@ main {
   color: rgba(255, 255, 255, 0.9);
 }
 
-.mosaic-large {
+.mosaic-large .mosaic-card-bg {
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.22), transparent 50%),
     linear-gradient(135deg, #0f172a 0%, #1d4ed8 45%, #0ea5e9 100%);
 }
 
 .mosaic-gradient {
+  background: #4f46e5;
+}
+
+.mosaic-gradient .mosaic-card-bg {
   background:
     radial-gradient(circle at top right, rgba(255, 255, 255, 0.35), transparent 38%),
     linear-gradient(135deg, #7c3aed, #2563eb);
 }
 
-.mosaic-dark {
+.mosaic-dark .mosaic-card-bg {
   background:
     repeating-linear-gradient(
       135deg,
@@ -683,17 +802,28 @@ main {
 .quote-card {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, #0f172a, #1e293b);
+  background: #0f172a;
   color: #e2e8f0;
 }
 
-.quote-card p,
-.quote-card span {
-  position: relative;
-  z-index: 1;
+.quote-card-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(135deg, #0f172a, #1e293b);
 }
 
-.quote-card span {
+.quote-card-body {
+  position: relative;
+  z-index: 2;
+}
+
+.quote-card-body p,
+.quote-card-body span {
+  position: relative;
+}
+
+.quote-card-body span {
   display: inline-block;
   margin-top: 10px;
   color: #93c5fd;
@@ -703,6 +833,7 @@ main {
 
 .quote-mark {
   position: absolute;
+  z-index: 1;
   top: -12px;
   right: 12px;
   color: rgba(255, 255, 255, 0.12);
@@ -804,6 +935,19 @@ main {
   border: 1px solid #dbeafe;
   border-radius: 24px;
   overflow: hidden;
+  background: #e0f2fe;
+}
+
+.overlay-panel > * {
+  position: relative;
+  z-index: 1;
+}
+
+.overlay-panel-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
   background:
     radial-gradient(circle at top left, rgba(255, 255, 255, 0.65), transparent 30%),
     linear-gradient(135deg, #f8fafc, #e0f2fe);
@@ -901,14 +1045,29 @@ main {
 }
 
 .bilingual-card {
+  position: relative;
+  margin: 14px 0;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  background: #fff;
+}
+
+.bilingual-card-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+}
+
+.bilingual-card-body {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(220px, 0.9fr);
   gap: 16px;
-  margin: 14px 0;
   padding: 18px;
-  border: 1px solid #e5e7eb;
-  border-radius: 18px;
-  background: linear-gradient(180deg, #ffffff, #f8fafc);
 }
 
 .bilingual-note {
