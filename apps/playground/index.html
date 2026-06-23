@@ -65,7 +65,7 @@
           </div>
         </div>
 
-        <h2>3. Gradient background</h2>
+        <h2>3. New CSS support showcase</h2>
         <div class="gradient-panel">
           <div class="gradient-pill">线性渐变</div>
           <h3>从 HTML 渲染到 PDF</h3>
@@ -74,6 +74,37 @@
             导出时，dom2pdf 会将渐变栅格化为背景图像，从而让 PDF
             更接近 HTML 页面中的实际样式效果。
           </p>
+        </div>
+        <div class="feature-grid">
+          <section class="feature-card radial-card">
+            <div class="feature-tag">radial-gradient</div>
+            <h3>径向渐变背景</h3>
+            <p>
+              使用 <code>radial-gradient(...)</code> 模拟聚光灯式背景，PDF
+              中应保留中心到边缘的过渡层次。
+            </p>
+          </section>
+          <section class="feature-card stripe-card">
+            <div class="feature-tag">repeating-linear-gradient</div>
+            <h3>重复条纹渐变</h3>
+            <p>
+              使用 <code>repeating-linear-gradient(...)</code> 生成重复斜纹，
+              用于验证 PDF 对重复渐变纹理的导出效果。
+            </p>
+          </section>
+        </div>
+        <div class="opacity-panel">
+          <div class="feature-tag">opacity</div>
+          <h3>透明度叠层</h3>
+          <p>
+            下方两层色块都设置了 <code>opacity</code>，用于验证 PDF
+            是否保留透明叠加效果，而不是直接渲染成不透明实色。
+          </p>
+          <div class="opacity-stack">
+            <div class="opacity-base">Base Layer</div>
+            <div class="opacity-float opacity-float-a">Opacity 0.72</div>
+            <div class="opacity-float opacity-float-b">Opacity 0.48</div>
+          </div>
         </div>
 
         <h2>4. Overflow &amp; clipping</h2>

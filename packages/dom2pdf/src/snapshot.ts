@@ -447,6 +447,291 @@ function convertLinearGradientToImage(
   };
 }
 
+interface RawGradientStop {
+  color: [number, number, number, number];
+  pos: number | null;
+  unit: '%' | 'px' | null;
+}
+
+interface ResolvedGradientStop {
+  color: [number, number, number, number];
+  pos: number;
+}
+
+interface LinearGradientSpec {
+  kind: 'linear';
+  repeating: boolean;
+  angleDeg: number;
+  stops: RawGradientStop[];
+}
+
+interface RadialGradientSpec {
+  kind: 'radial';
+  repeating: boolean;
+  centerX: number;
+  centerY: number;
+  radius: number;
+  stops: RawGradientStop[];
+}
+
+type RasterGradientSpec = LinearGradientSpec | RadialGradientSpec;
+
+function parseGradientStop(part: string): RawGradientStop | null {
+  const m = /^(.*?)(?:\s+([+-]?\d+(?:\.\d+)?)(px|%)?)?$/.exec(part.trim());
+  if (!m) return null;
+  const colorText = m[1].trim();
+  if (!colorText) return null;
+  return {
+    color: parseColor(colorText),
+    pos: m[2] == null ? null : parseFloat(m[2]),
+    unit: m[2] == null ? null : ((m[3] === '%') ? '%' : 'px'),
+  };
+}
+
+function resolveGradientStops(rawStops: RawGradientStop[], total: number): ResolvedGradientStop[] {
+  const out = rawStops.map((stop) => ({
+    color: stop.color,
+    pos: stop.pos == null ? null : (stop.unit === '%' ? (stop.pos / 100) * total : stop.pos),
+  }));
+  if (out.length < 2) return [];
+  if (out[0].pos == null) out[0].pos = 0;
+  if (out[out.length - 1].pos == null) out[out.length - 1].pos = total;
+  for (let i = 0; i < out.length; i++) {
+    if (out[i].pos != null) continue;
+    let j = i + 1;
+    while (j < out.length && out[j].pos == null) j++;
+    const left = out[i - 1].pos ?? 0;
+    const right = j < out.length ? (out[j].pos ?? total) : total;
+    const span = j - i + 1;
+    for (let k = i; k < j; k++) {
+      out[k].pos = left + ((right - left) * (k - i + 1)) / span;
+    }
+    i = j - 1;
+  }
+  return out.map((stop) => ({ color: stop.color, pos: stop.pos ?? 0 }));
+}
+
+function parseAnchorToken(token: string, total: number, isX: boolean): number {
+  const v = token.trim().toLowerCase();
+  if (!v || v === 'center') return total / 2;
+  if ((isX && v === 'left') || (!isX && v === 'top')) return 0;
+  if ((isX && v === 'right') || (!isX && v === 'bottom')) return total;
+  const m = /^([+-]?\d+(?:\.\d+)?)%$/.exec(v);
+  if (m) return (parseFloat(m[1]) / 100) * total;
+  return total / 2;
+}
+
+function radiusFromMode(mode: string, cx: number, cy: number, w: number, h: number): number {
+  const corners = [
+    Math.hypot(cx, cy),
+    Math.hypot(w - cx, cy),
+    Math.hypot(cx, h - cy),
+    Math.hypot(w - cx, h - cy),
+  ];
+  switch (mode) {
+    case 'closest-side':
+      return Math.max(1, Math.min(cx, w - cx, cy, h - cy));
+    case 'farthest-side':
+      return Math.max(1, Math.max(cx, w - cx, cy, h - cy));
+    case 'closest-corner':
+      return Math.max(1, Math.min(...corners));
+    default:
+      return Math.max(1, Math.max(...corners));
+  }
+}
+
+function parseLinearOrRepeatingLinearGradient(
+  input: string,
+): LinearGradientSpec | null {
+  const src = input.trim();
+  const repeating = src.startsWith('repeating-linear-gradient(');
+  const prefix = repeating ? 'repeating-linear-gradient(' : 'linear-gradient(';
+  if (!src.startsWith(prefix) || !src.endsWith(')')) return null;
+  const inner = src.slice(prefix.length, -1).trim();
+  const parts = splitTopLevelComma(inner);
+  if (parts.length < 2) return null;
+  let angleDeg = 180;
+  let stopStart = 0;
+  const maybeAngle = gradientAngleDeg(parts[0]);
+  if (maybeAngle !== null) {
+    angleDeg = maybeAngle;
+    stopStart = 1;
+  }
+  const stops = parts.slice(stopStart).map(parseGradientStop).filter((v): v is RawGradientStop => !!v);
+  if (stops.length < 2) return null;
+  return { kind: 'linear', repeating, angleDeg, stops };
+}
+
+function parseRadialGradient(
+  input: string,
+  width: number,
+  height: number,
+): RadialGradientSpec | null {
+  const src = input.trim();
+  const repeating = src.startsWith('repeating-radial-gradient(');
+  const prefix = repeating ? 'repeating-radial-gradient(' : 'radial-gradient(';
+  if (!src.startsWith(prefix) || !src.endsWith(')')) return null;
+  const inner = src.slice(prefix.length, -1).trim();
+  const parts = splitTopLevelComma(inner);
+  if (parts.length < 2) return null;
+
+  let descriptor = '';
+  let stopStart = 0;
+  if (parts[0].includes('circle') || parts[0].includes('ellipse') || parts[0].includes('closest') || parts[0].includes('farthest') || parts[0].includes(' at ')) {
+    descriptor = parts[0].trim().toLowerCase();
+    stopStart = 1;
+  }
+  const stops = parts.slice(stopStart).map(parseGradientStop).filter((v): v is RawGradientStop => !!v);
+  if (stops.length < 2) return null;
+
+  let centerX = width / 2;
+  let centerY = height / 2;
+  let sizeMode = 'farthest-corner';
+  if (descriptor) {
+    if (descriptor.includes('closest-side')) sizeMode = 'closest-side';
+    else if (descriptor.includes('closest-corner')) sizeMode = 'closest-corner';
+    else if (descriptor.includes('farthest-side')) sizeMode = 'farthest-side';
+    if (descriptor.includes(' at ')) {
+      const at = descriptor.split(' at ')[1].trim();
+      const tokens = at.split(/\s+/).filter(Boolean);
+      const xTok = tokens[0] ?? 'center';
+      const yTok = tokens[1] ?? (tokens[0] === 'top' || tokens[0] === 'bottom' ? tokens[0] : 'center');
+      centerX = parseAnchorToken(xTok, width, true);
+      centerY = parseAnchorToken(yTok, height, false);
+    }
+  }
+
+  return {
+    kind: 'radial',
+    repeating,
+    centerX,
+    centerY,
+    radius: radiusFromMode(sizeMode, centerX, centerY, width, height),
+    stops,
+  };
+}
+
+function blendOver(
+  bottom: [number, number, number, number],
+  top: [number, number, number, number],
+): [number, number, number, number] {
+  const a = top[3] + bottom[3] * (1 - top[3]);
+  if (a <= 0.0001) return [0, 0, 0, 0];
+  const r = (top[0] * top[3] + bottom[0] * bottom[3] * (1 - top[3])) / a;
+  const g = (top[1] * top[3] + bottom[1] * bottom[3] * (1 - top[3])) / a;
+  const b = (top[2] * top[3] + bottom[2] * bottom[3] * (1 - top[3])) / a;
+  return [r, g, b, a];
+}
+
+function mixColor(
+  a: [number, number, number, number],
+  b: [number, number, number, number],
+  t: number,
+): [number, number, number, number] {
+  const s = Math.min(1, Math.max(0, t));
+  return [
+    a[0] + (b[0] - a[0]) * s,
+    a[1] + (b[1] - a[1]) * s,
+    a[2] + (b[2] - a[2]) * s,
+    a[3] + (b[3] - a[3]) * s,
+  ];
+}
+
+function sampleGradientStops(
+  stops: ResolvedGradientStop[],
+  t: number,
+  repeating: boolean,
+): [number, number, number, number] {
+  if (stops.length === 0) return [1, 1, 1, 1];
+  let pos = t;
+  if (repeating) {
+    const start = stops[0].pos;
+    const end = stops[stops.length - 1].pos;
+    const span = end - start;
+    if (span > 0.0001) {
+      pos = ((pos - start) % span + span) % span + start;
+    }
+  }
+  if (pos <= stops[0].pos) return stops[0].color;
+  if (pos >= stops[stops.length - 1].pos) return stops[stops.length - 1].color;
+  for (let i = 1; i < stops.length; i++) {
+    if (pos > stops[i].pos) continue;
+    const left = stops[i - 1];
+    const right = stops[i];
+    const span = right.pos - left.pos;
+    const ratio = span <= 0.0001 ? 0 : (pos - left.pos) / span;
+    return mixColor(left.color, right.color, ratio);
+  }
+  return stops[stops.length - 1].color;
+}
+
+function convertBackgroundImageToImage(
+  backgroundImageText: string,
+  width: number,
+  height: number,
+  quality: number,
+  fallbackBg: [number, number, number, number] | null,
+): { bytes: Uint8Array; width: number; height: number } | null {
+  const text = (backgroundImageText || '').trim();
+  if (!text || text === 'none') return null;
+
+  const w = Math.max(1, Math.round(width));
+  const h = Math.max(1, Math.round(height));
+  let spec: RasterGradientSpec | null = parseLinearOrRepeatingLinearGradient(text);
+  if (!spec) spec = parseRadialGradient(text, w, h);
+  if (!spec) return null;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  const imageData = ctx.createImageData(w, h);
+  const data = imageData.data;
+  const base = blendOver([1, 1, 1, 1], fallbackBg ?? [1, 1, 1, 1]);
+
+  let linearStops: ResolvedGradientStop[] = [];
+  let radialStops: ResolvedGradientStop[] = [];
+  let dx = 0;
+  let dy = -1;
+  let lineLen = 1;
+  if (spec.kind === 'linear') {
+    const rad = (spec.angleDeg * Math.PI) / 180;
+    dx = Math.sin(rad);
+    dy = -Math.cos(rad);
+    lineLen = Math.max(1, Math.abs(dx) * w + Math.abs(dy) * h);
+    linearStops = resolveGradientStops(spec.stops, lineLen);
+  } else {
+    radialStops = resolveGradientStops(spec.stops, spec.radius);
+  }
+
+  const cx = w / 2;
+  const cy = h / 2;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const idx = (y * w + x) * 4;
+      const sample = spec.kind === 'linear'
+        ? sampleGradientStops(linearStops, (x + 0.5 - cx) * dx + (y + 0.5 - cy) * dy + lineLen / 2, spec.repeating)
+        : sampleGradientStops(radialStops, Math.hypot(x + 0.5 - spec.centerX, y + 0.5 - spec.centerY), spec.repeating);
+      const out = blendOver(base, sample);
+      data[idx] = Math.round(out[0] * 255);
+      data[idx + 1] = Math.round(out[1] * 255);
+      data[idx + 2] = Math.round(out[2] * 255);
+      data[idx + 3] = 255;
+    }
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+  const dataUrl = canvas.toDataURL('image/jpeg', quality);
+  const comma = dataUrl.indexOf(',');
+  if (comma < 0) return null;
+  return {
+    bytes: base64ToBytes(dataUrl.slice(comma + 1)),
+    width: w,
+    height: h,
+  };
+}
+
 interface ResolvedHF {
   content: string;
   heightPx: number;
@@ -670,7 +955,7 @@ export async function collectSnapshotData(
     const bg = parseColor(cs.backgroundColor);
     const hasBg = bg[3] > 0.001;
     const gradientImage = !isImg && kind === 0 && r.w > 0 && r.h > 0
-      ? convertLinearGradientToImage(cs.backgroundImage, r.w, r.h, quality, hasBg ? bg : null)
+      ? convertBackgroundImageToImage(cs.backgroundImage, r.w, r.h, quality, hasBg ? bg : null)
       : null;
     const bw: [number, number, number, number] = [
       (parseFloat(cs.borderTopWidth) || 0) * layoutScale,

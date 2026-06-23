@@ -58,6 +58,14 @@ fn hex(bytes: &[u8]) -> String {
     s
 }
 
+fn opacity_key(opacity: f32) -> u16 {
+    (opacity.clamp(0.0, 1.0) * 1000.0).round() as u16
+}
+
+fn opacity_resource_name(key: u16) -> String {
+    format!("GS{}", key)
+}
+
 fn collapse_html_whitespace(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     let mut in_ws = false;
@@ -611,6 +619,12 @@ fn draw_node(
     }
     let vis = node.y < band_bottom && (node.y + node.h) > band_top;
     let geo = compute_geo(snap);
+    let opacity = node.opacity.unwrap_or(1.0).clamp(0.0, 1.0);
+    let use_opacity = opacity < 0.999;
+    if use_opacity {
+        out.push_str("q\n");
+        out.push_str(&format!("/{} gs\n", opacity_resource_name(opacity_key(opacity))));
+    }
 
     match node.kind {
         0 => {
@@ -700,6 +714,9 @@ fn draw_node(
             }
         }
         _ => {}
+    }
+    if use_opacity {
+        out.push_str("Q\n");
     }
 }
 
@@ -1187,6 +1204,15 @@ pub fn build_pdf(snap: &Snapshot, pages: &[PagePlan], fontctx: &FontCtx) -> Vec<
     let cid_objs_first = w.alloc(cid_count * 5);
     let image_count = snap.images.len() as u32;
     let image_ids_first = w.alloc(image_count);
+    let opacity_keys: std::collections::BTreeSet<u16> = snap
+        .nodes
+        .iter()
+        .filter_map(|n| n.opacity)
+        .map(opacity_key)
+        .filter(|k| *k < 1000)
+        .collect();
+    let opacity_count = opacity_keys.len() as u32;
+    let opacity_first_id = w.alloc(opacity_count);
 
     // Image XObjects.
     let mut image_obj_for: std::collections::HashMap<u32, u32> = std::collections::HashMap::new();
@@ -1281,6 +1307,16 @@ pub fn build_pdf(snap: &Snapshot, pages: &[PagePlan], fontctx: &FontCtx) -> Vec<
         w.indirect(type0_id, &type0_dict);
     }
 
+    // ExtGState resources for node opacity.
+    let mut opacity_obj_for: std::collections::BTreeMap<u16, u32> = std::collections::BTreeMap::new();
+    for (i, key) in opacity_keys.iter().enumerate() {
+        let oid = opacity_first_id + i as u32;
+        opacity_obj_for.insert(*key, oid);
+        let alpha = (*key as f32) / 1000.0;
+        let body = format!("<< /Type /ExtGState /ca {} /CA {} >>", f(alpha), f(alpha));
+        w.indirect(oid, &body);
+    }
+
     // Content streams.
     for (i, p) in pages.iter().enumerate() {
         let cid = content_ids_first + i as u32;
@@ -1315,14 +1351,23 @@ pub fn build_pdf(snap: &Snapshot, pages: &[PagePlan], fontctx: &FontCtx) -> Vec<
             }
             xobj.push_str(">> ");
         }
+        let mut extgstate = String::new();
+        if !opacity_obj_for.is_empty() {
+            extgstate.push_str("/ExtGState << ");
+            for (key, oid) in opacity_obj_for.iter() {
+                extgstate.push_str(&format!("/{} {} 0 R ", opacity_resource_name(*key), oid));
+            }
+            extgstate.push_str(">> ");
+        }
         let media_h = p.media_h.unwrap_or(snap.page_height_pt);
         let body = format!(
-            "<< /Type /Page /Parent {pages} 0 R /MediaBox [0 0 {pw} {ph}] /Resources << {font}{xobj}>> /Contents {cid} 0 R >>",
+            "<< /Type /Page /Parent {pages} 0 R /MediaBox [0 0 {pw} {ph}] /Resources << {font}{xobj}{extgstate}>> /Contents {cid} 0 R >>",
             pages = pages_id,
             pw = f(snap.page_width_pt),
             ph = f(media_h),
             font = font_dict,
             xobj = xobj,
+            extgstate = extgstate,
             cid = cid,
         );
         w.indirect(pid, &body);

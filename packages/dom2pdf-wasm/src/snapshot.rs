@@ -123,8 +123,6 @@ pub struct Node {
     pub border: Option<Border>,
     pub radius: Option<[f32; 4]>,
     pub overflow_hidden: bool,
-    // Encoded by JS encoder; not consumed by the Rust side yet.
-    #[allow(dead_code)]
     pub opacity: Option<f32>,
     pub font: Option<Font>,
     pub image: Option<ImageRef>,
@@ -172,8 +170,6 @@ pub struct Font {
 #[derive(Clone)]
 pub struct ImageRef {
     pub id: u32,
-    // Encoded by JS encoder; not consumed by the Rust side yet.
-    #[allow(dead_code)]
     pub object_fit: u8,
 }
 
