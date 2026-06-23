@@ -260,6 +260,29 @@ fn build_children(snap: &Snapshot) -> Vec<Vec<usize>> {
     children
 }
 
+/// Pagination can move descendant content downward while ancestor box heights
+/// stay at their original DOM values. Expand box heights to the deepest child
+/// bottom so borders like table section rules do not render at stale positions.
+fn expand_box_heights_to_fit_children(snap: &mut Snapshot, children: &[Vec<usize>]) {
+    for idx in (0..snap.nodes.len()).rev() {
+        if snap.nodes[idx].kind != 0 || children[idx].is_empty() {
+            continue;
+        }
+        let node_top = snap.nodes[idx].y;
+        let mut max_bottom = node_top + snap.nodes[idx].h;
+        for &child in children[idx].iter() {
+            let child = &snap.nodes[child];
+            max_bottom = max_bottom.max(child.y + child.h);
+            for line in child.lines.iter() {
+                max_bottom = max_bottom.max(line.y + line.h);
+            }
+        }
+        if max_bottom > node_top + snap.nodes[idx].h {
+            snap.nodes[idx].h = max_bottom - node_top;
+        }
+    }
+}
+
 fn collect_subtree(snap: &Snapshot, children: &[Vec<usize>], root: usize, out: &mut Vec<usize>) {
     out.push(root);
     for &c in children[root].iter() {
@@ -482,6 +505,8 @@ pub fn assign_pages(snap: &mut Snapshot) -> u32 {
             node.lines[li].page = page as u32;
         }
     }
+
+    expand_box_heights_to_fit_children(snap, &children);
 
     let mut max_page: u32 = 0;
     for node in snap.nodes.iter() {
@@ -1044,7 +1069,7 @@ fn draw_text_lines(
         format!("{} {} {} rg\n", f(color[0]), f(color[1]), f(color[2]))
     };
 
-    for line in node.lines.iter() {
+    for (line_idx, line) in node.lines.iter().enumerate() {
         if line.page != page {
             continue;
         }
@@ -1065,6 +1090,7 @@ fn draw_text_lines(
         if normalized.is_empty() {
             continue;
         }
+        let allow_justify = font.align == 3 && line_idx + 1 < node.lines.len();
         let cid = select_cid_font(fontctx, &font.family, font.weight, font.italic, &normalized);
 
         let baseline_px = line.draw_y + (line.h - font.size_px) / 2.0 + ASCENT * font.size_px;
@@ -1084,7 +1110,7 @@ fn draw_text_lines(
             let base_extra_px = font.letter_spacing_px * (normalized.chars().count() as f32)
                 + font.word_spacing_px * space_count;
             let base_text_w_px = (width_1000 as f32 / 1000.0) * font.size_px + base_extra_px;
-            let justify_extra_px = if font.align == 3 && space_count > 0.0 {
+            let justify_extra_px = if allow_justify && space_count > 0.0 {
                 (line.w - base_text_w_px).max(0.0)
             } else {
                 0.0
@@ -1126,7 +1152,7 @@ fn draw_text_lines(
             let base_extra_px = font.letter_spacing_px * (bytes.len() as f32)
                 + font.word_spacing_px * space_count;
             let base_text_w_px = (width_units as f32 / 1000.0) * font.size_px + base_extra_px;
-            let justify_extra_px = if font.align == 3 && space_count > 0.0 {
+            let justify_extra_px = if allow_justify && space_count > 0.0 {
                 (line.w - base_text_w_px).max(0.0)
             } else {
                 0.0
