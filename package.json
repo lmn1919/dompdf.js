@@ -7,11 +7,11 @@
     "apps/*"
   ],
   "scripts": {
-    "build:wasm": "node scripts/build-wasm.mjs",
+    "build:wasm": "node scripts/build-wasm.mjs && npm -w dom2pdf run build:wasm",
     "build:lib": "npm -w dom2pdf run build",
     "build:playground": "npm -w playground run build",
     "verify": "node scripts/verify.mjs",
-    "dev": "npm run build:wasm && npm -w playground run dev",
+    "dev": "npm run build:wasm && npm run build:lib && npm -w playground run dev",
     "build": "npm run build:wasm && npm run build:lib && npm run build:playground"
   }
 }
