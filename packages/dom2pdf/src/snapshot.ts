@@ -557,9 +557,6 @@ async function rasterizeElement(
     clone.style.transform = 'none';
     clone.style.transformOrigin = 'top left';
     wrapper.appendChild(clone);
-    // #region debug-point A:raster-input
-    fetch("http://127.0.0.1:7777/event",{method:"POST",body:JSON.stringify({sessionId:"page-offset-raster",runId:"post-fix",hypothesisId:"A",location:"snapshot.ts:rasterizeElement",msg:"[DEBUG] raster input",data:{tag:el.tagName,className:el.className,rawRect:{left:rawRect.left,top:rawRect.top,width:rawRect.width,height:rawRect.height},shadowPad,captureWidth,captureHeight,cloneLeft:clone.style.left,cloneTop:clone.style.top,cloneWidth:clone.style.width,cloneHeight:clone.style.height},ts:Date.now()})}).catch(()=>{});
-    // #endregion
 
     const serialized = new XMLSerializer().serializeToString(wrapper);
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${captureWidth}" height="${captureHeight}" viewBox="0 0 ${captureWidth} ${captureHeight}"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml">${serialized}</div></foreignObject></svg>`;
@@ -1304,9 +1301,6 @@ export async function collectSnapshotData(
         const rawY = raster.rawTop + window.scrollY - offY;
         const scaledW = raster.width * layoutScale;
         const scaledH = raster.height * layoutScale;
-        // #region debug-point B:raster-node
-        fetch("http://127.0.0.1:7777/event",{method:"POST",body:JSON.stringify({sessionId:"page-offset-raster",runId:"post-fix",hypothesisId:"B",location:"snapshot.ts:visit",msg:"[DEBUG] raster node placement",data:{tag:el.tagName,className:el.className,docRect:{x:r.x,y:r.y,w:r.w,h:r.h},rawRect:{left:rawRect.left,top:rawRect.top,width:rawRect.width,height:rawRect.height},raster:{rawLeft:raster.rawLeft,rawTop:raster.rawTop,width:raster.width,height:raster.height},rawX,rawY,scaledW,scaledH,layoutScale,offX,offY,scrollX:window.scrollX,scrollY:window.scrollY},ts:Date.now()})}).catch(()=>{});
-        // #endregion
         nodes.push({
           id,
           parent: parentId,
