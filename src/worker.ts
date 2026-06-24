@@ -1,8 +1,8 @@
 /**
- * Worker: receives a snapshot Uint8Array, runs WASM render/inspect off the main thread.
+ * Worker entry: receives a snapshot Uint8Array, runs WASM render/inspect off the main thread.
  *
- * 此文件会被字符串化内联到主包中（见 worker-inline.ts），
- * 这样 Vite 库模式构建后的 JS 包不依赖额外的 chunk 文件。
+ * Consumed via `import Dom2pdfWorker from './worker?worker&inline'` — the rollup
+ * inlineWorker plugin bundles this file separately and wraps it in a Blob URL.
  */
 import { renderPdf, inspectSnapshot, countPages } from './wasm-glue';
 
@@ -34,6 +34,3 @@ self.onmessage = async (e: MessageEvent) => {
     });
   }
 };
-
-// 标记此模块为 worker 入口，Vite 会以 `?worker&inline` 方式打包。
-export {};

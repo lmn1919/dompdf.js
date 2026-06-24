@@ -4,11 +4,12 @@ import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-const root = path.resolve(fileURLToPath(import.meta.url), '../..');
-const wasmPath = path.join(root, 'packages/dom2pdf-wasm/pkg/dom2pdf_wasm.wasm');
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const root = path.resolve(scriptDir, '..');
+const wasmPath = path.join(root, 'wasm/pkg/dompdf_wasm.wasm');
 const wasmBytes = readFileSync(wasmPath);
 
-// ---- minimal binary encoder (mirrors packages/dom2pdf/src/format.ts) ----
+// ---- minimal binary encoder (mirrors src/format.ts) ----
 class Bin {
   constructor(cap = 1024) {
     this.buf = new Uint8Array(cap);
@@ -178,7 +179,7 @@ function check(name, cond, extra = '') {
 // ---- Test 1: paginated Latin doc with header/footer ----
 console.log('Test 1: paginated Latin doc with static header/footer');
 const header = {
-  content: 'dom2pdf report', heightPx: 50,
+  content: 'dompdf report', heightPx: 50,
   color: [0.2, 0.2, 0.2, 1], fontSizePx: 12, position: 0, custom: null, padding: [0, 24, 0, 24],
 };
 const footer = {
@@ -203,8 +204,8 @@ check('image referenced via Do', latin1.includes('/Im1 ') && latin1.includes(' D
 // footer placeholder resolved on page 1: "Page 1/<total>"
 const footerHex = Buffer.from('Page 1/', 'latin1').toString('hex').toUpperCase();
 check('footer placeholder resolved (Page 1/)', latin1.includes(footerHex), `(looked for ${footerHex})`);
-// header text "dom2pdf" hex
-const headerHex = Buffer.from('dom2pdf', 'latin1').toString('hex').toUpperCase();
+// header text "dompdf" hex
+const headerHex = Buffer.from('dompdf', 'latin1').toString('hex').toUpperCase();
 check('header text present', latin1.includes(headerHex));
 
 // ---- Test 2: single-page mode (pagination false) ----
@@ -224,7 +225,7 @@ if (mbMatch) {
 
 // ---- Test 3: CID font embedding (Chinese) ----
 console.log('Test 3: CID font embedding with Source Han Sans');
-const fontPath = path.join(root, 'apps/playground/public/SourceHanSansSC-Regular.ttf');
+const fontPath = path.join(root, 'examples/SourceHanSansSC-Regular.ttf');
 if (existsSync(fontPath)) {
   const fontBytes = readFileSync(fontPath);
   const fam = 'SourceHanSansSC-Regular';

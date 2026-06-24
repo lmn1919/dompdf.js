@@ -45,6 +45,43 @@ export interface PageRegionConfig {
 
 export type PageConfig = PageConfigOptions | ((pageNum: number, totalPages: number) => PageConfigOptions | null);
 
+/**
+ * Default pageConfig applied when `pagination` is enabled but no `pageConfig`
+ * is supplied — mirrors dompdf.js (main branch) so paginated exports get a
+ * page-number footer by default. Header reserves a 50px band (empty content);
+ * footer renders `${currentPage}/${totalPages}`. Only engaged in paginated
+ * mode: the original library overlays HF in single-page mode without reserving
+ * height, which this engine cannot replicate, so single-page stays HF-free
+ * unless an explicit pageConfig is passed.
+ */
+const DEFAULT_PAGE_CONFIG: PageConfigOptions = {
+  header: {
+    content: '',
+    height: 50,
+    contentPosition: 'centerRight',
+    contentColor: '#333333',
+    contentFontSize: 16,
+    padding: [0, 24, 0, 24],
+  },
+  footer: {
+    content: '${currentPage}/${totalPages}',
+    height: 50,
+    contentPosition: 'center',
+    contentColor: '#333333',
+    contentFontSize: 16,
+    padding: [0, 24, 0, 24],
+  },
+};
+
+/** Resolve the effective static (object-form) pageConfig, honoring the library default. */
+function resolveStaticHF(options: ExportOptions, pagination: boolean): PageConfigOptions | null {
+  if (typeof options.pageConfig === 'object') return options.pageConfig;
+  // Match dompdf.js: `opts.pageConfig ?? DEFAULT` — null/undefined falls back to default.
+  // Gated on pagination to avoid reserving HF height in single-page mode (engine limitation).
+  if (pagination && options.pageConfig == null) return DEFAULT_PAGE_CONFIG;
+  return null;
+}
+
 export interface ExportOptions {
   /** Allow cross-origin resources (requires server CORS). */
   useCORS?: boolean;
@@ -1160,7 +1197,8 @@ export async function collectSnapshotData(
   // pageConfig: object form -> static HF (Rust resolves placeholders).
   //            function form -> per-page resolved text (JS resolves placeholders),
   //            needs totalPages via count_pages (handled by caller in index.ts).
-  const staticHF = typeof options.pageConfig === 'object' ? options.pageConfig : null;
+  //            undefined/null + pagination -> library default (page-number footer).
+  const staticHF = resolveStaticHF(options, pagination);
 
   // Pre-collect images.
   const imgElements = Array.from(root.querySelectorAll('img'));
@@ -1684,7 +1722,7 @@ export function computePageBreaks(root: HTMLElement, options: ExportOptions = {}
   const mLeft = Array.isArray(m) ? m[3] : m;
   const pagination = options.pagination ?? false;
   if (!pagination) return [];
-  const staticHF = typeof options.pageConfig === 'object' ? options.pageConfig : null;
+  const staticHF = resolveStaticHF(options, pagination);
   const headerHPt = (staticHF?.header?.height ?? 0) * PX_TO_PT;
   const footerHPt = (staticHF?.footer?.height ?? 0) * PX_TO_PT;
   const contentHpt = pageHeightPt - mTop - mBottom - headerHPt - footerHPt;

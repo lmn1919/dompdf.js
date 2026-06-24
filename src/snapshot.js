@@ -1,0 +1,1499 @@
+/**
+ * DOM snapshot collector. Walks a root element, reads computed styles + rects,
+ * slices text nodes into line boxes (with UTF-8 byte offsets), and converts
+ * <img> elements to JPEG bytes. Emits the binary Snapshot v2 (see format.ts /
+ * snapshot.rs).
+ *
+ * Public option shape mirrors dompdf.js (format/pagination/pageConfig/fontConfig/
+ * backgroundColor/useCORS/...); advanced pt-level overrides are retained.
+ */
+import { BinWriter } from './format';
+import { resolvePageSize } from './pageSizes';
+import { base64ToBytes } from './wasm-glue';
+/**
+ * Default pageConfig applied when `pagination` is enabled but no `pageConfig`
+ * is supplied — mirrors dompdf.js (main branch) so paginated exports get a
+ * page-number footer by default. Header reserves a 50px band (empty content);
+ * footer renders `${currentPage}/${totalPages}`. Only engaged in paginated
+ * mode: the original library overlays HF in single-page mode without reserving
+ * height, which this engine cannot replicate, so single-page stays HF-free
+ * unless an explicit pageConfig is passed.
+ */
+const DEFAULT_PAGE_CONFIG = {
+    header: {
+        content: '',
+        height: 50,
+        contentPosition: 'centerRight',
+        contentColor: '#333333',
+        contentFontSize: 16,
+        padding: [0, 24, 0, 24],
+    },
+    footer: {
+        content: '${currentPage}/${totalPages}',
+        height: 50,
+        contentPosition: 'center',
+        contentColor: '#333333',
+        contentFontSize: 16,
+        padding: [0, 24, 0, 24],
+    },
+};
+/** Resolve the effective static (object-form) pageConfig, honoring the library default. */
+function resolveStaticHF(options, pagination) {
+    if (typeof options.pageConfig === 'object')
+        return options.pageConfig;
+    // Match dompdf.js: `opts.pageConfig ?? DEFAULT` — null/undefined falls back to default.
+    // Gated on pagination to avoid reserving HF height in single-page mode (engine limitation).
+    if (pagination && options.pageConfig == null)
+        return DEFAULT_PAGE_CONFIG;
+    return null;
+}
+// ---- internal types ----
+const PX_TO_PT = 0.75; // 96 dpi -> pt
+const BORDER_SOLID = 0;
+const BORDER_DASHED = 1;
+function computeLayoutScale(rootWidthPx, pageWidthPt, mLeftPt, mRightPt) {
+    if (!(rootWidthPx > 0))
+        return 1;
+    const contentWidthPx = Math.max(1, (pageWidthPt - mLeftPt - mRightPt) / PX_TO_PT);
+    return Math.min(1, contentWidthPx / rootWidthPx);
+}
+// flag bits (must match Rust snapshot.rs)
+const F_BG = 0x01;
+const F_BORDER = 0x02;
+const F_RADIUS = 0x04;
+const F_OVERFLOW = 0x08;
+const F_OPACITY = 0x10;
+const F_FONT = 0x20;
+const F_IMAGE = 0x40;
+const F_RENDER_MODE = 0x80;
+const F_DIVISION_DISABLE = 0x100;
+const F_PAGE_BREAK = 0x200;
+const F_SHADOW = 0x400;
+// header/footer position enum (must match Rust HFSpec.position)
+function positionNum(p) {
+    if (Array.isArray(p))
+        return 9;
+    switch (p) {
+        case 'center': return 0;
+        case 'centerLeft': return 1;
+        case 'centerRight': return 2;
+        case 'centerTop': return 3;
+        case 'centerBottom': return 4;
+        case 'leftTop': return 5;
+        case 'leftBottom': return 6;
+        case 'rightTop': return 7;
+        case 'rightBottom': return 8;
+        default: return 0;
+    }
+}
+// ---- color parsing via canvas ----
+const colorCanvas = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+const colorCtx = colorCanvas ? colorCanvas.getContext('2d') : null;
+function parseColor(str) {
+    if (!colorCtx)
+        return [0, 0, 0, 1];
+    if (!str)
+        return [0, 0, 0, 0];
+    colorCtx.fillStyle = '#000';
+    colorCtx.fillStyle = str;
+    const f = colorCtx.fillStyle;
+    if (typeof f === 'string' && f.startsWith('#')) {
+        return [
+            parseInt(f.slice(1, 3), 16) / 255,
+            parseInt(f.slice(3, 5), 16) / 255,
+            parseInt(f.slice(5, 7), 16) / 255,
+            1,
+        ];
+    }
+    const m = /rgba?\(([^)]+)\)/.exec(f);
+    if (m) {
+        const p = m[1].split(',').map((s) => parseFloat(s));
+        return [p[0] / 255, p[1] / 255, p[2] / 255, p[3] === undefined ? 1 : p[3]];
+    }
+    return [0, 0, 0, 0];
+}
+function weightNum(w) {
+    if (w === 'bold')
+        return 700;
+    if (w === 'normal')
+        return 400;
+    const n = parseInt(w, 10);
+    return isNaN(n) ? 400 : n;
+}
+function alignNum(a) {
+    switch (a) {
+        case 'right': return 1;
+        case 'center': return 2;
+        case 'justify': return 3;
+        default: return 0;
+    }
+}
+function objectFitNum(v) {
+    switch ((v || '').trim()) {
+        case 'contain': return 1;
+        case 'cover': return 2;
+        case 'none': return 3;
+        case 'scale-down': return 4;
+        default: return 0;
+    }
+}
+function borderStyleNum(style) {
+    return style === 'dashed' ? BORDER_DASHED : BORDER_SOLID;
+}
+function utf8LenCP(cp) {
+    if (cp < 0x80)
+        return 1;
+    if (cp < 0x800)
+        return 2;
+    if (cp < 0x10000)
+        return 3;
+    return 4;
+}
+function utf8Offsets(text) {
+    const n = text.length;
+    const off = new Int32Array(n + 1);
+    let acc = 0;
+    for (let i = 0; i < n; i++) {
+        const c = text.charCodeAt(i);
+        if (c >= 0xd800 && c <= 0xdbff && i + 1 < n) {
+            const low = text.charCodeAt(i + 1);
+            if (low >= 0xdc00 && low <= 0xdfff) {
+                const cp = 0x10000 + ((c - 0xd800) << 10) + (low - 0xdc00);
+                acc += utf8LenCP(cp);
+                off[i + 1] = off[i];
+                off[i + 2] = acc;
+                i++;
+                continue;
+            }
+        }
+        acc += utf8LenCP(c);
+        off[i + 1] = acc;
+    }
+    return off;
+}
+async function convertImage(img, quality, useCORS) {
+    try {
+        if (useCORS)
+            img.crossOrigin = 'anonymous';
+        if (!img.complete || img.naturalWidth === 0) {
+            await img.decode().catch(() => null);
+        }
+        const w = img.naturalWidth || img.width;
+        const h = img.naturalHeight || img.height;
+        if (!w || !h)
+            return null;
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', quality));
+        if (!blob)
+            return null;
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+        return { bytes, width: w, height: h };
+    }
+    catch {
+        return null;
+    }
+}
+function splitTopLevelComma(input) {
+    const out = [];
+    let start = 0;
+    let depth = 0;
+    for (let i = 0; i < input.length; i++) {
+        const ch = input[i];
+        if (ch === '(')
+            depth++;
+        else if (ch === ')')
+            depth = Math.max(0, depth - 1);
+        else if (ch === ',' && depth === 0) {
+            out.push(input.slice(start, i).trim());
+            start = i + 1;
+        }
+    }
+    out.push(input.slice(start).trim());
+    return out.filter(Boolean);
+}
+function pxNumber(value) {
+    const n = parseFloat(value || '');
+    return Number.isFinite(n) ? n : 0;
+}
+function cssQuotedContentToText(content) {
+    const trimmed = (content || '').trim();
+    if (!trimmed || trimmed === 'none' || trimmed === 'normal')
+        return null;
+    if ((trimmed.startsWith('"') && trimmed.endsWith('"'))
+        || (trimmed.startsWith('\'') && trimmed.endsWith('\''))) {
+        const quote = trimmed[0];
+        let body = trimmed.slice(1, -1);
+        body = body.replace(/\\A\s*/g, '\n');
+        body = body.replace(/\\(['"\\])/g, '$1');
+        if (quote === '\'')
+            body = body.replace(/\\"/g, '"');
+        return body;
+    }
+    return trimmed;
+}
+function hasVisibleBorder(cs) {
+    return ((pxNumber(cs.borderTopWidth) > 0 && cs.borderTopStyle !== 'none' && cs.borderTopStyle !== 'hidden')
+        || (pxNumber(cs.borderRightWidth) > 0 && cs.borderRightStyle !== 'none' && cs.borderRightStyle !== 'hidden')
+        || (pxNumber(cs.borderBottomWidth) > 0 && cs.borderBottomStyle !== 'none' && cs.borderBottomStyle !== 'hidden')
+        || (pxNumber(cs.borderLeftWidth) > 0 && cs.borderLeftStyle !== 'none' && cs.borderLeftStyle !== 'hidden')) && parseColor(cs.borderTopColor)[3] > 0.001;
+}
+function pseudoHasVisual(cs) {
+    const hasContent = cs.content !== 'none' && cs.content !== 'normal';
+    const bg = parseColor(cs.backgroundColor);
+    const hasBg = bg[3] > 0.001;
+    const hasBox = pxNumber(cs.width) > 0 || pxNumber(cs.height) > 0;
+    return hasContent || hasBg || hasBox || hasVisibleBorder(cs);
+}
+function hasPseudoVisual(el) {
+    const before = getComputedStyle(el, '::before');
+    if (pseudoHasVisual(before))
+        return true;
+    const after = getComputedStyle(el, '::after');
+    return pseudoHasVisual(after);
+}
+function hasComplexBackground(cs) {
+    const bgImage = (cs.backgroundImage || '').trim();
+    if (!bgImage || bgImage === 'none')
+        return false;
+    if (bgImage.includes('url('))
+        return true;
+    const size = (cs.backgroundSize || '').trim();
+    const position = (cs.backgroundPosition || '').trim();
+    const repeat = (cs.backgroundRepeat || '').trim();
+    return !((size === '' || size === 'auto' || size === 'auto auto')
+        && (position === '' || position === '0% 0%')
+        && (repeat === '' || repeat === 'repeat' || repeat === 'repeat repeat'));
+}
+function computeBoxShadowPadding(boxShadow) {
+    const pad = { top: 0, right: 0, bottom: 0, left: 0 };
+    const layers = splitTopLevelComma(boxShadow || '');
+    for (const layer of layers) {
+        const trimmed = layer.trim();
+        if (!trimmed || trimmed === 'none' || /\binset\b/i.test(trimmed))
+            continue;
+        const lengths = Array.from(trimmed.matchAll(/-?\d+(?:\.\d+)?px/g)).map((m) => parseFloat(m[0]));
+        if (lengths.length < 2)
+            continue;
+        const offsetX = lengths[0] || 0;
+        const offsetY = lengths[1] || 0;
+        const blur = Math.max(0, lengths[2] || 0);
+        const spread = lengths[3] || 0;
+        const extent = Math.max(0, blur * 2 + spread);
+        pad.left = Math.max(pad.left, extent - offsetX);
+        pad.right = Math.max(pad.right, extent + offsetX);
+        pad.top = Math.max(pad.top, extent - offsetY);
+        pad.bottom = Math.max(pad.bottom, extent + offsetY);
+    }
+    pad.top = Math.max(0, Math.ceil(pad.top));
+    pad.right = Math.max(0, Math.ceil(pad.right));
+    pad.bottom = Math.max(0, Math.ceil(pad.bottom));
+    pad.left = Math.max(0, Math.ceil(pad.left));
+    return pad;
+}
+function parseBoxShadow(boxShadow) {
+    const layers = splitTopLevelComma(boxShadow || '');
+    for (const layer of layers) {
+        const trimmed = layer.trim();
+        if (!trimmed || trimmed === 'none' || /\binset\b/i.test(trimmed))
+            continue;
+        const lengths = Array.from(trimmed.matchAll(/-?\d+(?:\.\d+)?px/g)).map((m) => parseFloat(m[0]));
+        if (lengths.length < 2)
+            continue;
+        const x = lengths[0] || 0;
+        const y = lengths[1] || 0;
+        const blur = Math.max(0, lengths[2] || 0);
+        const spread = lengths[3] || 0;
+        const colorMatch = trimmed.match(/(rgba?\([^)]+\)|hsla?\([^)]+\)|#[0-9a-fA-F]+|transparent)/);
+        const color = parseColor(colorMatch ? colorMatch[1] : 'rgba(0,0,0,0.25)');
+        if (color[3] <= 0.001)
+            continue;
+        return { x, y, blur, spread, color };
+    }
+    return null;
+}
+function findOpaqueBackdropColor(el) {
+    for (let cur = el.parentElement; cur; cur = cur.parentElement) {
+        const bg = getComputedStyle(cur).backgroundColor;
+        const parsed = parseColor(bg);
+        if (parsed[3] > 0.001)
+            return bg;
+    }
+    return '#ffffff';
+}
+function copyComputedStyles(target, computed, exclude = new Set()) {
+    for (let i = 0; i < computed.length; i++) {
+        const prop = computed[i];
+        if (exclude.has(prop) || prop === 'content')
+            continue;
+        const value = computed.getPropertyValue(prop);
+        const priority = computed.getPropertyPriority(prop);
+        if (value)
+            target.style.setProperty(prop, value, priority);
+    }
+}
+function buildPseudoClone(owner, pseudo) {
+    const computed = getComputedStyle(owner, pseudo);
+    if (!pseudoHasVisual(computed))
+        return null;
+    const pseudoEl = document.createElement('span');
+    pseudoEl.setAttribute('data-dom2pdf-pseudo', pseudo);
+    copyComputedStyles(pseudoEl, computed);
+    const text = cssQuotedContentToText(computed.content);
+    if (text)
+        pseudoEl.textContent = text;
+    return pseudoEl;
+}
+function cloneElementForRaster(src) {
+    if (src instanceof HTMLCanvasElement) {
+        const img = document.createElement('img');
+        img.src = src.toDataURL('image/png');
+        img.width = src.width;
+        img.height = src.height;
+        const computed = getComputedStyle(src);
+        copyComputedStyles(img, computed);
+        return img;
+    }
+    const clone = src.cloneNode(false);
+    const computed = getComputedStyle(src);
+    copyComputedStyles(clone, computed);
+    const before = buildPseudoClone(src, '::before');
+    if (before)
+        clone.appendChild(before);
+    for (let child = src.firstChild; child; child = child.nextSibling) {
+        if (child.nodeType === Node.ELEMENT_NODE) {
+            clone.appendChild(cloneElementForRaster(child));
+        }
+        else if (child.nodeType === Node.TEXT_NODE) {
+            clone.appendChild(document.createTextNode(child.data));
+        }
+    }
+    const after = buildPseudoClone(src, '::after');
+    if (after)
+        clone.appendChild(after);
+    return clone;
+}
+function loadImageFromUrl(url) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.decoding = 'async';
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('failed to load rasterized element image'));
+        img.src = url;
+    });
+}
+async function rasterizeElement(el, rawRect, quality, cs) {
+    try {
+        const shadowPad = computeBoxShadowPadding(cs.boxShadow);
+        const captureWidth = Math.max(1, Math.ceil(rawRect.width + shadowPad.left + shadowPad.right));
+        const captureHeight = Math.max(1, Math.ceil(rawRect.height + shadowPad.top + shadowPad.bottom));
+        const wrapper = document.createElement('div');
+        wrapper.style.position = 'relative';
+        wrapper.style.width = `${captureWidth}px`;
+        wrapper.style.height = `${captureHeight}px`;
+        wrapper.style.overflow = 'hidden';
+        wrapper.style.background = findOpaqueBackdropColor(el);
+        const clone = cloneElementForRaster(el);
+        clone.style.position = 'absolute';
+        clone.style.left = `${shadowPad.left}px`;
+        clone.style.top = `${shadowPad.top}px`;
+        clone.style.width = `${Math.max(1, Math.ceil(rawRect.width))}px`;
+        clone.style.height = `${Math.max(1, Math.ceil(rawRect.height))}px`;
+        clone.style.margin = '0';
+        clone.style.transform = 'none';
+        clone.style.transformOrigin = 'top left';
+        wrapper.appendChild(clone);
+        const serialized = new XMLSerializer().serializeToString(wrapper);
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${captureWidth}" height="${captureHeight}" viewBox="0 0 ${captureWidth} ${captureHeight}"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml">${serialized}</div></foreignObject></svg>`;
+        const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+        const img = await loadImageFromUrl(url);
+        const canvas = document.createElement('canvas');
+        canvas.width = captureWidth;
+        canvas.height = captureHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx)
+            return null;
+        ctx.drawImage(img, 0, 0, captureWidth, captureHeight);
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
+        if (!blob)
+            return null;
+        return {
+            bytes: new Uint8Array(await blob.arrayBuffer()),
+            width: captureWidth,
+            height: captureHeight,
+            rawLeft: rawRect.left - shadowPad.left,
+            rawTop: rawRect.top - shadowPad.top,
+        };
+    }
+    catch {
+        return null;
+    }
+}
+function shouldRasterizeElement(el, cs) {
+    const mode = el.dataset.dom2pdfMode;
+    if (mode === 'vector' || mode === 'skip')
+        return false;
+    if (el.tagName === 'SVG' || el.tagName === 'CANVAS')
+        return true;
+    if (hasPseudoVisual(el))
+        return true;
+    if ((cs.transform || '').trim() !== 'none')
+        return true;
+    if (hasComplexBackground(cs))
+        return true;
+    return false;
+}
+function gradientAngleDeg(token) {
+    const v = token.trim().toLowerCase();
+    const deg = /^([+-]?\d+(?:\.\d+)?)deg$/.exec(v);
+    if (deg)
+        return parseFloat(deg[1]);
+    switch (v) {
+        case 'to top': return 0;
+        case 'to right': return 90;
+        case 'to bottom': return 180;
+        case 'to left': return 270;
+        case 'to top right':
+        case 'to right top': return 45;
+        case 'to bottom right':
+        case 'to right bottom': return 135;
+        case 'to bottom left':
+        case 'to left bottom': return 225;
+        case 'to top left':
+        case 'to left top': return 315;
+        default: return null;
+    }
+}
+function parseLinearGradient(input) {
+    const src = input.trim();
+    if (!src.startsWith('linear-gradient(') || !src.endsWith(')'))
+        return null;
+    const inner = src.slice('linear-gradient('.length, -1).trim();
+    const parts = splitTopLevelComma(inner);
+    if (parts.length < 2)
+        return null;
+    let angleDeg = 180;
+    let stopStart = 0;
+    const maybeAngle = gradientAngleDeg(parts[0]);
+    if (maybeAngle !== null) {
+        angleDeg = maybeAngle;
+        stopStart = 1;
+    }
+    const rawStops = parts.slice(stopStart).map((part) => {
+        const m = /^(.*?)(?:\s+([+-]?\d+(?:\.\d+)?)%)?$/.exec(part.trim());
+        if (!m)
+            return null;
+        const color = parseColor(m[1].trim());
+        return {
+            color,
+            pos: m[2] == null ? null : parseFloat(m[2]) / 100,
+        };
+    }).filter((v) => !!v);
+    if (rawStops.length < 2)
+        return null;
+    if (rawStops[0].pos == null)
+        rawStops[0].pos = 0;
+    if (rawStops[rawStops.length - 1].pos == null)
+        rawStops[rawStops.length - 1].pos = 1;
+    for (let i = 0; i < rawStops.length; i++) {
+        if (rawStops[i].pos != null)
+            continue;
+        let j = i + 1;
+        while (j < rawStops.length && rawStops[j].pos == null)
+            j++;
+        const left = rawStops[i - 1].pos ?? 0;
+        const right = j < rawStops.length ? (rawStops[j].pos ?? 1) : 1;
+        const span = j - i + 1;
+        for (let k = i; k < j; k++) {
+            rawStops[k].pos = left + ((right - left) * (k - i + 1)) / span;
+        }
+        i = j - 1;
+    }
+    return {
+        angleDeg,
+        stops: rawStops.map((stop) => ({
+            color: stop.color,
+            pos: Math.min(1, Math.max(0, stop.pos ?? 0)),
+        })),
+    };
+}
+function rgbaCss(c) {
+    return `rgba(${Math.round(c[0] * 255)}, ${Math.round(c[1] * 255)}, ${Math.round(c[2] * 255)}, ${c[3]})`;
+}
+function convertLinearGradientToImage(gradientText, width, height, quality, fallbackBg) {
+    const spec = parseLinearGradient(gradientText);
+    if (!spec)
+        return null;
+    const w = Math.max(1, Math.round(width));
+    const h = Math.max(1, Math.round(height));
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx)
+        return null;
+    if (fallbackBg && fallbackBg[3] > 0.001) {
+        ctx.fillStyle = rgbaCss(fallbackBg);
+        ctx.fillRect(0, 0, w, h);
+    }
+    else {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
+    }
+    const rad = (spec.angleDeg * Math.PI) / 180;
+    const dx = Math.sin(rad);
+    const dy = -Math.cos(rad);
+    const cx = w / 2;
+    const cy = h / 2;
+    const half = Math.abs(dx) * w / 2 + Math.abs(dy) * h / 2;
+    const grad = ctx.createLinearGradient(cx - dx * half, cy - dy * half, cx + dx * half, cy + dy * half);
+    for (const stop of spec.stops) {
+        grad.addColorStop(stop.pos, rgbaCss(stop.color));
+    }
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+    const comma = dataUrl.indexOf(',');
+    if (comma < 0)
+        return null;
+    return {
+        bytes: base64ToBytes(dataUrl.slice(comma + 1)),
+        width: w,
+        height: h,
+    };
+}
+function parseGradientStop(part) {
+    const m = /^(.*?)(?:\s+([+-]?\d+(?:\.\d+)?)(px|%)?)?$/.exec(part.trim());
+    if (!m)
+        return null;
+    const colorText = m[1].trim();
+    if (!colorText)
+        return null;
+    return {
+        color: parseColor(colorText),
+        pos: m[2] == null ? null : parseFloat(m[2]),
+        unit: m[2] == null ? null : ((m[3] === '%') ? '%' : 'px'),
+    };
+}
+function resolveGradientStops(rawStops, total) {
+    const out = rawStops.map((stop) => ({
+        color: stop.color,
+        pos: stop.pos == null ? null : (stop.unit === '%' ? (stop.pos / 100) * total : stop.pos),
+    }));
+    if (out.length < 2)
+        return [];
+    if (out[0].pos == null)
+        out[0].pos = 0;
+    if (out[out.length - 1].pos == null)
+        out[out.length - 1].pos = total;
+    for (let i = 0; i < out.length; i++) {
+        if (out[i].pos != null)
+            continue;
+        let j = i + 1;
+        while (j < out.length && out[j].pos == null)
+            j++;
+        const left = out[i - 1].pos ?? 0;
+        const right = j < out.length ? (out[j].pos ?? total) : total;
+        const span = j - i + 1;
+        for (let k = i; k < j; k++) {
+            out[k].pos = left + ((right - left) * (k - i + 1)) / span;
+        }
+        i = j - 1;
+    }
+    return out.map((stop) => ({ color: stop.color, pos: stop.pos ?? 0 }));
+}
+function parseAnchorToken(token, total, isX) {
+    const v = token.trim().toLowerCase();
+    if (!v || v === 'center')
+        return total / 2;
+    if ((isX && v === 'left') || (!isX && v === 'top'))
+        return 0;
+    if ((isX && v === 'right') || (!isX && v === 'bottom'))
+        return total;
+    const m = /^([+-]?\d+(?:\.\d+)?)%$/.exec(v);
+    if (m)
+        return (parseFloat(m[1]) / 100) * total;
+    return total / 2;
+}
+function radiusFromMode(mode, cx, cy, w, h) {
+    const corners = [
+        Math.hypot(cx, cy),
+        Math.hypot(w - cx, cy),
+        Math.hypot(cx, h - cy),
+        Math.hypot(w - cx, h - cy),
+    ];
+    switch (mode) {
+        case 'closest-side':
+            return Math.max(1, Math.min(cx, w - cx, cy, h - cy));
+        case 'farthest-side':
+            return Math.max(1, Math.max(cx, w - cx, cy, h - cy));
+        case 'closest-corner':
+            return Math.max(1, Math.min(...corners));
+        default:
+            return Math.max(1, Math.max(...corners));
+    }
+}
+function parseLinearOrRepeatingLinearGradient(input) {
+    const src = input.trim();
+    const repeating = src.startsWith('repeating-linear-gradient(');
+    const prefix = repeating ? 'repeating-linear-gradient(' : 'linear-gradient(';
+    if (!src.startsWith(prefix) || !src.endsWith(')'))
+        return null;
+    const inner = src.slice(prefix.length, -1).trim();
+    const parts = splitTopLevelComma(inner);
+    if (parts.length < 2)
+        return null;
+    let angleDeg = 180;
+    let stopStart = 0;
+    const maybeAngle = gradientAngleDeg(parts[0]);
+    if (maybeAngle !== null) {
+        angleDeg = maybeAngle;
+        stopStart = 1;
+    }
+    const stops = parts.slice(stopStart).map(parseGradientStop).filter((v) => !!v);
+    if (stops.length < 2)
+        return null;
+    return { kind: 'linear', repeating, angleDeg, stops };
+}
+function parseRadialGradient(input, width, height) {
+    const src = input.trim();
+    const repeating = src.startsWith('repeating-radial-gradient(');
+    const prefix = repeating ? 'repeating-radial-gradient(' : 'radial-gradient(';
+    if (!src.startsWith(prefix) || !src.endsWith(')'))
+        return null;
+    const inner = src.slice(prefix.length, -1).trim();
+    const parts = splitTopLevelComma(inner);
+    if (parts.length < 2)
+        return null;
+    let descriptor = '';
+    let stopStart = 0;
+    if (parts[0].includes('circle') || parts[0].includes('ellipse') || parts[0].includes('closest') || parts[0].includes('farthest') || parts[0].includes(' at ')) {
+        descriptor = parts[0].trim().toLowerCase();
+        stopStart = 1;
+    }
+    const stops = parts.slice(stopStart).map(parseGradientStop).filter((v) => !!v);
+    if (stops.length < 2)
+        return null;
+    let centerX = width / 2;
+    let centerY = height / 2;
+    let sizeMode = 'farthest-corner';
+    if (descriptor) {
+        if (descriptor.includes('closest-side'))
+            sizeMode = 'closest-side';
+        else if (descriptor.includes('closest-corner'))
+            sizeMode = 'closest-corner';
+        else if (descriptor.includes('farthest-side'))
+            sizeMode = 'farthest-side';
+        if (descriptor.includes(' at ')) {
+            const at = descriptor.split(' at ')[1].trim();
+            const tokens = at.split(/\s+/).filter(Boolean);
+            const xTok = tokens[0] ?? 'center';
+            const yTok = tokens[1] ?? (tokens[0] === 'top' || tokens[0] === 'bottom' ? tokens[0] : 'center');
+            centerX = parseAnchorToken(xTok, width, true);
+            centerY = parseAnchorToken(yTok, height, false);
+        }
+    }
+    return {
+        kind: 'radial',
+        repeating,
+        centerX,
+        centerY,
+        radius: radiusFromMode(sizeMode, centerX, centerY, width, height),
+        stops,
+    };
+}
+function blendOver(bottom, top) {
+    const a = top[3] + bottom[3] * (1 - top[3]);
+    if (a <= 0.0001)
+        return [0, 0, 0, 0];
+    const r = (top[0] * top[3] + bottom[0] * bottom[3] * (1 - top[3])) / a;
+    const g = (top[1] * top[3] + bottom[1] * bottom[3] * (1 - top[3])) / a;
+    const b = (top[2] * top[3] + bottom[2] * bottom[3] * (1 - top[3])) / a;
+    return [r, g, b, a];
+}
+function mixColor(a, b, t) {
+    const s = Math.min(1, Math.max(0, t));
+    return [
+        a[0] + (b[0] - a[0]) * s,
+        a[1] + (b[1] - a[1]) * s,
+        a[2] + (b[2] - a[2]) * s,
+        a[3] + (b[3] - a[3]) * s,
+    ];
+}
+function sampleGradientStops(stops, t, repeating) {
+    if (stops.length === 0)
+        return [1, 1, 1, 1];
+    let pos = t;
+    if (repeating) {
+        const start = stops[0].pos;
+        const end = stops[stops.length - 1].pos;
+        const span = end - start;
+        if (span > 0.0001) {
+            pos = ((pos - start) % span + span) % span + start;
+        }
+    }
+    if (pos <= stops[0].pos)
+        return stops[0].color;
+    if (pos >= stops[stops.length - 1].pos)
+        return stops[stops.length - 1].color;
+    for (let i = 1; i < stops.length; i++) {
+        if (pos > stops[i].pos)
+            continue;
+        const left = stops[i - 1];
+        const right = stops[i];
+        const span = right.pos - left.pos;
+        const ratio = span <= 0.0001 ? 0 : (pos - left.pos) / span;
+        return mixColor(left.color, right.color, ratio);
+    }
+    return stops[stops.length - 1].color;
+}
+function parseGradientLayer(layerText, width, height) {
+    const text = layerText.trim();
+    if (!text || text === 'none')
+        return null;
+    const linearSpec = parseLinearOrRepeatingLinearGradient(text);
+    if (linearSpec) {
+        const rad = (linearSpec.angleDeg * Math.PI) / 180;
+        const dx = Math.sin(rad);
+        const dy = -Math.cos(rad);
+        const lineLen = Math.max(1, Math.abs(dx) * width + Math.abs(dy) * height);
+        return {
+            kind: 'linear',
+            repeating: linearSpec.repeating,
+            stops: resolveGradientStops(linearSpec.stops, lineLen),
+            dx,
+            dy,
+            lineLen,
+            cx: width / 2,
+            cy: height / 2,
+        };
+    }
+    const radialSpec = parseRadialGradient(text, width, height);
+    if (radialSpec) {
+        return {
+            kind: 'radial',
+            repeating: radialSpec.repeating,
+            stops: resolveGradientStops(radialSpec.stops, radialSpec.radius),
+            centerX: radialSpec.centerX,
+            centerY: radialSpec.centerY,
+        };
+    }
+    return null;
+}
+function sampleGradientLayer(layer, x, y) {
+    if (layer.kind === 'linear') {
+        return sampleGradientStops(layer.stops, (x + 0.5 - layer.cx) * layer.dx + (y + 0.5 - layer.cy) * layer.dy + layer.lineLen / 2, layer.repeating);
+    }
+    return sampleGradientStops(layer.stops, Math.hypot(x + 0.5 - layer.centerX, y + 0.5 - layer.centerY), layer.repeating);
+}
+function convertBackgroundImageToImage(backgroundImageText, width, height, quality, fallbackBg) {
+    const text = (backgroundImageText || '').trim();
+    if (!text || text === 'none')
+        return null;
+    const w = Math.max(1, Math.round(width));
+    const h = Math.max(1, Math.round(height));
+    const layers = splitTopLevelComma(text)
+        .map((layer) => parseGradientLayer(layer, w, h))
+        .filter((layer) => !!layer);
+    if (layers.length === 0)
+        return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx)
+        return null;
+    const imageData = ctx.createImageData(w, h);
+    const data = imageData.data;
+    const base = blendOver([1, 1, 1, 1], fallbackBg ?? [1, 1, 1, 1]);
+    for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+            const idx = (y * w + x) * 4;
+            let out = base;
+            for (let i = layers.length - 1; i >= 0; i--) {
+                out = blendOver(out, sampleGradientLayer(layers[i], x, y));
+            }
+            data[idx] = Math.round(out[0] * 255);
+            data[idx + 1] = Math.round(out[1] * 255);
+            data[idx + 2] = Math.round(out[2] * 255);
+            data[idx + 3] = 255;
+        }
+    }
+    ctx.putImageData(imageData, 0, 0);
+    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+    const comma = dataUrl.indexOf(',');
+    if (comma < 0)
+        return null;
+    return {
+        bytes: base64ToBytes(dataUrl.slice(comma + 1)),
+        width: w,
+        height: h,
+    };
+}
+function resolveRegion(region, isFooter) {
+    if (!region)
+        return null;
+    const content = typeof region.content === 'string' ? region.content
+        : isFooter ? '${currentPage}/${totalPages}'
+            : '';
+    const pos = region.contentPosition;
+    return {
+        content,
+        heightPx: region.height ?? 50,
+        color: parseColor(region.contentColor ?? '#333333'),
+        fontSizePx: region.contentFontSize ?? 16,
+        position: positionNum(pos),
+        custom: Array.isArray(pos) ? pos : null,
+        padding: region.padding ?? [0, 24, 0, 24],
+    };
+}
+function resolvePlaceholder(content, page, total) {
+    return content
+        .replace(/\$\{currentPage\}/g, String(page + 1))
+        .replace(/\$\{totalPages\}/g, String(total));
+}
+export async function collectSnapshot(root, options = {}) {
+    const data = await collectSnapshotData(root, options);
+    return encodeSnapshot(data, []);
+}
+/** Collect the DOM walk into an intermediate form (no per-page HF yet). */
+export async function collectSnapshotData(root, options = {}) {
+    // jsPDF hooks: accepted but no-op (engine has no jsPDF instance).
+    if (options.onJspdfReady) {
+        console.warn('dom2pdf: onJspdfReady is accepted but not implemented (no jsPDF engine).');
+    }
+    if (options.onJspdfFinish) {
+        console.warn('dom2pdf: onJspdfFinish is accepted but not implemented (no jsPDF engine).');
+    }
+    if (options.compress) {
+        console.warn('dom2pdf: compress is accepted but not yet implemented (PDF emitted uncompressed).');
+    }
+    if (options.encryption) {
+        console.warn('dom2pdf: encryption is accepted but not yet implemented.');
+    }
+    const [fmtW, fmtH] = resolvePageSize(options.format);
+    const pageWidthPt = options.pageWidthPt ?? fmtW;
+    const pageHeightPt = options.pageHeightPt ?? fmtH;
+    const m = options.marginPt ?? 36;
+    const [mTop, mRight, mBottom, mLeft] = Array.isArray(m) ? m : [m, m, m, m];
+    const quality = options.jpegQuality ?? 0.85;
+    const useCORS = options.useCORS ?? false;
+    const pagination = options.pagination ?? false;
+    const precision = (options.precision ?? 2) | 0;
+    // Fonts
+    const fontConfigs = options.fontConfig
+        ? Array.isArray(options.fontConfig) ? options.fontConfig : [options.fontConfig]
+        : [];
+    const fonts = [];
+    for (const fc of fontConfigs) {
+        let bytes = fc.fontBytes;
+        if (!bytes && fc.fontBase64)
+            bytes = base64ToBytes(fc.fontBase64);
+        if (!bytes || bytes.length === 0)
+            continue;
+        fonts.push({
+            family: fc.fontFamily,
+            style: fc.fontStyle === 'italic' ? 1 : 0,
+            weight: fc.fontWeight ?? 400,
+            iconFont: fc.iconFont ?? false,
+            bytes,
+        });
+    }
+    // pageConfig: object form -> static HF (Rust resolves placeholders).
+    //            function form -> per-page resolved text (JS resolves placeholders),
+    //            needs totalPages via count_pages (handled by caller in index.ts).
+    //            undefined/null + pagination -> library default (page-number footer).
+    const staticHF = resolveStaticHF(options, pagination);
+    // Pre-collect images.
+    const imgElements = Array.from(root.querySelectorAll('img'));
+    const images = [];
+    const imgToId = new Map();
+    await Promise.all(imgElements.map(async (img) => {
+        const conv = await convertImage(img, quality, useCORS);
+        if (!conv)
+            return;
+        const id = images.length + 1;
+        images.push({ id, ...conv });
+        imgToId.set(img, id);
+    }));
+    const rootRect = root.getBoundingClientRect();
+    const offX = rootRect.left + window.scrollX;
+    const offY = rootRect.top + window.scrollY;
+    const layoutScale = computeLayoutScale(rootRect.width, pageWidthPt, mLeft, mRight);
+    const nodes = [];
+    const range = document.createRange();
+    function docRect(r) {
+        return {
+            x: (r.left + window.scrollX - offX) * layoutScale,
+            y: (r.top + window.scrollY - offY) * layoutScale,
+            w: r.width * layoutScale,
+            h: r.height * layoutScale,
+        };
+    }
+    function charTop(textNode, i) {
+        if (i >= textNode.data.length)
+            return Infinity;
+        range.setStart(textNode, i);
+        range.setEnd(textNode, Math.min(i + 1, textNode.data.length));
+        const r = range.getBoundingClientRect();
+        return r.top || 0;
+    }
+    function lowerBoundTop(textNode, target, lo, hi) {
+        let l = lo;
+        let r = hi;
+        while (l < r) {
+            const mid = (l + r) >> 1;
+            if (charTop(textNode, mid) < target)
+                l = mid + 1;
+            else
+                r = mid;
+        }
+        return l;
+    }
+    function collectTextLines(textNode) {
+        const text = textNode.data;
+        if (!text || !text.trim())
+            return [];
+        range.selectNodeContents(textNode);
+        let rects = Array.from(range.getClientRects()).filter((r) => r.width > 0 && r.height > 0);
+        if (rects.length === 0)
+            return [];
+        rects = rects.slice().sort((a, b) => a.top - b.top || a.left - b.left);
+        const groups = [];
+        for (let i = 0; i < rects.length; i++) {
+            const r = rects[i];
+            if (groups.length === 0 || Math.abs(r.top - groups[groups.length - 1].top) >= 1) {
+                groups.push(new DOMRect(r.left, r.top, r.width, r.height));
+            }
+            else {
+                const g = groups[groups.length - 1];
+                const left = Math.min(g.left, r.left);
+                const top = Math.min(g.top, r.top);
+                const right = Math.max(g.right, r.right);
+                const bottom = Math.max(g.bottom, r.bottom);
+                groups[groups.length - 1] = new DOMRect(left, top, right - left, bottom - top);
+            }
+        }
+        const off = utf8Offsets(text);
+        const n = text.length;
+        if (groups.length === 1) {
+            const d = docRect(groups[0]);
+            return [{ x: d.x, y: d.y, w: d.w, h: d.h, start: 0, end: off[n] }];
+        }
+        const lines = [];
+        let prev = 0;
+        for (let li = 0; li < groups.length; li++) {
+            const r = groups[li];
+            const start16 = lowerBoundTop(textNode, r.top - 1, prev, n);
+            const nextTop = li + 1 < groups.length ? groups[li + 1].top : Infinity;
+            const end16 = lowerBoundTop(textNode, nextTop - 1, start16, n);
+            prev = end16;
+            if (end16 <= start16)
+                continue;
+            const d = docRect(r);
+            lines.push({
+                x: d.x, y: d.y, w: d.w, h: d.h,
+                start: off[start16],
+                end: off[Math.min(end16, n)],
+            });
+        }
+        return lines;
+    }
+    function makeFont(cs) {
+        const sizePx = (parseFloat(cs.fontSize) || 16) * layoutScale;
+        let lh = parseFloat(cs.lineHeight);
+        if (isNaN(lh))
+            lh = sizePx * 1.2;
+        else
+            lh *= layoutScale;
+        const letterSpacingPx = (parseFloat(cs.letterSpacing) || 0) * layoutScale;
+        const wordSpacingPx = (parseFloat(cs.wordSpacing) || 0) * layoutScale;
+        return {
+            family: (cs.fontFamily || 'Helvetica').split(',')[0].replace(/['"]/g, '').trim(),
+            sizePx,
+            weight: weightNum(cs.fontWeight),
+            italic: cs.fontStyle === 'italic' || cs.fontStyle === 'oblique' ? 1 : 0,
+            color: parseColor(cs.color),
+            lineHeightPx: lh,
+            align: alignNum(cs.textAlign),
+            letterSpacingPx,
+            wordSpacingPx,
+        };
+    }
+    async function visit(el, parentId) {
+        const id = nodes.length;
+        const cs = getComputedStyle(el);
+        const rawRect = el.getBoundingClientRect();
+        const r = docRect(rawRect);
+        const isImg = el.tagName === 'IMG' && imgToId.has(el);
+        const kind = isImg ? 2 : 0;
+        if (!isImg && shouldRasterizeElement(el, cs) && r.w > 0 && r.h > 0) {
+            const raster = await rasterizeElement(el, rawRect, quality, cs);
+            if (raster) {
+                const imageId = images.length + 1;
+                images.push({
+                    id: imageId,
+                    bytes: raster.bytes,
+                    width: raster.width,
+                    height: raster.height,
+                });
+                const rawX = raster.rawLeft + window.scrollX - offX;
+                const rawY = raster.rawTop + window.scrollY - offY;
+                const scaledW = raster.width * layoutScale;
+                const scaledH = raster.height * layoutScale;
+                nodes.push({
+                    id,
+                    parent: parentId,
+                    kind: 2,
+                    x: rawX * layoutScale,
+                    y: rawY * layoutScale,
+                    w: scaledW,
+                    h: scaledH,
+                    flags: F_IMAGE,
+                    overflowHidden: false,
+                    renderMode: 0,
+                    divisionDisable: el.hasAttribute('divisionDisable'),
+                    pageBreak: el.hasAttribute('pageBreak'),
+                    imageId,
+                    objectFit: 0,
+                });
+                return;
+            }
+        }
+        const bg = parseColor(cs.backgroundColor);
+        const hasBg = bg[3] > 0.001;
+        const gradientImage = !isImg && kind === 0 && r.w > 0 && r.h > 0
+            ? convertBackgroundImageToImage(cs.backgroundImage, r.w, r.h, quality, hasBg ? bg : null)
+            : null;
+        const bw = [
+            (parseFloat(cs.borderTopWidth) || 0) * layoutScale,
+            (parseFloat(cs.borderRightWidth) || 0) * layoutScale,
+            (parseFloat(cs.borderBottomWidth) || 0) * layoutScale,
+            (parseFloat(cs.borderLeftWidth) || 0) * layoutScale,
+        ];
+        const bc = parseColor(cs.borderTopColor);
+        const bs = [
+            borderStyleNum(cs.borderTopStyle),
+            borderStyleNum(cs.borderRightStyle),
+            borderStyleNum(cs.borderBottomStyle),
+            borderStyleNum(cs.borderLeftStyle),
+        ];
+        const hasBorder = (bw[0] > 0 && cs.borderTopStyle !== 'none' && cs.borderTopStyle !== 'hidden')
+            || (bw[1] > 0 && cs.borderRightStyle !== 'none' && cs.borderRightStyle !== 'hidden')
+            || (bw[2] > 0 && cs.borderBottomStyle !== 'none' && cs.borderBottomStyle !== 'hidden')
+            || (bw[3] > 0 && cs.borderLeftStyle !== 'none' && cs.borderLeftStyle !== 'hidden');
+        const visibleBorder = hasBorder && bc[3] > 0.001;
+        const shadow = kind === 0 ? parseBoxShadow(cs.boxShadow) : null;
+        const radius = [
+            (parseFloat(cs.borderTopLeftRadius) || 0) * layoutScale,
+            (parseFloat(cs.borderTopRightRadius) || 0) * layoutScale,
+            (parseFloat(cs.borderBottomRightRadius) || 0) * layoutScale,
+            (parseFloat(cs.borderBottomLeftRadius) || 0) * layoutScale,
+        ];
+        const hasRadius = (radius[0] + radius[1] + radius[2] + radius[3]) > 0;
+        const overflowHidden = cs.overflow === 'hidden' || cs.overflow === 'clip';
+        const opacity = parseFloat(cs.opacity);
+        const hasOpacity = opacity < 1;
+        const dm = el.dataset.dom2pdfMode;
+        const renderMode = dm === 'raster' ? 1 : dm === 'skip' ? 2 : 0;
+        const divisionDisable = el.hasAttribute('divisionDisable');
+        const pageBreak = el.hasAttribute('pageBreak');
+        let flags = 0;
+        if (hasBg)
+            flags |= F_BG;
+        if (visibleBorder)
+            flags |= F_BORDER;
+        if (shadow)
+            flags |= F_SHADOW;
+        if (hasRadius)
+            flags |= F_RADIUS;
+        if (overflowHidden)
+            flags |= F_OVERFLOW;
+        if (hasOpacity)
+            flags |= F_OPACITY;
+        if (isImg)
+            flags |= F_IMAGE;
+        if (renderMode !== 0)
+            flags |= F_RENDER_MODE;
+        if (divisionDisable)
+            flags |= F_DIVISION_DISABLE;
+        if (pageBreak)
+            flags |= F_PAGE_BREAK;
+        const node = {
+            id,
+            parent: parentId,
+            kind,
+            x: r.x, y: r.y, w: r.w, h: r.h,
+            flags,
+            bg: hasBg ? bg : undefined,
+            border: visibleBorder ? { w: bw, c: bc, s: bs } : undefined,
+            shadow: shadow ? {
+                x: shadow.x * layoutScale,
+                y: shadow.y * layoutScale,
+                blur: shadow.blur * layoutScale,
+                spread: shadow.spread * layoutScale,
+                color: shadow.color,
+            } : undefined,
+            radius: hasRadius ? radius : undefined,
+            overflowHidden,
+            opacity: hasOpacity ? opacity : undefined,
+            renderMode,
+            divisionDisable,
+            pageBreak,
+            imageId: isImg ? imgToId.get(el) : undefined,
+            objectFit: isImg ? objectFitNum(cs.objectFit) : undefined,
+        };
+        if (el.tagName === 'SVG' || el.tagName === 'CANVAS') {
+            node.renderMode = 1;
+            if (renderMode === 0)
+                flags &= ~F_RENDER_MODE;
+            if (node.renderMode !== 0)
+                flags |= F_RENDER_MODE;
+            node.flags = flags;
+        }
+        nodes.push(node);
+        if (gradientImage) {
+            const imageId = images.length + 1;
+            images.push({ id: imageId, ...gradientImage });
+            const bgImageNode = {
+                id: nodes.length,
+                parent: id,
+                kind: 2,
+                x: r.x,
+                y: r.y,
+                w: r.w,
+                h: r.h,
+                flags: F_IMAGE | (hasRadius ? F_RADIUS : 0),
+                radius: hasRadius ? radius : undefined,
+                overflowHidden: false,
+                renderMode: 0,
+                divisionDisable: false,
+                pageBreak: false,
+                imageId,
+                objectFit: 0,
+            };
+            nodes.push(bgImageNode);
+        }
+        for (let child = el.firstChild; child; child = child.nextSibling) {
+            if (child.nodeType === 1) {
+                await visit(child, id);
+            }
+            else if (child.nodeType === 3) {
+                const text = child.data;
+                if (!text || !text.trim())
+                    continue;
+                const lines = collectTextLines(child);
+                if (lines.length === 0)
+                    continue;
+                const font = makeFont(cs);
+                const textId = nodes.length;
+                const textNode = {
+                    id: textId,
+                    parent: id,
+                    kind: 1,
+                    x: lines[0].x,
+                    y: lines[0].y,
+                    w: Math.max(...lines.map((l) => l.x + l.w)) - Math.min(...lines.map((l) => l.x)),
+                    h: Math.max(...lines.map((l) => l.y + l.h)) - Math.min(...lines.map((l) => l.y)),
+                    flags: F_FONT,
+                    font,
+                    overflowHidden: false,
+                    renderMode: 0,
+                    divisionDisable: false,
+                    pageBreak: false,
+                    text,
+                    lines,
+                };
+                nodes.push(textNode);
+            }
+        }
+    }
+    await visit(root, -1);
+    // Resolve config-level HF geometry.
+    const staticHeader = staticHF ? resolveRegion(staticHF.header, false) : null;
+    const staticFooter = staticHF ? resolveRegion(staticHF.footer, true) : null;
+    // Function-form: sample page 1 to derive a uniform reserved band height.
+    // (Pagination needs a single content-area height; per-page text is resolved
+    // later by index.ts once totalPages is known.)
+    let headerHPx = staticHeader?.heightPx ?? 0;
+    let footerHPx = staticFooter?.heightPx ?? 0;
+    if (typeof options.pageConfig === 'function' && pagination) {
+        const sample = options.pageConfig(1, 1);
+        if (sample) {
+            const sh = resolveRegion(sample.header, false);
+            const sf = resolveRegion(sample.footer, true);
+            headerHPx = sh?.heightPx ?? 0;
+            footerHPx = sf?.heightPx ?? 0;
+        }
+    }
+    return {
+        pageWidthPt, pageHeightPt, mTop, mRight, mBottom, mLeft,
+        precision, pagination, backgroundColor: options.backgroundColor ?? null,
+        headerHPx, footerHPx,
+        staticHeader, staticFooter,
+        perPageHF: [],
+        fonts, nodes, images,
+    };
+}
+/** Encode collected data into the v2 snapshot binary, attaching per-page HF. */
+export function encodeSnapshot(data, perPageHF) {
+    // Convert ResolvedPageHF[] to the [header, footer] pair shape encode() expects.
+    const pairs = perPageHF.map((hf) => [hf.header, hf.footer]);
+    return encode({ ...data, perPageHF: pairs });
+}
+function writeHF(w, hf) {
+    const clen = BinWriter.utf8Len(hf.content);
+    w.u16(clen);
+    w.utf8(hf.content);
+    w.f32(hf.heightPx);
+    w.f32(hf.color[0]);
+    w.f32(hf.color[1]);
+    w.f32(hf.color[2]);
+    w.f32(hf.color[3]);
+    w.f32(hf.fontSizePx);
+    w.u8(hf.position);
+    if (hf.position === 9 && hf.custom) {
+        w.f32(hf.custom[0]);
+        w.f32(hf.custom[1]);
+    }
+    w.f32(hf.padding[0]);
+    w.f32(hf.padding[1]);
+    w.f32(hf.padding[2]);
+    w.f32(hf.padding[3]);
+}
+function writeOptHF(w, hf) {
+    if (hf) {
+        w.u8(1);
+        writeHF(w, hf);
+    }
+    else {
+        w.u8(0);
+    }
+}
+function encode(a) {
+    const w = new BinWriter();
+    w.bytes(new Uint8Array([0x44, 0x32, 0x50, 0x31])); // "D2P1"
+    w.u32(4); // version 4
+    w.f32(a.pageWidthPt);
+    w.f32(a.pageHeightPt);
+    w.f32(a.mTop);
+    w.f32(a.mRight);
+    w.f32(a.mBottom);
+    w.f32(a.mLeft);
+    // Config block
+    w.u8(a.precision);
+    w.u8(a.pagination ? 1 : 0);
+    const bg = a.backgroundColor == null ? null : parseColor(a.backgroundColor);
+    w.u8(bg && bg[3] > 0.001 ? 1 : 0);
+    if (bg && bg[3] > 0.001) {
+        w.f32(bg[0]);
+        w.f32(bg[1]);
+        w.f32(bg[2]);
+        w.f32(bg[3]);
+    }
+    w.f32(a.headerHPx);
+    w.f32(a.footerHPx);
+    const hasStatic = a.staticHeader || a.staticFooter;
+    w.u8(hasStatic ? 1 : 0);
+    if (hasStatic) {
+        writeOptHF(w, a.staticHeader);
+        writeOptHF(w, a.staticFooter);
+    }
+    // Fonts block
+    w.u32(a.fonts.length);
+    for (const f of a.fonts) {
+        const famLen = BinWriter.utf8Len(f.family);
+        w.u16(famLen);
+        w.utf8(f.family);
+        w.u8(f.style);
+        w.u16(f.weight);
+        w.u8(f.iconFont ? 1 : 0);
+        w.u32(f.bytes.length);
+        w.bytes(f.bytes);
+    }
+    // Per-page HF block
+    w.u32(a.perPageHF.length);
+    for (const pair of a.perPageHF) {
+        writeOptHF(w, pair[0]);
+        writeOptHF(w, pair[1]);
+    }
+    // Nodes
+    w.u32(a.nodes.length);
+    for (const n of a.nodes) {
+        w.u32(n.id);
+        w.i32(n.parent);
+        w.u8(n.kind);
+        w.f32(n.x);
+        w.f32(n.y);
+        w.f32(n.w);
+        w.f32(n.h);
+        let flags = n.flags;
+        if (n.bg)
+            flags |= F_BG;
+        if (n.border)
+            flags |= F_BORDER;
+        if (n.shadow)
+            flags |= F_SHADOW;
+        if (n.radius)
+            flags |= F_RADIUS;
+        if (n.overflowHidden)
+            flags |= F_OVERFLOW;
+        if (n.opacity !== undefined)
+            flags |= F_OPACITY;
+        if (n.font)
+            flags |= F_FONT;
+        if (n.imageId !== undefined)
+            flags |= F_IMAGE;
+        if (n.renderMode !== 0)
+            flags |= F_RENDER_MODE;
+        if (n.divisionDisable)
+            flags |= F_DIVISION_DISABLE;
+        if (n.pageBreak)
+            flags |= F_PAGE_BREAK;
+        w.u16(flags);
+        if (n.bg) {
+            w.f32(n.bg[0]);
+            w.f32(n.bg[1]);
+            w.f32(n.bg[2]);
+            w.f32(n.bg[3]);
+        }
+        if (n.border) {
+            w.f32(n.border.w[0]);
+            w.f32(n.border.w[1]);
+            w.f32(n.border.w[2]);
+            w.f32(n.border.w[3]);
+            w.f32(n.border.c[0]);
+            w.f32(n.border.c[1]);
+            w.f32(n.border.c[2]);
+            w.f32(n.border.c[3]);
+            w.u8(n.border.s[0]);
+            w.u8(n.border.s[1]);
+            w.u8(n.border.s[2]);
+            w.u8(n.border.s[3]);
+        }
+        if (n.shadow) {
+            w.f32(n.shadow.x);
+            w.f32(n.shadow.y);
+            w.f32(n.shadow.blur);
+            w.f32(n.shadow.spread);
+            w.f32(n.shadow.color[0]);
+            w.f32(n.shadow.color[1]);
+            w.f32(n.shadow.color[2]);
+            w.f32(n.shadow.color[3]);
+        }
+        if (n.radius) {
+            w.f32(n.radius[0]);
+            w.f32(n.radius[1]);
+            w.f32(n.radius[2]);
+            w.f32(n.radius[3]);
+        }
+        if (n.opacity !== undefined)
+            w.f32(n.opacity);
+        if (n.font) {
+            const famLen = BinWriter.utf8Len(n.font.family);
+            w.u16(famLen);
+            w.utf8(n.font.family);
+            w.f32(n.font.sizePx);
+            w.u16(n.font.weight);
+            w.u8(n.font.italic);
+            w.f32(n.font.color[0]);
+            w.f32(n.font.color[1]);
+            w.f32(n.font.color[2]);
+            w.f32(n.font.color[3]);
+            w.f32(n.font.lineHeightPx);
+            w.u8(n.font.align);
+            w.f32(n.font.letterSpacingPx);
+            w.f32(n.font.wordSpacingPx);
+        }
+        if (n.imageId !== undefined) {
+            w.u32(n.imageId);
+            w.u8(n.objectFit ?? 0);
+        }
+        if (n.renderMode !== 0)
+            w.u8(n.renderMode);
+        if (n.kind === 1) {
+            const text = n.text ?? '';
+            const tlen = BinWriter.utf8Len(text);
+            w.u32(tlen);
+            w.utf8(text);
+            const lines = n.lines ?? [];
+            w.u32(lines.length);
+            for (const l of lines) {
+                w.f32(l.x);
+                w.f32(l.y);
+                w.f32(l.w);
+                w.f32(l.h);
+                w.u32(l.start);
+                w.u32(l.end);
+            }
+        }
+    }
+    // Images
+    w.u32(a.images.length);
+    for (const img of a.images) {
+        w.u32(img.id);
+        w.u32(img.width);
+        w.u32(img.height);
+        w.u32(img.bytes.length);
+        w.bytes(img.bytes);
+    }
+    return w.result();
+}
+/** Compute page-break Y positions (document px, relative to root top) for overlays. */
+export function computePageBreaks(root, options = {}) {
+    const [fmtW, fmtH] = resolvePageSize(options.format);
+    const pageWidthPt = options.pageWidthPt ?? fmtW;
+    const pageHeightPt = options.pageHeightPt ?? fmtH;
+    const m = options.marginPt ?? 36;
+    const mTop = Array.isArray(m) ? m[0] : m;
+    const mRight = Array.isArray(m) ? m[1] : m;
+    const mBottom = Array.isArray(m) ? m[2] : m;
+    const mLeft = Array.isArray(m) ? m[3] : m;
+    const pagination = options.pagination ?? false;
+    if (!pagination)
+        return [];
+    const staticHF = resolveStaticHF(options, pagination);
+    const headerHPt = (staticHF?.header?.height ?? 0) * PX_TO_PT;
+    const footerHPt = (staticHF?.footer?.height ?? 0) * PX_TO_PT;
+    const contentHpt = pageHeightPt - mTop - mBottom - headerHPt - footerHPt;
+    const contentHpx = (contentHpt > 0 ? contentHpt : pageHeightPt - mTop - mBottom) / PX_TO_PT;
+    const layoutScale = computeLayoutScale(root.getBoundingClientRect().width, pageWidthPt, mLeft, mRight);
+    const rootH = root.getBoundingClientRect().height;
+    const breaks = [];
+    const breakStep = contentHpx / layoutScale;
+    for (let y = breakStep; y < rootH; y += breakStep)
+        breaks.push(y);
+    return breaks;
+}
+/** Resolve per-page HF for a function-form pageConfig given totalPages. */
+export function resolvePerPageHF(pageConfig, totalPages) {
+    const out = [];
+    for (let p = 0; p < totalPages; p++) {
+        const cfg = pageConfig(p + 1, totalPages);
+        if (!cfg) {
+            out.push({ header: null, footer: null });
+            continue;
+        }
+        out.push({
+            header: resolveRegion(cfg.header, false),
+            footer: resolveRegion(cfg.footer, true),
+        });
+    }
+    return out;
+}
+/** Replace placeholders in a resolved HF set (function-form: JS resolves). */
+export function resolvePerPageHFText(perPage, totalPages) {
+    return perPage.map((hf, p) => ({
+        header: hf.header
+            ? { ...hf.header, content: resolvePlaceholder(hf.header.content, p, totalPages) }
+            : null,
+        footer: hf.footer
+            ? { ...hf.footer, content: resolvePlaceholder(hf.footer.content, p, totalPages) }
+            : null,
+    }));
+}
+export { resolveRegion, resolvePlaceholder };
+//# sourceMappingURL=snapshot.js.map

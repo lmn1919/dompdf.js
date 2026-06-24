@@ -1,17 +1,46 @@
 {
-  "name": "html2pdf-glm",
-  "private": true,
+  "name": "dompdf",
   "version": "0.1.0",
-  "workspaces": [
-    "packages/*",
-    "apps/*"
-  ],
+  "description": "Pure-frontend DOM-to-PDF engine (WASM-backed, no jsPDF).",
+  "main": "dist/dompdf.js",
+  "module": "dist/esm/dompdf.esm.js",
+  "types": "dist/types/index.d.ts",
+  "browser": "dist/dompdf.js",
+  "exports": {
+    ".": {
+      "import": "./dist/esm/dompdf.esm.js",
+      "require": "./dist/dompdf.js",
+      "browser": "./dist/dompdf.js"
+    }
+  },
   "scripts": {
-    "build:wasm": "node scripts/build-wasm.mjs && npm -w dom2pdf run build:wasm",
-    "build:lib": "npm -w dom2pdf run build",
-    "build:playground": "npm -w playground run build",
-    "verify": "node scripts/verify.mjs",
-    "dev": "npm run build:wasm && npm run build:lib && npm -w playground run dev",
-    "build": "npm run build:wasm && npm run build:lib && npm run build:playground"
+    "build:wasm": "node scripts/build-wasm.mjs",
+    "inline:wasm": "node scripts/inline-wasm.mjs",
+    "build:types": "tsc --emitDeclarationOnly --declaration --declarationDir dist/types",
+    "prebuild": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && npm run build:wasm && npm run inline:wasm",
+    "build": "rollup -c rollup.config.mjs && npm run build:types",
+    "build:minify": "npm run build",
+    "dev": "rollup -c rollup.config.mjs -w",
+    "serve": "npx --yes serve . -l 8080"
+  },
+  "author": {
+    "name": "lfc",
+    "email": "lfc191910@gmail.com"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/lmn1919/dompdf.js",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:lmn1919/dompdf.js.git"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^25.0.0",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^11.1.6",
+    "rimraf": "^5.0.5",
+    "rollup": "^4.0.0",
+    "tslib": "^2.8.1",
+    "typescript": "^5.3.0"
   }
 }

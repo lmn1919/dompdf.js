@@ -1,9 +1,9 @@
 /**
- * dom2pdf — pure-frontend DOM-to-PDF.
+ * dompdf — pure-frontend DOM-to-PDF.
  *
  * Pipeline: collectSnapshot (main thread, DOM) -> Worker -> WASM render_pdf -> PDF bytes.
  *
- * Public API mirrors dompdf.js: default export `dom2pdf(root, options) -> Promise<Blob>`,
+ * Public API mirrors dompdf.js: default export `dompdf(root, options) -> Promise<Blob>`,
  * plus named `exportPDF/renderToBytes/downloadPDF/inspect` for ergonomics.
  */
 import {
@@ -17,7 +17,8 @@ import {
   type PageConfigOptions,
   type ResolvedPageHF,
 } from './snapshot';
-// `?worker&inline` 让 Vite 把 worker 打包成内联 Blob URL，无需额外 chunk 文件。
+// `?worker&inline` is resolved by the rollup inlineWorker plugin — the worker
+// module is bundled separately and wrapped in a Blob URL, no extra chunk file.
 import Dom2pdfWorker from './worker?worker&inline';
 
 export type { ExportOptions } from './snapshot';
@@ -29,7 +30,7 @@ export {
 } from './snapshot';
 export type { FontConfig, PageConfig, PageConfigOptions, PageRegionConfig } from './snapshot';
 
-type Dom2pdfApi = ((
+type DompdfApi = ((
   root: HTMLElement,
   options?: ExportOptions,
 ) => Promise<Blob>) & {
@@ -67,7 +68,7 @@ function getWorker(): Worker {
       }
     };
     worker.onerror = (e) => {
-      console.error('dom2pdf worker error', e);
+      console.error('dompdf worker error', e);
     };
   }
   return worker;
@@ -187,9 +188,9 @@ export async function inspect(
  * API compatibility but are no-ops (this engine has no jsPDF instance and emits
  * uncompressed, unencrypted PDFs).
  */
-const dom2pdfFn = (root: HTMLElement, options?: ExportOptions) => exportPDF(root, options);
+const dompdfFn = (root: HTMLElement, options?: ExportOptions) => exportPDF(root, options);
 
-const dom2pdf: Dom2pdfApi = Object.assign(dom2pdfFn, {
+const dompdf: DompdfApi = Object.assign(dompdfFn, {
   default: exportPDF,
   exportPDF,
   renderToBytes,
@@ -205,9 +206,9 @@ const dom2pdf: Dom2pdfApi = Object.assign(dom2pdfFn, {
 if (typeof globalThis !== 'undefined') {
   (
     globalThis as typeof globalThis & {
-      dom2pdf?: Dom2pdfApi;
+      dompdf?: DompdfApi;
     }
-  ).dom2pdf = dom2pdf;
+  ).dompdf = dompdf;
 }
 
-export default dom2pdf;
+export default dompdf;

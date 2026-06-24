@@ -5,12 +5,10 @@ node_modules/
 /dist
 /tmp
 /build
-packages/*/dist/
-apps/*/dist/
 
 # Rust / WASM build artifacts
-packages/dom2pdf-wasm/target/
-packages/dom2pdf-wasm/pkg/
+/wasm/target/
+/wasm/pkg/
 
 # IDE & editor
 /.project
@@ -42,3 +40,4 @@ tests/reftests.js
 # Misc temp output
 diagnose-output.txt
 diagnose-stderr.txt
+scripts/diagnose-*.pdf

@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>dompdf Single-File Demo</title>
+    <style>
+      @font-face {
+        font-family: "SourceHanSansSC-Regular";
+        src: url("./SourceHanSansSC-Regular.ttf") format("truetype");
+        font-weight: 400;
+        font-style: normal;
+      }
+
+      :root {
+        --ink: #0f172a;
+        --muted: #64748b;
+        --line: #e2e8f0;
+        --blue: #2563eb;
+        --blue-soft: #eff6ff;
+        --bg: #f3f4f6;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+
+      .toolbar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 20px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(10px);
+      }
+
+      .toolbar-title {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .toolbar-title strong {
+        font-size: 18px;
+      }
+
+      .toolbar-title span,
+      .status {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .spacer {
+        flex: 1;
+      }
+
+      button {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #ffffff;
+        color: var(--ink);
+        padding: 8px 14px;
+        font-size: 13px;
+        cursor: pointer;
+      }
+
+      button:hover {
+        border-color: var(--blue);
+        color: var(--blue);
+      }
+
+      button:disabled {
+        opacity: 0.55;
+        cursor: progress;
+      }
+
+      main {
+        padding: 28px 16px 64px;
+      }
+
+      .doc {
+        width: 100%;
+        max-width: 794px;
+        margin: 0 auto;
+        padding: 28px 56px 42px;
+        background: #ffffff;
+        line-height: 1.65;
+      }
+
+      .doc h1 {
+        margin: 0;
+        font-size: 32px;
+        line-height: 1.2;
+      }
+
+      .doc h2 {
+        margin: 28px 0 10px;
+        padding-bottom: 6px;
+        border-bottom: 1px solid var(--line);
+        font-size: 20px;
+      }
+
+      .doc h3 {
+        margin: 0 0 8px;
+        font-size: 16px;
+      }
+
+      .doc p {
+        margin: 8px 0;
+      }
+
+      .doc code {
+        padding: 1px 5px;
+        border-radius: 4px;
+        background: #f1f5f9;
+        font-size: 13px;
+      }
+
+      .hero {
+        position: relative;
+        display: grid;
+        grid-template-columns: minmax(0, 2fr) minmax(240px, 1fr);
+        gap: 18px;
+        margin-bottom: 26px;
+        padding: 28px;
+        overflow: hidden;
+        border: 1px solid #dbeafe;
+        border-radius: 24px;
+        background: #dbeafe;
+      }
+
+      .hero::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(circle at top left, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.18) 42%, transparent 62%),
+          linear-gradient(135deg, #eff6ff 0%, #dbeafe 42%, #c7d2fe 100%);
+      }
+
+      .hero > * {
+        position: relative;
+        z-index: 1;
+      }
+
+      .eyebrow {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #1d4ed8;
+      }
+
+      .lede {
+        color: #334155;
+        font-size: 15px;
+      }
+
+      .tag-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 18px;
+      }
+
+      .tag {
+        display: inline-block;
+        padding: 6px 10px;
+        border: 1px solid rgba(59, 130, 246, 0.18);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.78);
+        color: #1e3a8a;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .hero-panel {
+        padding: 18px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.72);
+      }
+
+      .hero-panel .label {
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .hero-panel .value {
+        margin-top: 8px;
+        font-size: 20px;
+        font-weight: 800;
+      }
+
+      .hero-panel ul {
+        margin: 16px 0 0;
+        padding-left: 18px;
+        color: #334155;
+      }
+
+      .metric-grid,
+      .feature-grid,
+      .rich-grid {
+        display: grid;
+        gap: 14px;
+      }
+
+      .metric-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        margin-bottom: 26px;
+      }
+
+      .metric-card {
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: linear-gradient(180deg, #ffffff, #f8fafc);
+        box-shadow: 0 10px 22px rgba(15, 23, 42, 0.05);
+      }
+
+      .metric-card .metric-label {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #475569;
+      }
+
+      .metric-card strong {
+        display: block;
+        margin-top: 6px;
+        font-size: 24px;
+        line-height: 1.2;
+      }
+
+      .metric-card span {
+        display: inline-block;
+        margin-top: 10px;
+        font-size: 13px;
+        font-weight: 600;
+      }
+
+      .positive {
+        color: #15803d;
+      }
+
+      .neutral {
+        color: #92400e;
+      }
+
+      .summary-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 2fr) minmax(240px, 1fr);
+        gap: 16px;
+      }
+
+      .card,
+      .note-card,
+      .rail-card,
+      .rich-card,
+      .timeline-card,
+      .division-box {
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: #ffffff;
+      }
+
+      .note-card,
+      .rail-card,
+      .rich-card,
+      .timeline-card {
+        padding: 18px;
+      }
+
+      .compact-list {
+        margin: 10px 0 0;
+        padding-left: 18px;
+      }
+
+      .card {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        padding: 14px;
+        background: #fcfcfd;
+      }
+
+      .card img {
+        width: 220px;
+        height: 140px;
+        flex: none;
+        border-radius: 10px;
+        object-fit: cover;
+        background: #dbeafe;
+      }
+
+      .badge-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      .badge {
+        padding: 4px 8px;
+        border-radius: 999px;
+        background: #eef2ff;
+        color: #3730a3;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .feature-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        margin: 14px 0 18px;
+      }
+
+      .feature-card {
+        position: relative;
+        min-height: 160px;
+        overflow: hidden;
+        border: 1px solid #cbd5e1;
+        border-radius: 16px;
+        color: #0f172a;
+      }
+
+      .feature-card::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+      }
+
+      .feature-card > div {
+        position: relative;
+        z-index: 1;
+        padding: 18px 20px;
+      }
+
+      .feature-card .feature-tag {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.78);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .gradient-card {
+        background: #eff6ff;
+      }
+
+      .gradient-card::before {
+        background-image: linear-gradient(180deg, #eff6ff 0%, #dbeafe 52%, #bfdbfe 100%);
+      }
+
+      .radial-card {
+        background: #e0f2fe;
+      }
+
+      .radial-card::before {
+        background-image: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.92), rgba(125, 211, 252, 0.72) 35%, rgba(14, 116, 144, 0.88) 100%);
+      }
+
+      .opacity-panel {
+        padding: 20px 22px;
+        border: 1px solid #cbd5e1;
+        border-radius: 16px;
+        background: #f8fafc;
+      }
+
+      .opacity-stack {
+        position: relative;
+        height: 180px;
+        margin-top: 12px;
+        overflow: hidden;
+        border-radius: 18px;
+        background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+      }
+
+      .opacity-base {
+        position: absolute;
+        inset: 0;
+        padding: 18px;
+        display: flex;
+        align-items: flex-end;
+        font-weight: 700;
+        background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.88), rgba(148, 163, 184, 0.4) 45%, rgba(51, 65, 85, 0.18) 100%);
+      }
+
+      .opacity-float {
+        position: absolute;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 18px;
+        font-weight: 700;
+        color: #0f172a;
+      }
+
+      .opacity-a {
+        top: 20px;
+        left: 28px;
+        width: 210px;
+        height: 92px;
+        background: #38bdf8;
+        opacity: 0.72;
+      }
+
+      .opacity-b {
+        right: 28px;
+        bottom: 22px;
+        width: 220px;
+        height: 104px;
+        background: #f59e0b;
+        opacity: 0.48;
+      }
+
+      .table-shell {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      thead th {
+        background: #f8fafc;
+        color: #334155;
+        font-size: 12px;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+
+      tbody tr:nth-child(even) td {
+        background: #fcfcfd;
+      }
+
+      tbody tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .cn-copy {
+        font-family: "SourceHanSansSC-Regular", sans-serif;
+      }
+
+      .callout {
+        margin: 16px 0 0;
+        padding: 18px 20px;
+        border-left: 4px solid #60a5fa;
+        border-radius: 12px;
+        background: #eff6ff;
+        color: #1e3a8a;
+      }
+
+      .two-column {
+        display: grid;
+        grid-template-columns: minmax(0, 1.75fr) minmax(220px, 0.95fr);
+        gap: 16px;
+      }
+
+      .stack {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .progress-row + .progress-row {
+        margin-top: 12px;
+      }
+
+      .progress-meta {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 6px;
+        font-size: 13px;
+        color: #334155;
+      }
+
+      .progress-track {
+        height: 10px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: #e2e8f0;
+      }
+
+      .progress-fill {
+        height: 100%;
+        border-radius: 999px;
+      }
+
+      .fill-a {
+        width: 84%;
+        background: linear-gradient(90deg, #2563eb, #60a5fa);
+      }
+
+      .fill-b {
+        width: 76%;
+        background: linear-gradient(90deg, #7c3aed, #a78bfa);
+      }
+
+      .fill-c {
+        width: 68%;
+        background: linear-gradient(90deg, #f59e0b, #fcd34d);
+      }
+
+      .clip-box {
+        position: relative;
+        height: 90px;
+        overflow: hidden;
+        padding: 10px 14px;
+        border: 1px dashed #9ca3af;
+        border-radius: 12px;
+        background: #fff7ed;
+      }
+
+      .spill {
+        margin-top: 18px;
+        padding: 24px;
+        border-radius: 8px;
+        background: #fde68a;
+      }
+
+      .division-box {
+        min-height: 150px;
+        padding: 18px;
+        background: linear-gradient(180deg, #ffffff, #f8fafc);
+      }
+
+      .rich-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .definition-list {
+        margin: 0;
+      }
+
+      .definition-list > div + div {
+        margin-top: 12px;
+      }
+
+      .definition-list dt {
+        font-weight: 700;
+      }
+
+      .definition-list dd {
+        margin: 4px 0 0;
+        color: #475569;
+      }
+
+      .report-code {
+        margin: 0;
+        padding: 14px 16px;
+        overflow: hidden;
+        border-radius: 14px;
+        background: #0b1020;
+        color: #dbeafe;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .report-code code {
+        padding: 0;
+        background: transparent;
+        color: inherit;
+      }
+
+      .doc ol {
+        padding-left: 22px;
+      }
+
+      .doc ol li {
+        margin: 3px 0;
+      }
+
+      .timeline-card {
+        margin-top: 16px;
+      }
+
+      .timeline {
+        position: relative;
+        margin-top: 12px;
+      }
+
+      .timeline::before {
+        content: "";
+        position: absolute;
+        top: 8px;
+        bottom: 8px;
+        left: 5px;
+        width: 2px;
+        background: #cbd5e1;
+      }
+
+      .timeline-item {
+        position: relative;
+        display: flex;
+        gap: 14px;
+      }
+
+      .timeline-item + .timeline-item {
+        margin-top: 14px;
+      }
+
+      .timeline-dot {
+        position: relative;
+        z-index: 1;
+        flex: none;
+        width: 12px;
+        height: 12px;
+        margin-top: 6px;
+        border: 2px solid #2563eb;
+        border-radius: 999px;
+        background: #ffffff;
+      }
+
+      .timeline-item p {
+        margin: 4px 0 0;
+        color: #475569;
+      }
+
+      body.dompdf-overlay #document * {
+        outline: 1px solid rgba(37, 99, 235, 0.35);
+      }
+
+      .dompdf-pagebreak {
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 0;
+        border-top: 1px dashed #ef4444;
+        z-index: 5;
+        pointer-events: none;
+      }
+
+      .dompdf-pagebreak::after {
+        content: "page break";
+        position: absolute;
+        top: -14px;
+        right: 0;
+        padding: 0 4px;
+        background: #ffffff;
+        color: #ef4444;
+        font-size: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="toolbar">
+      <div class="toolbar-title">
+        <strong>dompdf</strong>
+        <span>单文件示例：`examples/index.html` 通过 `&lt;script src="../dist/dompdf.js"&gt;&lt;/script&gt;` 直接使用</span>
+      </div>
+      <div class="spacer"></div>
+      <button id="btn-export">Export PDF</button>
+      <button id="btn-inspect">Inspect</button>
+      <button id="btn-overlay">Toggle Overlay</button>
+      <span id="status" class="status"></span>
+    </header>
+
+    <main>
+      <article id="document" class="doc">
+        <section class="hero">
+          <div>
+            <div class="eyebrow">Single HTML Demo</div>
+            <h1>dompdf Open-Source Example</h1>
+            <p class="lede">
+              这个页面本身就是演示文件。浏览器实时渲染 DOM，随后由
+              `dompdf` 收集快照，交给 Worker 和 Rust/WASM 输出 PDF。
+            </p>
+            <div class="tag-row">
+              <span class="tag">Single HTML</span>
+              <span class="tag">Script Tag</span>
+              <span class="tag">Worker + WASM</span>
+              <span class="tag">Bilingual Text</span>
+              <span class="tag">Pagination</span>
+            </div>
+          </div>
+          <aside class="hero-panel">
+            <div class="label">Pipeline</div>
+            <div class="value">DOM -> snapshot -> WASM -> PDF</div>
+            <ul>
+              <li>可选择文本</li>
+              <li>JPEG 图像嵌入</li>
+              <li>分页与页眉页脚</li>
+              <li>支持中文字体内嵌</li>
+            </ul>
+          </aside>
+        </section>
+
+        <section class="metric-grid" aria-label="Top metrics">
+          <div class="metric-card">
+            <div class="metric-label">Bundle Shape</div>
+            <strong>Rollup</strong>
+            <span class="positive">UMD + ESM</span>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Demo Mode</div>
+            <strong>1 HTML</strong>
+            <span class="positive">No Vite Required</span>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Render Core</div>
+            <strong>Rust/WASM</strong>
+            <span class="neutral">Single-file wasm inline</span>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">API Style</div>
+            <strong>Script Tag</strong>
+            <span class="positive">Global `dompdf`</span>
+          </div>
+        </section>
+
+        <h2>1. Summary</h2>
+        <div class="summary-grid">
+          <div>
+            <p>
+              当前示例聚焦于典型开源库形态：核心代码位于根目录 `src/`，
+              Rust/WASM 位于 `wasm/`，示例页面位于 `examples/`，并且通过
+              `dist/dompdf.js` 直接运行，不再依赖 Vite playground。
+            </p>
+            <p>
+              这个页面混合了图片、表格、渐变、透明度、长列表、强制分页与
+              `divisionDisable`，方便直接观察导出的 PDF 是否与 HTML 接近。
+            </p>
+          </div>
+          <aside class="note-card">
+            <h3>Use Case</h3>
+            <ul class="compact-list">
+              <li>验证打包后的 UMD 产物能直接在浏览器中使用。</li>
+              <li>作为 README / examples 中的基础接受测试页面。</li>
+              <li>展示中文字体、分页和视觉样式的综合能力。</li>
+            </ul>
+          </aside>
+        </div>
+
+        <h2>2. Media And Gradients</h2>
+        <div class="card">
+          <img id="sample-img" alt="generated chart" />
+          <div>
+            <h3>Canvas Chart To JPEG</h3>
+            <p>
+              这里的图片由浏览器端 canvas 动态生成，再以 JPEG 形式嵌入到 PDF 中，
+              用来验证图片对象、尺寸换算与输出稳定性。
+            </p>
+            <div class="badge-row">
+              <span class="badge">WAU +12%</span>
+              <span class="badge">Retention +6%</span>
+              <span class="badge">Latency -18%</span>
+            </div>
+          </div>
+        </div>
+        <div class="feature-grid">
+          <section class="feature-card gradient-card">
+            <div>
+              <span class="feature-tag">linear-gradient</span>
+              <h3>渐变背景卡片</h3>
+              <p>验证渐变背景被采样并导出到 PDF 后仍保留层次与过渡。</p>
+            </div>
+          </section>
+          <section class="feature-card radial-card">
+            <div>
+              <span class="feature-tag">radial-gradient</span>
+              <h3>径向渐变卡片</h3>
+              <p>验证更复杂的背景绘制与图层叠加效果。</p>
+            </div>
+          </section>
+        </div>
+
+        <h2>3. Opacity And Clipping</h2>
+        <section class="opacity-panel">
+          <h3>透明度叠层</h3>
+          <p>下方两块半透明色块用来验证节点透明度与叠加顺序。</p>
+          <div class="opacity-stack">
+            <div class="opacity-base">Base Layer</div>
+            <div class="opacity-float opacity-a">Opacity 0.72</div>
+            <div class="opacity-float opacity-b">Opacity 0.48</div>
+          </div>
+        </section>
+        <div class="clip-box">
+          <p>
+            这个容器带有 <code>overflow: hidden</code> 和圆角，溢出的子内容不应泄漏到裁剪区域之外。
+          </p>
+          <div class="spill">I am a child that overflows the clipped parent.</div>
+        </div>
+
+        <h2>4. Layout And Table</h2>
+        <div class="two-column">
+          <div class="stack">
+            <section class="rail-card">
+              <h3>Rollup Build Notes</h3>
+              <p>
+                UMD 产物用于 `&lt;script&gt;` 直接引入；ESM 产物用于现代构建工具。worker
+                通过 Rollup 内联，wasm 则在构建时转换成 base64 常量。
+              </p>
+            </section>
+            <section class="rail-card">
+              <h3>Initiative Health</h3>
+              <div class="progress-row">
+                <div class="progress-meta"><span>Snapshot fidelity</span><strong>84%</strong></div>
+                <div class="progress-track"><div class="progress-fill fill-a"></div></div>
+              </div>
+              <div class="progress-row">
+                <div class="progress-meta"><span>Pagination stability</span><strong>76%</strong></div>
+                <div class="progress-track"><div class="progress-fill fill-b"></div></div>
+              </div>
+              <div class="progress-row">
+                <div class="progress-meta"><span>Typography coverage</span><strong>68%</strong></div>
+                <div class="progress-track"><div class="progress-fill fill-c"></div></div>
+              </div>
+            </section>
+          </div>
+          <aside class="rail-card">
+            <h3>Risk Memo</h3>
+            <p>
+              这个区块故意组合了表格、长文本、分页和样式卡片，便于发现布局、分页、
+              背景与字体上的回归问题。
+            </p>
+          </aside>
+        </div>
+        <div class="table-shell">
+          <table aria-label="copyable bilingual table">
+            <thead>
+              <tr>
+                <th class="cn-copy">字段</th>
+                <th class="cn-copy">内容</th>
+                <th class="cn-copy">结构特征</th>
+                <th class="cn-copy">复制预期</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="cn-copy">项目名称</td>
+                <td class="cn-copy">城市更新试点 2026 / Urban Renewal Pilot</td>
+                <td class="cn-copy">中英混排 + 年份数字</td>
+                <td class="cn-copy">中英文都应可选中并按原顺序复制</td>
+              </tr>
+              <tr>
+                <td class="cn-copy">负责人</td>
+                <td class="cn-copy">张明明 · PMO-17</td>
+                <td class="cn-copy">中文姓名 + 英文缩写</td>
+                <td class="cn-copy">中文姓名、数字与短横线不应丢字</td>
+              </tr>
+              <tr>
+                <td class="cn-copy">状态摘要</td>
+                <td class="cn-copy">已完成 81%，风险等级 Low，下一里程碑 2026-09-30</td>
+                <td class="cn-copy">百分比 + 英文等级 + 日期</td>
+                <td class="cn-copy">百分比、日期、英文单词应保持连续可复制</td>
+              </tr>
+              <tr>
+                <td class="cn-copy">验收说明</td>
+                <td class="cn-copy">复制后应得到完整表格文本，不应出现乱码、换序或缺字。</td>
+                <td class="cn-copy">完整句子 + 中文标点</td>
+                <td class="cn-copy">验证 PDF ToUnicode 映射</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <blockquote class="callout cn-copy">
+          本段用于验证中文字体嵌入后的可搜索、可复制能力，以及中英文混排时的换行与字符映射。
+        </blockquote>
+
+        <h2>5. Rich Text</h2>
+        <div class="rich-grid">
+          <section class="rich-card">
+            <h3>Definition List</h3>
+            <dl class="definition-list">
+              <div>
+                <dt>Snapshot</dt>
+                <dd>Resolved DOM geometry, text runs, and image payloads gathered on the main thread.</dd>
+              </div>
+              <div>
+                <dt>Pagination</dt>
+                <dd>WASM-side page assignment that treats each text line as the minimum unsplittable unit.</dd>
+              </div>
+              <div>
+                <dt>Emission</dt>
+                <dd>PDF object generation without third-party PDF libraries.</dd>
+              </div>
+            </dl>
+          </section>
+          <section class="rich-card">
+            <h3>Preformatted Flow</h3>
+            <pre class="report-code"><code>render(root)
+  -> collectSnapshotData(root)
+  -> encodeSnapshot(data)
+  -> worker.postMessage(snapshot)
+  -> wasm.render_pdf(snapshot)
+  -> Blob(application/pdf)</code></pre>
+          </section>
+        </div>
+
+        <h2>6. Pagination Tests</h2>
+        <p>
+          下面的列表被故意拉长，用来观察分页位置。每一条文本行是最小不可拆分单元，
+          跨页时应整体移到下一页，而不是被腰斩。
+        </p>
+        <ol id="long-list"></ol>
+        <div class="timeline-card" pageBreak>
+          <h3>Forced Page Break Card</h3>
+          <div class="timeline">
+            <div class="timeline-item">
+              <div class="timeline-dot"></div>
+              <div>
+                <strong>Week 1</strong>
+                <p>Lock snapshot schema and code layout after the project structure refactor.</p>
+              </div>
+            </div>
+            <div class="timeline-item">
+              <div class="timeline-dot"></div>
+              <div>
+                <strong>Week 2</strong>
+                <p>Validate build output, worker bundling, and inline wasm distribution.</p>
+              </div>
+            </div>
+            <div class="timeline-item">
+              <div class="timeline-dot"></div>
+              <div>
+                <strong>Week 3</strong>
+                <p>Audit long content, clipping, opacity, and bilingual text selection.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="division-box cn-copy" divisionDisable>
+          <h3>divisionDisable 测试块</h3>
+          <p>
+            这个容器带有 <code>divisionDisable</code> 属性。跨页时它会被整体移动到下一页，
+            不应在中间被拆开。这里放入更长的说明文字、边框和背景，便于观察整体迁移效果。
+          </p>
+          <p>
+            如果这个卡片在页边界被切开，就说明复杂容器在分页上的边界处理仍存在问题。
+          </p>
+        </div>
+      </article>
+    </main>
+
+    <script src="../dist/dompdf.js"></script>
+    <script>
+      (function () {
+        var api = window.dompdf;
+        var statusEl = document.getElementById("status");
+        var doc = document.getElementById("document");
+        var overlayOn = false;
+        var sharedFontConfig = {
+          fontFamily: "SourceHanSansSC-Regular",
+          fontStyle: "normal",
+          fontWeight: 400,
+        };
+
+        if (!api) {
+          setStatus("dist/dompdf.js 未找到，请先执行 npm run build。");
+          return;
+        }
+
+        function setStatus(text) {
+          statusEl.textContent = text;
+        }
+
+        function formatDuration(ms) {
+          if (ms < 1000) return Math.round(ms) + "ms";
+          return (ms / 1000).toFixed(2) + "s";
+        }
+
+        function currentOptions() {
+          return {
+            format: "a4",
+            pagination: true,
+            marginPt: 0,
+            backgroundColor: "#ffffff",
+            useCORS: true,
+            fontConfig: sharedFontConfig,
+            pageConfig: {
+              header: {
+                content: "dompdf · Single HTML Demo",
+                height: 50,
+                contentColor: "#334155",
+                contentFontSize: 12,
+                contentPosition: "center",
+                padding: [0, 0, 0, 0],
+              },
+              footer: {
+                content: "第 ${currentPage} 页 / 共 ${totalPages} 页",
+                height: 48,
+                contentColor: "#475569",
+                contentFontSize: 11,
+                contentPosition: "center",
+                padding: [0, 0, 0, 0],
+              },
+            },
+          };
+        }
+
+        function buildLongList() {
+          var list = document.getElementById("long-list");
+          var items = [
+            "Define the snapshot contract before touching PDF bytes.",
+            "Collect rects in document space instead of viewport space.",
+            "Slice text nodes into line boxes with UTF-8 offsets.",
+            "Push heavy work into a Web Worker to keep the main thread responsive.",
+            "Treat each line as the minimum unsplittable pagination unit.",
+            "Clip overflow:hidden subtrees so decorative layers do not bleed out.",
+            "Embed CID fonts for Chinese copy and mixed-language paragraphs.",
+            "Keep the emitted PDF structure inspectable without third-party PDF libraries.",
+            "Compare output in Chrome, Acrobat, and Preview for stability checks.",
+          ];
+          for (var i = 0; i < 72; i += 1) {
+            var li = document.createElement("li");
+            li.textContent = (i + 1) + ". " + items[i % items.length];
+            list.appendChild(li);
+          }
+        }
+
+        function createChartDataUrl() {
+          var width = 440;
+          var height = 280;
+          var canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          var ctx = canvas.getContext("2d");
+          var bg = ctx.createLinearGradient(0, 0, width, height);
+          var data = [40, 75, 55, 90, 65, 110, 85];
+          var barWidth = 36;
+          var gap = 16;
+          var x = 56;
+
+          bg.addColorStop(0, "#1e3a8a");
+          bg.addColorStop(1, "#0ea5e9");
+          ctx.fillStyle = bg;
+          ctx.fillRect(0, 0, width, height);
+
+          ctx.strokeStyle = "rgba(255,255,255,0.15)";
+          ctx.lineWidth = 1;
+          for (var y = 40; y < height - 20; y += 40) {
+            ctx.beginPath();
+            ctx.moveTo(40, y);
+            ctx.lineTo(width - 20, y);
+            ctx.stroke();
+          }
+
+          ctx.fillStyle = "#fde68a";
+          for (var i = 0; i < data.length; i += 1) {
+            var barHeight = data[i] * 1.6;
+            ctx.fillRect(x, height - 30 - barHeight, barWidth, barHeight);
+            x += barWidth + gap;
+          }
+
+          ctx.strokeStyle = "#ffffff";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(40, height - 30);
+          ctx.lineTo(width - 20, height - 30);
+          ctx.stroke();
+
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "bold 16px sans-serif";
+          ctx.fillText("Weekly engagement", 40, 24);
+          return canvas.toDataURL("image/jpeg", 0.9);
+        }
+
+        function clearOverlay() {
+          document.body.classList.remove("dompdf-overlay");
+          var oldBreaks = document.querySelectorAll(".dompdf-pagebreak");
+          for (var i = 0; i < oldBreaks.length; i += 1) {
+            oldBreaks[i].remove();
+          }
+          overlayOn = false;
+        }
+
+        function drawOverlay() {
+          clearOverlay();
+          document.body.classList.add("dompdf-overlay");
+          if (getComputedStyle(doc).position === "static") {
+            doc.style.position = "relative";
+          }
+          var breaks = api.computePageBreaks(doc, currentOptions());
+          for (var i = 0; i < breaks.length; i += 1) {
+            var line = document.createElement("div");
+            line.className = "dompdf-pagebreak";
+            line.style.top = breaks[i] + "px";
+            doc.appendChild(line);
+          }
+          overlayOn = true;
+          setStatus(breaks.length + " page breaks drawn.");
+        }
+
+        function withBusy(fn) {
+          var controls = document.querySelectorAll("button");
+          for (var i = 0; i < controls.length; i += 1) {
+            controls[i].disabled = true;
+          }
+          setStatus("working...");
+          return fn().finally(function () {
+            for (var j = 0; j < controls.length; j += 1) {
+              controls[j].disabled = false;
+            }
+          });
+        }
+
+        function loadFont() {
+          return fetch("./SourceHanSansSC-Regular.ttf")
+            .then(function (res) {
+              if (!res.ok) {
+                throw new Error("failed to load Chinese font: HTTP " + res.status);
+              }
+              return res.arrayBuffer();
+            })
+            .then(function (buf) {
+              sharedFontConfig.fontBytes = new Uint8Array(buf);
+            });
+        }
+
+        function wireButtons() {
+          document.getElementById("btn-export").addEventListener("click", function () {
+            var startedAt = performance.now();
+            withBusy(function () {
+              return api(doc, currentOptions()).then(function (blob) {
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement("a");
+                a.href = url;
+                a.download = "dompdf-single-file-demo.pdf";
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(function () {
+                  URL.revokeObjectURL(url);
+                }, 2000);
+              });
+            })
+              .then(function () {
+                setStatus("PDF downloaded in " + formatDuration(performance.now() - startedAt) + ".");
+              })
+              .catch(function (err) {
+                setStatus("error: " + err.message);
+                console.error(err);
+              });
+          });
+
+          document.getElementById("btn-inspect").addEventListener("click", function () {
+            withBusy(function () {
+              return api.inspect(doc, currentOptions());
+            })
+              .then(function (summary) {
+                setStatus(summary.split("\n")[0]);
+                console.log(summary);
+              })
+              .catch(function (err) {
+                setStatus("error: " + err.message);
+                console.error(err);
+              });
+          });
+
+          document.getElementById("btn-overlay").addEventListener("click", function () {
+            if (overlayOn) {
+              clearOverlay();
+              setStatus("overlay removed.");
+              return;
+            }
+            try {
+              drawOverlay();
+            } catch (err) {
+              setStatus("error: " + err.message);
+              console.error(err);
+            }
+          });
+        }
+
+        buildLongList();
+        document.getElementById("sample-img").src = createChartDataUrl();
+        loadFont()
+          .then(function () {
+            setStatus("ready");
+          })
+          .catch(function (err) {
+            setStatus("font load warning: " + err.message);
+            console.warn(err);
+          })
+          .finally(function () {
+            wireButtons();
+          });
+      })();
+    </script>
+  </body>
+</html>

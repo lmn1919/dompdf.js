@@ -4,15 +4,15 @@
  *
  * 运行：node scripts/diagnose.mjs
  *
- * Binary Snapshot v3 格式必须匹配 packages/dom2pdf-wasm/src/snapshot.rs
+ * Binary Snapshot v3 格式必须匹配 wasm/src/snapshot.rs
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const wasmPath = resolve(__dirname, '../packages/dom2pdf-wasm/pkg/dom2pdf_wasm.wasm');
-const fontPath = resolve(__dirname, '../apps/playground/public/SourceHanSansSC-Regular.ttf');
+const wasmPath = resolve(__dirname, '../wasm/pkg/dompdf_wasm.wasm');
+const fontPath = resolve(__dirname, '../examples/SourceHanSansSC-Regular.ttf');
 const sharedFontBytes = new Uint8Array(readFileSync(fontPath));
 const sharedFonts = [{
   family: 'SourceHanSansSC-Regular',
@@ -22,7 +22,7 @@ const sharedFonts = [{
   bytes: sharedFontBytes,
 }];
 
-// ---- BinWriter (mirror of packages/dom2pdf/src/format.ts) ----
+// ---- BinWriter (mirror of src/format.ts) ----
 class BinWriter {
   constructor(size = 4096) {
     this.pos = 0;
@@ -311,7 +311,7 @@ function buildReportSnapshot() {
 
   // object-form pageConfig → static HF (Rust resolves ${currentPage}/${totalPages})
   const staticHeader = {
-    content: 'dom2pdf · 季度产品报告',
+    content: 'dompdf · 季度产品报告',
     heightPx: 50, color: [0.2,0.2,0.2,1], fontSizePx: 12,
     position: 0, padding: [0,0,0,0],
   };
@@ -397,7 +397,7 @@ function buildDemo1Snapshot() {
   const perPageHF = [
     [null, null], // page 1
     [
-      { content: 'dom2pdf · demo1 · 2/2', heightPx: 50, color: [0.2,0.2,0.2,1],
+      { content: 'dompdf · demo1 · 2/2', heightPx: 50, color: [0.2,0.2,0.2,1],
         fontSizePx: 12, position: 0, padding: [0,0,0,0] },
       { content: 'Page 2 / 2', heightPx: 50, color: [0.2,0.2,0.2,1],
         fontSizePx: 12, position: 0, padding: [0,0,0,0] },
@@ -490,7 +490,7 @@ function buildInteractiveSnapshot() {
   // function-form pageConfig: page 1 hero header; page 2+ compact header + footer
   const perPageHF = [
     [
-      { content: 'dom2pdf · Interactive Demo', heightPx: 52, color: [0.2,0.25,0.33,1],
+      { content: 'dompdf · Interactive Demo', heightPx: 52, color: [0.2,0.25,0.33,1],
         fontSizePx: 12, position: 0, padding: [0,0,0,0] },
       null,
     ],
