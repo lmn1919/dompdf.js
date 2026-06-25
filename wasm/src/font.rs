@@ -191,6 +191,45 @@ pub struct FontCtx {
     pub by_family: HashMap<String, Vec<usize>>,
 }
 
+fn score_cid_font(cf: &CidFont, weight: u16, italic: u8) -> i32 {
+    let mut score = 1;
+    if cf.weight == weight {
+        score += 4;
+    } else if (cf.weight >= 700) == (weight >= 700) {
+        score += 2;
+    }
+    if cf.italic == italic {
+        score += 2;
+    }
+    score
+}
+
+fn prefers_cid_fallback_family(family: &str) -> bool {
+    let fam_lc = family.trim().trim_matches('"').trim_matches('\'').to_lowercase();
+    matches!(
+        fam_lc.as_str(),
+        "-apple-system"
+            | "blinkmacsystemfont"
+            | "system-ui"
+            | "ui-sans-serif"
+            | "sans-serif"
+            | "segoe ui"
+            | "roboto"
+            | "ubuntu"
+            | "cantarell"
+            | "noto sans"
+            | "helvetica neue"
+            | "pingfang sc"
+            | "hiragino sans gb"
+            | "microsoft yahei"
+            | "microsoft yahei ui"
+            | "wenquanyi micro hei"
+            | "source han sans sc"
+            | "sourcehansanssc-regular"
+            | "arial"
+    )
+}
+
 impl FontCtx {
     pub fn build(resources: &[FontResource]) -> Result<FontCtx, String> {
         let mut cid: Vec<CidFont> = Vec::new();
@@ -229,18 +268,10 @@ impl FontCtx {
         let fam_lc = family.to_lowercase();
         let idxs = self.by_family.get(&fam_lc)?;
         let mut best = idxs[0];
-        let mut best_score = 0;
+        let mut best_score = i32::MIN;
         for &i in idxs.iter() {
             let cf = &self.cid[i];
-            let mut score = 1;
-            if cf.weight == weight {
-                score += 4;
-            } else if (cf.weight >= 700) == (weight >= 700) {
-                score += 2;
-            }
-            if cf.italic == italic {
-                score += 2;
-            }
+            let score = score_cid_font(cf, weight, italic);
             if score > best_score {
                 best_score = score;
                 best = i;
@@ -252,6 +283,26 @@ impl FontCtx {
     /// Select the first registered CID font (for header/footer fallback).
     pub fn first_cid(&self) -> Option<&CidFont> {
         self.cid.first()
+    }
+
+    /// Select the most compatible CID font across all registered resources.
+    pub fn fallback_cid(&self, weight: u16, italic: u8) -> Option<&CidFont> {
+        let mut best_idx = None;
+        let mut best_score = i32::MIN;
+        for (idx, cf) in self.cid.iter().enumerate() {
+            let score = score_cid_font(cf, weight, italic);
+            if score > best_score {
+                best_score = score;
+                best_idx = Some(idx);
+            }
+        }
+        best_idx.map(|idx| &self.cid[idx])
+    }
+
+    /// Prefer a registered CID font for common UI/CJK family stacks so browser and
+    /// PDF text stay on the same embedded font instead of drifting to Helvetica.
+    pub fn prefers_cid_fallback(&self, family: &str) -> bool {
+        !self.cid.is_empty() && prefers_cid_fallback_family(family)
     }
 
     pub fn prepare_subset_maps(&self) {

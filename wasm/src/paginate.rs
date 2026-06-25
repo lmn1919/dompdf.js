@@ -984,7 +984,13 @@ fn select_cid_font<'a>(
 ) -> Option<&'a CidFont> {
     fontctx
         .select(family, weight, italic)
-        .or_else(|| if has_non_latin(text) { fontctx.first_cid() } else { None })
+        .or_else(|| {
+            if fontctx.prefers_cid_fallback(family) || has_non_latin(text) {
+                fontctx.fallback_cid(weight, italic)
+            } else {
+                None
+            }
+        })
 }
 
 fn collect_used_cid_run(fontctx: &FontCtx, family: &str, weight: u16, italic: u8, text: &str) {
