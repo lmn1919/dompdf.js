@@ -1,15 +1,18 @@
 {
-  "generatedAt": "2026-06-25T02:40:56.836Z",
+  "generatedAt": "2026-06-25T10:12:39.636Z",
   "entries": {
     "examples-document": {
-      "aggregateMismatchRatio": 0.12352350958456014,
-      "maxMismatchRatio": 0.12352350958456014,
-      "discrepancyCount": 21
+      "aggregateMismatchRatio": 0.07817598411692919,
+      "maxMismatchRatio": 0.07817598411692919,
+      "discrepancyCount": 7
     }
   },
   "categories": {
-    "font-encoding": 195,
-    "text-y-drift": 21,
-    "image": 0
+    "wrap": 77,
+    "border": 9,
+    "bg-color": 8,
+    "text-x-drift": 5,
+    "transform": 2,
+    "icon": 2
   }
 }

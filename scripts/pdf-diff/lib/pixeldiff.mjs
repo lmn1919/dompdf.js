@@ -106,6 +106,10 @@ export async function pixelDiffPages({
 }) {
   const totalPages = pageLimit > 0 ? Math.min(pageLimit, renderedPages.numPages) : renderedPages.numPages;
   const pages = [];
+  // Normalized content-box rasters (same px space for both sides), kept OUT of
+  // `pages` so they are not serialized into report.json. The Tier 2b visual diff
+  // samples per-element regions from these without re-rasterizing.
+  const pageImages = [];
   for (let i = 0; i < totalPages; i += 1) {
     const expectedBuffer = await createExpectedPageImage(htmlScreenshotBuffer, meta, metrics, i);
     const actualBuffer = await normalizePdfContentImage(renderedPages.pages[i].buffer, metrics);
@@ -121,10 +125,11 @@ export async function pixelDiffPages({
       mismatchRatio: diffResult.mismatchRatio,
       size: { height: diffResult.height, width: diffResult.width },
     });
+    pageImages.push({ pageNumber: i + 1, expectedBuffer, actualBuffer });
   }
   const aggregateMismatchRatio = pages.length > 0
     ? pages.reduce((sum, item) => sum + item.mismatchRatio, 0) / pages.length
     : 0;
   const maxMismatchRatio = pages.reduce((max, item) => Math.max(max, item.mismatchRatio), 0);
-  return { pages, comparedPages: totalPages, aggregateMismatchRatio, maxMismatchRatio };
+  return { pages, pageImages, comparedPages: totalPages, aggregateMismatchRatio, maxMismatchRatio };
 }

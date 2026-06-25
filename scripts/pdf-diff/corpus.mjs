@@ -15,6 +15,20 @@ export function defaultCorpus({ port = 4173 } = {}) {
   ];
 }
 
+// Default output root: `<domain>-<YYYY-MM-DD>` (e.g. juejin.cn-2026-06-25).
+// Domain comes from the target URL's hostname; the local default corpus has no
+// URL, so it falls back to `local`. Note: same domain + same day reuses the same
+// folder, so a re-run overwrites that day's per-entry artifacts.
+export function defaultOutRoot(options, baseDir = resolve(rootDir, 'tmp', 'pdf-diff')) {
+  const date = new Date().toISOString().slice(0, 10);
+  let domain = 'local';
+  if (options.url) {
+    try { domain = new URL(options.url).hostname || 'local'; } catch { domain = 'local'; }
+  }
+  domain = domain.replace(/[^a-zA-Z0-9._-]/g, '_');
+  return resolve(baseDir, `${domain}-${date}`);
+}
+
 export function parseCorpusArgs(argv) {
   const options = {
     url: '',

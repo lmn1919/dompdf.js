@@ -11,6 +11,7 @@
 | 0 参照对 | dompdf `actual.pdf` + Chromium `ref.pdf` + `oracle.json`(Range 文本盒) + `inspect.txt` | `actual.pdf`/`ref.pdf`/`html-source.png`/`oracle.json`/`inspect.txt` |
 | 1 粗指标 | 两 PDF 栅格化 pixelmatch（回归闸门） | `report.json` tier1，`*-page-*.png` |
 | 2 结构化 diff | pdfjs `getTextContent` ↔ Range 真值，逐项 `Δx/Δy/ΔfontSize` | `report.json` tier2（discrepancies） |
+| 2b 非文本视觉 diff | oracle 元素盒子(背景色/边框/阴影/图标)↔ 归一化栅格区域采样 | `report.json` tier2b（discrepancies） |
 | 3 根因分类 | 差异模式 → 类别 → 疑似 Rust/WASM 核心方法 | `report.json` tier3（categories） |
 | 4 修复闭环 | 半自动：跑全流程 → `fix-suggestions.{md,json}`；`--watch` 重建后打印 accept/regress | `tmp/pdf-diff-runs/fix-suggestions.md` |
 
@@ -98,6 +99,10 @@ MCP server 是手写 JSON-RPC over stdio，**无新依赖**。
 | image | `wasm/src/snapshot.rs::Image` / `paginate.rs` 渲染 / CORS |
 | transform | `wasm/src/paginate.rs` 变换矩阵 / `snapshot.ts` transform |
 | wrap | `wasm/src/paginate.rs` 断行 / `font.rs` 测量 |
+| bg-color | `src/snapshot.ts` 背景色采集 / `paginate.rs` 矩形填充·alpha |
+| border | `src/snapshot.ts` 边框采集 / `paginate.rs` 描边 |
+| shadow | `src/snapshot.ts` box-shadow 采集 / `paginate.rs` 阴影绘制(可能未实现) |
+| icon | `wasm/src/snapshot.rs::Image` / `paginate.rs` 图像·SVG 渲染 / useCORS |
 
 ## 注意
 

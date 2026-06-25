@@ -12,10 +12,14 @@ export function buildReport({
   normalizedFont,
   pixelDiff,
   textDiff,
+  visualDiff,
   categories,
   pageCount,
 }) {
-  const status = (pixelDiff?.maxMismatchRatio || 0) <= 0.015 && (textDiff?.summary?.discrepancyCount || 0) <= 10
+  const visualCount = visualDiff?.summary?.discrepancyCount || 0;
+  const status = (pixelDiff?.maxMismatchRatio || 0) <= 0.015
+    && (textDiff?.summary?.discrepancyCount || 0) <= 10
+    && visualCount <= 10
     ? 'pass'
     : 'needs-review';
   return {
@@ -34,12 +38,14 @@ export function buildReport({
       },
     },
     tier2: textDiff,
+    tier2b: visualDiff,
     tier3: { categories },
     summary: {
       status,
       aggregateMismatchRatio: pixelDiff?.aggregateMismatchRatio || 0,
       maxMismatchRatio: pixelDiff?.maxMismatchRatio || 0,
       discrepancyCount: textDiff?.summary?.discrepancyCount || 0,
+      visualDiscrepancyCount: visualCount,
       topCategories: (categories || []).slice(0, 3).map((c) => ({
         category: c.category,
         severity: c.severity,
@@ -66,6 +72,7 @@ export function buildAggregateReport({ entries, generatedAt }) {
     aggregateMismatchRatio: e.report.summary.aggregateMismatchRatio,
     maxMismatchRatio: e.report.summary.maxMismatchRatio,
     discrepancyCount: e.report.summary.discrepancyCount,
+    visualDiscrepancyCount: e.report.summary.visualDiscrepancyCount || 0,
     topCategories: e.report.summary.topCategories,
     outDir: e.outDir,
   }));

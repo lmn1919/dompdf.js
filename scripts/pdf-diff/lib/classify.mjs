@@ -13,6 +13,10 @@ const SUSPECTED = {
   'font-family': { file: 'wasm/src/font.rs', fn: 'font selection / CID embedding', also: 'wasm/src/ttf.rs' },
   'font-encoding': { file: 'wasm/src/font.rs', fn: 'encode_winansi / ToUnicode', also: 'wasm/src/ttf.rs (cmap) / paginate.rs (text stream)' },
   color: { file: 'src/snapshot.ts', fn: 'color parsing', also: 'wasm/src/paginate.rs (alpha compositing)' },
+  'bg-color': { file: 'src/snapshot.ts', fn: 'background-color capture', also: 'wasm/src/paginate.rs (rect fill / alpha)' },
+  border: { file: 'src/snapshot.ts', fn: 'border capture', also: 'wasm/src/paginate.rs (border stroke)' },
+  shadow: { file: 'src/snapshot.ts', fn: 'box-shadow capture', also: 'wasm/src/paginate.rs (shadow paint — may be unimplemented)' },
+  icon: { file: 'wasm/src/snapshot.rs', fn: 'Image', also: 'wasm/src/paginate.rs (image/svg render) / useCORS' },
   image: { file: 'wasm/src/snapshot.rs', fn: 'Image', also: 'wasm/src/paginate.rs (image render) / useCORS' },
   transform: { file: 'wasm/src/paginate.rs', fn: 'transform matrix', also: 'src/snapshot.ts (transform capture)' },
   wrap: { file: 'wasm/src/paginate.rs', fn: 'line breaking', also: 'wasm/src/font.rs text_width_units' },
@@ -26,6 +30,10 @@ const HINTS = {
   'font-family': 'A different font/glyph set is embedded than the page uses. Check font.rs font selection and CID-font embedding; confirm the injected FontConfig reached the WASM side.',
   'font-encoding': 'Text is visible in the PDF but not extractable (many oracle lines have no matching PDF text item, yet pixel mismatch is low). The text stream lacks a usable ToUnicode / character encoding. Check font.rs::encode_winansi and the CID font ToUnicode mapping, and ttf.rs cmap handling.',
   color: 'Colors differ while text positions align. Check color parsing in src/snapshot.ts and alpha compositing in paginate.rs.',
+  'bg-color': "An element's painted background color diverges from the browser (located per element, ΔE in Lab). Check background-color capture in src/snapshot.ts and rect fill/alpha in paginate.rs.",
+  border: "An element's border color/presence diverges from the browser at the box edge. Check border capture in src/snapshot.ts and border stroking in paginate.rs.",
+  shadow: 'The dompdf raster lacks the box-shadow the browser paints just outside the box. Likely box-shadow is unimplemented in paginate.rs (or not captured in snapshot.ts). Low confidence / known gap.',
+  icon: 'An icon region (img/svg/background-image) differs from the browser (localized pixel mismatch). Check Image capture in snapshot.rs, image/SVG placement in paginate.rs, and CORS/useCORS handling.',
   image: 'Image missing or misplaced. Check Image capture in snapshot.rs, image placement in paginate.rs, and CORS/useCORS handling.',
   transform: 'Whole subtree is shifted by a constant Δx/Δy. Check the transform matrix application in paginate.rs and transform capture in src/snapshot.ts.',
   wrap: 'Text wraps differently (many unmatched actual/oracle items). Check line-breaking in paginate.rs and the text-width measurement feeding it.',
@@ -57,7 +65,7 @@ function pearson(xs, ys) {
   return den === 0 ? 0 : num / den;
 }
 
-export function classify({ textDiff, pixelDiff, inspectText, meta }) {
+export function classify({ textDiff, pixelDiff, visualDiff, inspectText, meta }) {
   const categories = [];
   const discrepancies = textDiff?.discrepancies || [];
   const summary = textDiff?.summary || {};
@@ -102,29 +110,47 @@ export function classify({ textDiff, pixelDiff, inspectText, meta }) {
   }
 
   // Global: text rendered but not extractable. Many oracle lines have no match
-  // in the PDF text stream while pixel mismatch stays low → the content is drawn
-  // but lacks a usable ToUnicode/encoding. Distinct from genuine reflow (wrap).
+  // in the PDF text stream while pixel mismatch stays low → the content may be
+  // drawn without a usable ToUnicode/encoding. BUT a high charCoverage means the
+  // characters *are* present in the extracted stream and the unmatched lines are
+  // only a wrap/segmentation difference (logical oracle lines vs pdfjs Tj runs),
+  // not an encoding bug — so only call it font-encoding when coverage is low.
   const unmatchedActual = summary.unmatchedActual || 0;
   const unmatchedOracle = summary.unmatchedOracle || 0;
   const oracleItems = summary.oracleItems || 1;
   const aligned = summary.aligned || 1;
   const pixelMismatch = pixelDiff?.aggregateMismatchRatio || 0;
-  if (unmatchedOracle / oracleItems > 0.3 && pixelMismatch < 0.3) {
+  const charCoverage = summary.charCoverage ?? 1;
+  const manyUnmatchedOracle = unmatchedOracle / oracleItems > 0.3;
+  if (manyUnmatchedOracle && pixelMismatch < 0.3 && charCoverage < 0.6) {
     categories.push(makeCategory('font-encoding', unmatchedOracle, 0, {
       kind: 'unextractable-text',
       unmatchedOracle,
       oracleItems,
       aligned,
+      charCoverage,
       aggregateMismatchRatio: round(pixelMismatch),
       note: 'Content is visually present (low pixel mismatch) but missing from the PDF text stream — suspect ToUnicode/encoding, not layout.',
     }));
-  } else if (unmatchedActual / aligned > 0.15 || unmatchedOracle / oracleItems > 0.3) {
-    categories.push(makeCategory('wrap', unmatchedActual, 0, {
+  } else if (unmatchedActual / aligned > 0.15 || manyUnmatchedOracle) {
+    const cat = makeCategory('wrap', unmatchedActual, 0, {
       kind: 'unmatched-ratio',
       unmatchedActual,
       unmatchedOracle,
       aligned,
-    }));
+      charCoverage,
+      note: charCoverage >= 0.6
+        ? 'Characters are present in the extracted text (high charCoverage); unmatched lines are a wrap/segmentation difference between logical oracle lines and pdfjs Tj runs, not missing text.'
+        : 'Text wraps/segments differently from the oracle.',
+    });
+    // Severity of a wrap/segmentation difference is set by its VISUAL impact, not
+    // by the raw count of unmatched segments (which the oracle's overlapping
+    // per-word rects inflate). If the characters are present and the page barely
+    // moves pixels, differently-wrapped text reads the same — that's cosmetic.
+    cat.severity = charCoverage < 0.6
+      ? 'high'
+      : pixelMismatch >= 0.2 ? 'high' : pixelMismatch >= 0.08 ? 'medium' : 'low';
+    categories.push(cat);
   }
 
   // font-size drift correlation: ΔfontSize grows with fontSize?
@@ -173,9 +199,32 @@ export function classify({ textDiff, pixelDiff, inspectText, meta }) {
     categories.push(c);
   }
 
+  // Tier 2b — non-text visual diffs (bg-color / border / shadow / icon), already
+  // located per element by visualdiff. Each kind becomes one category, with the
+  // raw per-element findings as samples.
+  const visualByKind = {};
+  for (const d of visualDiff?.discrepancies || []) {
+    if (!visualByKind[d.kind]) visualByKind[d.kind] = [];
+    visualByKind[d.kind].push(d);
+  }
+  const meanDeltaE = visualDiff?.summary?.meanDeltaE || 0;
+  for (const [kind, discs] of Object.entries(visualByKind)) {
+    const cat = makeCategory(kind, discs.length, 0, {
+      kind: 'per-element',
+      count: discs.length,
+      meanDeltaE: kind === 'bg-color' ? meanDeltaE : undefined,
+    });
+    // shadow is a known low-confidence gap; never escalate it on count alone.
+    if (kind === 'shadow') cat.severity = 'low';
+    else cat.severity = discs.length >= 20 ? 'high' : discs.length >= 5 ? 'medium' : 'low';
+    cat.samples = discs.slice(0, 5);
+    categories.push(cat);
+  }
+  const hasLocatedBgColor = Boolean(visualByKind['bg-color']);
+
   // color / image / font-family: low-confidence, driven by pixel mismatch + inspect.
   const textDeltaSmall = Math.abs(summary.meanDx) < 2 && Math.abs(summary.meanDy) < 2 && (summary.discrepancyCount || 0) < 10;
-  if (pixelMismatch > 0.03 && textDeltaSmall) {
+  if (pixelMismatch > 0.03 && textDeltaSmall && !hasLocatedBgColor) {
     categories.push(makeCategory('color', 0, 0, {
       kind: 'inferred-from-pixels',
       aggregateMismatchRatio: round(pixelMismatch),
@@ -184,7 +233,7 @@ export function classify({ textDiff, pixelDiff, inspectText, meta }) {
   }
 
   const hasImages = /imageId/i.test(inspectText || '') || /<img/i.test(String(meta?.selector || ''));
-  if (hasImages && pixelMismatch > 0.05) {
+  if (hasImages && pixelMismatch > 0.05 && !visualByKind.icon) {
     categories.push(makeCategory('image', 0, 0, {
       kind: 'inferred-from-pixels',
       aggregateMismatchRatio: round(pixelMismatch),

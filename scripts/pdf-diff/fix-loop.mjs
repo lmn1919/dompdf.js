@@ -122,12 +122,25 @@ function renderSuggestionsMd(suggestions, aggregate) {
     if (s.samples.length > 0) {
       lines.push('- **证据样本**:');
       for (const sm of s.samples.slice(0, 3)) {
-        lines.push(`  - [${sm.entry}] "${truncate(sm.text, 40)}" oracle(${sm.oracle.x},${sm.oracle.y},fs=${sm.oracle.fontSize}) actual(${sm.actual.x},${sm.actual.y},fs=${sm.actual.fontSize}) Δ(dx=${sm.delta.dx},dy=${sm.delta.dy},dfs=${sm.delta.dFontSize})`);
+        lines.push(`  - [${sm.entry}] ${formatSample(sm)}`);
       }
     }
     lines.push('');
   });
   return lines.join('\n');
+}
+
+// Samples come in two shapes: text discrepancies (oracle/actual boxes + Δx/Δy) and
+// non-text visual discrepancies (box + expected/actual strings + kind). Format each
+// by its shape so the visual ones don't try to read a missing `oracle`.
+function formatSample(sm) {
+  if (sm.oracle) {
+    return `"${truncate(sm.text, 40)}" oracle(${sm.oracle.x},${sm.oracle.y},fs=${sm.oracle.fontSize}) actual(${sm.actual.x},${sm.actual.y},fs=${sm.actual.fontSize}) Δ(dx=${sm.delta.dx},dy=${sm.delta.dy},dfs=${sm.delta.dFontSize})`;
+  }
+  const box = sm.box ? `box(${sm.box.x},${sm.box.y},${sm.box.w}×${sm.box.h})` : '';
+  const side = sm.side ? ` ${sm.side}` : '';
+  const delta = sm.delta ? ` ${JSON.stringify(sm.delta)}` : '';
+  return `${sm.tag || ''}${side} ${box} ${sm.kind}: ${sm.expected} → ${sm.actual}${delta}`.trim();
 }
 
 function truncate(s, n) {

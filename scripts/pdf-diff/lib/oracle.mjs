@@ -140,6 +140,79 @@ export async function collectOracle({
       }
     }
 
+    // Element-level visual boxes: backgrounds, borders, box-shadows, icons.
+    // These are the ground truth for the non-text (Tier 2b) visual diff. Only
+    // elements that actually carry a visual property of interest are kept, so the
+    // list stays small even on large pages.
+    const colorAlpha = (c) => {
+      if (!c || c === 'transparent') return 0;
+      const m = c.match(/rgba?\(([^)]+)\)/i);
+      if (!m) return 1;
+      const parts = m[1].split(',').map((s) => parseFloat(s));
+      return parts.length >= 4 ? parts[3] : 1;
+    };
+    const pseudoIsIcon = (el, which) => {
+      const ps = getComputedStyle(el, which);
+      if (!ps) return false;
+      const content = ps.content;
+      const hasContent = content && !['none', 'normal', '""', "''"].includes(content);
+      const hasBgImg = ps.backgroundImage && ps.backgroundImage !== 'none';
+      return Boolean(hasContent || hasBgImg);
+    };
+
+    const elements = [];
+    const ELEMENT_CAP = 800;
+    const rootArea = targetRect.width * targetRect.height || 1;
+    for (const el of target.querySelectorAll('*')) {
+      if (elements.length >= ELEMENT_CAP) break;
+      const style = getComputedStyle(el);
+      if (style.display === 'none' || style.visibility === 'hidden' || parseFloat(style.opacity) === 0) continue;
+      const rect = el.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) continue;
+      // Skip elements that span (almost) the whole root — their "background" is
+      // really the page background and would swamp the per-element signal.
+      if (rect.width * rect.height >= rootArea * 0.95) continue;
+
+      const bg = style.backgroundColor;
+      const hasBg = colorAlpha(bg) > 0.01;
+
+      const sides = ['Top', 'Right', 'Bottom', 'Left'];
+      const border = {};
+      let hasBorder = false;
+      for (const s of sides) {
+        const width = parseFloat(style[`border${s}Width`]) || 0;
+        const bStyle = style[`border${s}Style`];
+        const bColor = style[`border${s}Color`];
+        if (width > 0 && bStyle !== 'none' && colorAlpha(bColor) > 0.01) {
+          border[s.toLowerCase()] = { width, color: bColor };
+          hasBorder = true;
+        }
+      }
+
+      const boxShadow = style.boxShadow;
+      const hasShadow = boxShadow && boxShadow !== 'none';
+
+      const tag = el.tagName.toUpperCase();
+      const isIcon = tag === 'IMG' || tag === 'SVG'
+        || (style.backgroundImage && style.backgroundImage !== 'none')
+        || pseudoIsIcon(el, '::before') || pseudoIsIcon(el, '::after');
+
+      if (!hasBg && !hasBorder && !hasShadow && !isIcon) continue;
+
+      elements.push({
+        nodeId: `e${elements.length + 1}`,
+        tag,
+        x: rect.left + window.scrollX - rootLeft,
+        y: rect.top + window.scrollY - rootTop,
+        w: rect.width,
+        h: rect.height,
+        backgroundColor: hasBg ? bg : null,
+        border: hasBorder ? border : null,
+        boxShadow: hasShadow ? boxShadow : null,
+        isIcon: Boolean(isIcon),
+      });
+    }
+
     return {
       selector: targetSelector,
       root: {
@@ -150,6 +223,7 @@ export async function collectOracle({
       },
       devicePixelRatio: window.devicePixelRatio || 1,
       boxes,
+      elements,
     };
   }, meta.selector);
 

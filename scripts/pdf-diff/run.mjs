@@ -9,9 +9,10 @@ import { rasterizePdf, extractPdfTextItems } from './lib/rasterize.mjs';
 import { pixelDiffPages } from './lib/pixeldiff.mjs';
 import { computeLayoutMetrics, PT_TO_PX } from './lib/layout.mjs';
 import { diffTexts } from './lib/textdiff.mjs';
+import { diffVisuals } from './lib/visualdiff.mjs';
 import { classify } from './lib/classify.mjs';
 import { buildReport, writeReport } from './lib/report.mjs';
-import { parseCorpusArgs, buildCorpus } from './corpus.mjs';
+import { parseCorpusArgs, buildCorpus, defaultOutRoot } from './corpus.mjs';
 
 export async function ensureServerForUrl(url, port) {
   // Local 127.0.0.1 URL (or empty) needs the static server; remote URLs do not.
@@ -70,10 +71,19 @@ export async function runEntry({
     const pdfTextItems = await extractPdfTextItems(oracle.actualPdfBuffer);
     const textDiff = diffTexts(oracle.oracle, pdfTextItems, metrics);
 
+    // Tier 2b — structured non-text visual diff (bg-color / border / shadow / icon).
+    const visualDiff = diffVisuals({
+      elements: oracle.oracle.elements,
+      pixelPages: pixelDiff.pageImages,
+      meta,
+      metrics,
+    });
+
     // Tier 3 — classify.
     const categories = classify({
       textDiff,
       pixelDiff,
+      visualDiff,
       inspectText: oracle.inspectText,
       meta,
     });
@@ -87,12 +97,13 @@ export async function runEntry({
       normalizedFont: oracle.normalizedFont,
       pixelDiff,
       textDiff,
+      visualDiff,
       categories,
       pageCount: rendered.numPages,
     });
     writeReport(outDir, report);
 
-    console.log(`[${entry.name}] 页数=${rendered.numPages} 平均差异=${(pixelDiff.aggregateMismatchRatio * 100).toFixed(2)}% 文本差异=${textDiff.summary.discrepancyCount} 类别=${categories.length}`);
+    console.log(`[${entry.name}] 页数=${rendered.numPages} 平均差异=${(pixelDiff.aggregateMismatchRatio * 100).toFixed(2)}% 文本差异=${textDiff.summary.discrepancyCount} 视觉差异=${visualDiff.summary.discrepancyCount} 类别=${categories.length}`);
     console.log(`[${entry.name}] 报告: ${resolve(outDir, 'report.json')}`);
     return { report, outDir, entry };
   } finally {
@@ -102,7 +113,7 @@ export async function runEntry({
 
 async function main() {
   const options = parseCorpusArgs(process.argv.slice(2));
-  const outRoot = options.outDir || resolve(rootDir, 'tmp', 'pdf-diff', new Date().toISOString().replace(/[:.]/g, '-'));
+  const outRoot = options.outDir || defaultOutRoot(options);
   ensureDir(outRoot);
 
   const distEntry = resolve(rootDir, 'dist', 'dompdf.js');

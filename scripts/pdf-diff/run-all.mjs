@@ -6,10 +6,10 @@ import { rootDir } from './lib/server.mjs';
 import { launchBrowser, buildDefaultFontConfig } from './lib/browser.mjs';
 import { runEntry, ensureServerForUrl } from './run.mjs';
 import { buildAggregateReport } from './lib/report.mjs';
-import { parseCorpusArgs, buildCorpus } from './corpus.mjs';
+import { parseCorpusArgs, buildCorpus, defaultOutRoot } from './corpus.mjs';
 
 export async function runAll(options) {
-  const outRoot = options.outDir || resolve(rootDir, 'tmp', 'pdf-diff', new Date().toISOString().replace(/[:.]/g, '-'));
+  const outRoot = options.outDir || defaultOutRoot(options);
   ensureDir(outRoot);
 
   const distEntry = resolve(rootDir, 'dist', 'dompdf.js');

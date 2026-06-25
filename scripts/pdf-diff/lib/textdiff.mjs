@@ -23,18 +23,29 @@ function norm(s) {
 }
 
 // Convert a pdfjs text item into target-root CSS-px space (top-origin).
-// dompdf lays out top-down and emits text in a top-origin coordinate space, so
-// item.y is already measured from the top (not the PDF bottom-left). We still
-// subtract the content top offset (margin + header) so the result is in the same
-// target-root space as the oracle boxes.
+// pdfjs reports the baseline origin (item.y = transform[5]) in PDF user space,
+// which is BOTTOM-origin: y grows upward with 0 at the page bottom. We flip it to
+// a top-origin distance from the page top, subtract the content top offset
+// (margin + header), and add the per-page slice offset so the result lands in the
+// same top-origin target-root space as the oracle boxes. Skipping the flip makes
+// every item read as (pageHeight - y) — a constant-sum mirror that masquerades as
+// a huge, page-wide "text-y-drift".
 function actualItemToRootPx(item, metrics) {
   const [mTopPt, , , mLeftPt] = normalizeMarginPt(metrics.options?.marginPt ?? 0);
   const headerOffsetPt = (metrics.options?.pageConfig?.header?.height || 0) * PX_TO_PT;
   const contentTopPt = mTopPt + headerOffsetPt;
   const layoutScale = metrics.layoutScale || 1;
 
+  // Media-box height in pt (each item carries its page's height; fall back to the
+  // computed metrics for safety).
+  const pageHeightPt = item.pageHeightPt || (metrics.pageHeightPx || 0) * PX_TO_PT;
+  const yFromTopPt = pageHeightPt - item.y;
+  // Each PDF page maps to one contentHeightPx-tall slice of the continuous root.
+  const pageIndex = Math.max(0, (item.page || 1) - 1);
+  const pageOffsetPx = pageIndex * (metrics.contentHeightPx || 0);
+
   const xRootPx = (item.x * PT_TO_PX) / layoutScale;
-  const yRootPx = ((item.y - contentTopPt) * PT_TO_PX) / layoutScale;
+  const yRootPx = pageOffsetPx + ((yFromTopPt - contentTopPt) * PT_TO_PX) / layoutScale;
   const fontSizePx = (item.fontSize * PT_TO_PX) / layoutScale;
   return { xRootPx, yRootPx, fontSizePx, fontName: item.fontName, page: item.page };
 }
@@ -158,16 +169,34 @@ export function diffTexts(oracle, pdfTextItems, metrics) {
   const actualSeq = buildActualSequence(pdfTextItems, metrics);
   const { matches, unmatchedA, unmatchedB } = alignSequences(oracleSeq, actualSeq);
 
+  // First pass: raw per-match deltas.
+  const matched = matches.map((pair) => {
+    const o = oracleSeq[pair.a];
+    const a = actualSeq[pair.b];
+    return {
+      o,
+      a,
+      dx: a.x - o.x,
+      dy: a.yBaseline - o.yBaseline,
+      dFontSize: a.fontSize - o.fontSize,
+      dWidth: a.width - o.width,
+    };
+  });
+
+  // A uniform vertical offset between the oracle's estimated baseline
+  // (box.y + fontSize*ASCENT_FACTOR — an approximation) and dompdf's real text
+  // baseline is a systematic calibration constant, not per-line drift. Remove its
+  // robust center (median) so reported dy reflects *relative* deviation; surface
+  // the constant separately as dyOffset, where a genuinely large uniform shift
+  // (e.g. a real top-margin error) stays visible without flagging every line.
+  const dyOffset = median(matched.map((m) => m.dy));
+
   const discrepancies = [];
   const deltas = { dx: [], dy: [], dFontSize: [], dWidth: [] };
 
-  for (const pair of matches) {
-    const o = oracleSeq[pair.a];
-    const a = actualSeq[pair.b];
-    const dx = a.x - o.x;
-    const dy = a.yBaseline - o.yBaseline;
-    const dFontSize = a.fontSize - o.fontSize;
-    const dWidth = a.width - o.width;
+  for (const m of matched) {
+    const { o, a, dx, dFontSize, dWidth } = m;
+    const dy = m.dy - dyOffset; // baseline-calibrated residual
     deltas.dx.push(dx);
     deltas.dy.push(dy);
     deltas.dFontSize.push(dFontSize);
@@ -191,6 +220,14 @@ export function diffTexts(oracle, pdfTextItems, metrics) {
       aligned: matches.length,
       unmatchedOracle: unmatchedA.length,
       unmatchedActual: unmatchedB.length,
+      // Distinct-character coverage of oracle text by the extracted PDF text.
+      // ~1.0 means the text IS present in the stream (any unmatched lines are a
+      // wrap/segmentation artifact); a low value means it is genuinely
+      // unextractable (broken ToUnicode/encoding). Lets Tier 3 tell them apart.
+      charCoverage: charCoverage(oracleSeq, actualSeq),
+      // Systematic uniform vertical baseline offset (px) removed before y-drift
+      // detection. Small values are oracle/dompdf baseline-model calibration.
+      dyOffset: round(dyOffset),
       meanDx: mean(deltas.dx),
       meanDy: mean(deltas.dy),
       meanDFontSize: mean(deltas.dFontSize),
@@ -211,6 +248,42 @@ export function diffTexts(oracle, pdfTextItems, metrics) {
 function mean(arr) {
   if (arr.length === 0) return 0;
   return arr.reduce((s, v) => s + v, 0) / arr.length;
+}
+
+function median(arr) {
+  if (arr.length === 0) return 0;
+  const sorted = [...arr].sort((a, b) => a - b);
+  const mid = sorted.length >> 1;
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+// Whitespace-insensitive distinct-character coverage of oracle text by actual
+// text: of the distinct characters the oracle contains, what fraction also
+// appear anywhere in the extracted PDF text. Distinct (set), NOT multiset, on
+// purpose — the oracle captures per-word client rects that can overlap and
+// double-count the same visual text (e.g. a wrapped heading), which would deflate
+// a multiset ratio even when every character extracts cleanly. A broken
+// ToUnicode/encoding instead emits NUL/garbage codepoints, so the real characters
+// go missing and this ratio collapses — exactly the signal Tier 3 needs to tell
+// "drawn but unextractable" apart from "merely wrapped/segmented differently".
+function charCoverage(oracleSeq, actualSeq) {
+  const charsOf = (seq) => {
+    const set = new Set();
+    for (const item of seq) {
+      for (const ch of item.norm) {
+        if (ch !== ' ') set.add(ch);
+      }
+    }
+    return set;
+  };
+  const oracleChars = charsOf(oracleSeq);
+  if (oracleChars.size === 0) return 1;
+  const actualChars = charsOf(actualSeq);
+  let covered = 0;
+  for (const ch of oracleChars) {
+    if (actualChars.has(ch)) covered += 1;
+  }
+  return round(covered / oracleChars.size);
 }
 
 function std(arr) {
