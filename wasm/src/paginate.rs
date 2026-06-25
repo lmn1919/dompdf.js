@@ -422,7 +422,6 @@ fn apply_break_directives(snap: &mut Snapshot, children: &[Vec<usize>], content_
 /// Geometry derived from config + page size.
 struct Geo {
     content_h_px: f32,
-    content_h_pt: f32,
     header_h_pt: f32,
     footer_h_pt: f32,
 }
@@ -440,10 +439,27 @@ fn compute_geo(snap: &Snapshot) -> Geo {
     let content_h_px = content_h_pt / PX_TO_PT;
     Geo {
         content_h_px,
-        content_h_pt,
         header_h_pt,
         footer_h_pt,
     }
+}
+
+fn page_height_pt(snap: &Snapshot, media_h: Option<f32>) -> f32 {
+    media_h.unwrap_or(snap.page_height_pt)
+}
+
+fn content_height_pt_for_page(snap: &Snapshot, geo: &Geo, media_h: Option<f32>) -> f32 {
+    let page_h_pt = page_height_pt(snap, media_h);
+    let content_h_pt = page_h_pt - snap.margin_top - snap.margin_bottom - geo.header_h_pt - geo.footer_h_pt;
+    if content_h_pt > 0.0 {
+        content_h_pt
+    } else {
+        (page_h_pt - snap.margin_top - snap.margin_bottom).max(0.0)
+    }
+}
+
+fn content_height_px_for_page(snap: &Snapshot, geo: &Geo, media_h: Option<f32>) -> f32 {
+    content_height_pt_for_page(snap, geo, media_h) / PX_TO_PT
 }
 
 /// Assign each text line to a page; return total page count. Shared by
@@ -565,10 +581,13 @@ pub fn paginate(
     let mut pages = Vec::with_capacity(total as usize);
     for i in 0..total {
         let mut content = String::new();
+        let page_h_pt = page_height_pt(snap, single_media_h);
+        let current_content_h_pt = content_height_pt_for_page(snap, &geo, single_media_h);
+        let current_content_h_px = content_height_px_for_page(snap, &geo, single_media_h);
         let cx = snap.margin_left;
         let cy = snap.margin_bottom + geo.footer_h_pt;
         let cw = snap.page_width_pt - snap.margin_left - snap.margin_right;
-        let ch = geo.content_h_pt;
+        let ch = current_content_h_pt;
         content.push_str("q\n");
         // background fill (within page media box, full page)
         if let Some(bg) = snap.config.background {
@@ -579,7 +598,7 @@ pub fn paginate(
                     f(bg[1]),
                     f(bg[2]),
                     f(snap.page_width_pt),
-                    f(snap.page_height_pt)
+                    f(page_h_pt)
                 ));
             }
         }
@@ -600,7 +619,8 @@ pub fn paginate(
                 &subtree_max_y,
                 r,
                 i,
-                geo.content_h_px,
+                current_content_h_px,
+                page_h_pt,
                 &mut content,
                 &mut image_ids,
             );
@@ -608,7 +628,7 @@ pub fn paginate(
         content.push_str("Q\n");
 
         // Header / footer (drawn outside the content clip).
-        draw_header_footer(snap, &fontctx, i, total, &geo, &mut content);
+        draw_header_footer(snap, &fontctx, i, total, &geo, page_h_pt, &mut content);
 
         pages.push(PagePlan {
             content,
@@ -619,9 +639,9 @@ pub fn paginate(
     Ok((pages, total, fontctx, single_media_h))
 }
 
-fn rect_pt(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h_px: f32) -> (f32, f32, f32, f32) {
+fn rect_pt(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h_px: f32, page_h_pt: f32) -> (f32, f32, f32, f32) {
     let x0 = snap.margin_left + node.x * PX_TO_PT;
-    let top_pt = snap.page_height_pt - snap.margin_top - geo.header_h_pt
+    let top_pt = page_h_pt - snap.margin_top - geo.header_h_pt
         - (node.y - page as f32 * content_h_px) * PX_TO_PT;
     let w = node.w * PX_TO_PT;
     let h = node.h * PX_TO_PT;
@@ -673,6 +693,7 @@ fn draw_node(
     idx: usize,
     page: u32,
     content_h_px: f32,
+    page_h_pt: f32,
     out: &mut String,
     image_ids: &mut Vec<u32>,
 ) {
@@ -698,12 +719,12 @@ fn draw_node(
     match node.kind {
         0 => {
             if vis && node.render_mode == 0 {
-                draw_box(snap, &geo, node, page, content_h_px, out);
+                draw_box(snap, &geo, node, page, content_h_px, page_h_pt, out);
             }
             let clip = vis && node.overflow_hidden;
             if clip {
                 out.push_str("q\n");
-                let (x0, bottom, w, h) = rect_pt(snap, &geo, node, page, content_h_px);
+                let (x0, bottom, w, h) = rect_pt(snap, &geo, node, page, content_h_px, page_h_pt);
                 if let Some(radii) = rounded_rect_radii_pt(node, w, h) {
                     push_rounded_rect_path(out, x0, bottom, w, h, radii);
                     out.push_str("W n\n");
@@ -727,6 +748,7 @@ fn draw_node(
                     c,
                     page,
                     content_h_px,
+                    page_h_pt,
                     out,
                     image_ids,
                 );
@@ -737,15 +759,15 @@ fn draw_node(
         }
         1 => {
             if node.render_mode != 2 {
-                draw_text_lines(snap, fontctx, &geo, node, page, content_h_px, out);
+                draw_text_lines(snap, fontctx, &geo, node, page, content_h_px, page_h_pt, out);
             }
         }
         2 => {
             if vis && node.render_mode != 2 {
-                draw_box_bg(snap, &geo, node, page, content_h_px, out);
+                draw_box_bg(snap, &geo, node, page, content_h_px, page_h_pt, out);
                 if let Some(img) = node.image.as_ref() {
                     if let Some(src) = find_image(snap, img.id) {
-                        let (x0, bottom, w, h) = rect_pt(snap, &geo, node, page, content_h_px);
+                        let (x0, bottom, w, h) = rect_pt(snap, &geo, node, page, content_h_px, page_h_pt);
                         let (draw_x, draw_y, draw_w, draw_h) = image_draw_rect_pt(node, src, x0, bottom, w, h);
                         let needs_clip = image_needs_clip(node, draw_w, draw_h, w, h);
                         if needs_clip {
@@ -779,7 +801,7 @@ fn draw_node(
                         }
                     }
                 }
-                draw_box_border(snap, &geo, node, page, content_h_px, out);
+                draw_box_border(snap, &geo, node, page, content_h_px, page_h_pt, out);
             }
         }
         _ => {}
@@ -789,8 +811,8 @@ fn draw_node(
     }
 }
 
-fn draw_box_bg(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h_px: f32, out: &mut String) {
-    let (x0, bottom, w, h) = rect_pt(snap, geo, node, page, content_h_px);
+fn draw_box_bg(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h_px: f32, page_h_pt: f32, out: &mut String) {
+    let (x0, bottom, w, h) = rect_pt(snap, geo, node, page, content_h_px, page_h_pt);
     let radii = rounded_rect_radii_pt(node, w, h);
     if let Some(bg) = node.bg {
         if bg[3] > 0.001 {
@@ -805,12 +827,12 @@ fn draw_box_bg(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h_px:
     }
 }
 
-fn draw_box_shadow(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h_px: f32, out: &mut String) {
+fn draw_box_shadow(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h_px: f32, page_h_pt: f32, out: &mut String) {
     let shadow = match &node.shadow {
         Some(shadow) if shadow.color[3] > 0.001 => shadow,
         _ => return,
     };
-    let (x0, bottom, w, h) = rect_pt(snap, geo, node, page, content_h_px);
+    let (x0, bottom, w, h) = rect_pt(snap, geo, node, page, content_h_px, page_h_pt);
     let base_radii = rounded_rect_radii_pt(node, w, h);
     let dx = shadow.x * PX_TO_PT;
     let dy = -shadow.y * PX_TO_PT;
@@ -870,8 +892,8 @@ fn draw_box_shadow(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h
     }
 }
 
-fn draw_box_border(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h_px: f32, out: &mut String) {
-    let (x0, bottom, w, h) = rect_pt(snap, geo, node, page, content_h_px);
+fn draw_box_border(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h_px: f32, page_h_pt: f32, out: &mut String) {
+    let (x0, bottom, w, h) = rect_pt(snap, geo, node, page, content_h_px, page_h_pt);
     let radii = rounded_rect_radii_pt(node, w, h);
     if let Some(b) = &node.border {
         if let (Some(radii), Some(bw), Some(style)) =
@@ -941,10 +963,10 @@ fn draw_box_border(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h
     }
 }
 
-fn draw_box(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h_px: f32, out: &mut String) {
-    draw_box_shadow(snap, geo, node, page, content_h_px, out);
-    draw_box_bg(snap, geo, node, page, content_h_px, out);
-    draw_box_border(snap, geo, node, page, content_h_px, out);
+fn draw_box(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h_px: f32, page_h_pt: f32, out: &mut String) {
+    draw_box_shadow(snap, geo, node, page, content_h_px, page_h_pt, out);
+    draw_box_bg(snap, geo, node, page, content_h_px, page_h_pt, out);
+    draw_box_border(snap, geo, node, page, content_h_px, page_h_pt, out);
 }
 
 /// Resolve `${currentPage}` / `${totalPages}` placeholders.
@@ -1057,6 +1079,7 @@ fn draw_text_lines(
     node: &Node,
     page: u32,
     content_h_px: f32,
+    page_h_pt: f32,
     out: &mut String,
 ) {
     let font = match node.font.as_ref() {
@@ -1100,7 +1123,7 @@ fn draw_text_lines(
         let cid = select_cid_font(fontctx, &font.family, font.weight, font.italic, &normalized);
 
         let baseline_px = line.draw_y + (line.h - font.size_px) / 2.0 + ASCENT * font.size_px;
-        let y_pt = snap.page_height_pt - snap.margin_top - geo.header_h_pt
+        let y_pt = page_h_pt - snap.margin_top - geo.header_h_pt
             - (baseline_px - page as f32 * content_h_px) * PX_TO_PT;
 
         out.push_str(&color_op);
@@ -1202,6 +1225,7 @@ fn draw_hf_region(
     page: u32,
     total: u32,
     _geo: &Geo,
+    page_h_pt: f32,
     is_header: bool,
     out: &mut String,
 ) {
@@ -1217,7 +1241,7 @@ fn draw_hf_region(
     // Band rect in PDF coords.
     let band_h_pt = spec.height_px * PX_TO_PT;
     let (band_top, band_bottom) = if is_header {
-        let top = snap.page_height_pt - snap.margin_top;
+        let top = page_h_pt - snap.margin_top;
         (top, top - band_h_pt)
     } else {
         let bottom = snap.margin_bottom;
@@ -1293,6 +1317,7 @@ fn draw_header_footer(
     page: u32,
     total: u32,
     geo: &Geo,
+    page_h_pt: f32,
     out: &mut String,
 ) {
     // Resolve which HF applies to this page.
@@ -1308,10 +1333,10 @@ fn draw_header_footer(
         (None, None)
     };
     if let Some(h) = header {
-        draw_hf_region(snap, fontctx, h, page, total, geo, true, out);
+        draw_hf_region(snap, fontctx, h, page, total, geo, page_h_pt, true, out);
     }
     if let Some(f) = footer {
-        draw_hf_region(snap, fontctx, f, page, total, geo, false, out);
+        draw_hf_region(snap, fontctx, f, page, total, geo, page_h_pt, false, out);
     }
 }
 
