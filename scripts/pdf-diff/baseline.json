@@ -1,0 +1,15 @@
+{
+  "generatedAt": "2026-06-25T02:40:56.836Z",
+  "entries": {
+    "examples-document": {
+      "aggregateMismatchRatio": 0.12352350958456014,
+      "maxMismatchRatio": 0.12352350958456014,
+      "discrepancyCount": 21
+    }
+  },
+  "categories": {
+    "font-encoding": 195,
+    "text-y-drift": 21,
+    "image": 0
+  }
+}

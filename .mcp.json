@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "pdf-diff": {
+      "command": "node",
+      "args": ["scripts/pdf-diff/mcp-server.mjs"]
+    }
+  }
+}
