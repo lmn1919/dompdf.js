@@ -621,10 +621,18 @@ async function rasterizeElement(
   }
 }
 
+// Inline <svg> elements live in the SVG namespace, so their `tagName` keeps its
+// original case ("svg") instead of being upper-cased like HTML tags. Compare
+// case-insensitively or these icons silently skip rasterization and vanish.
+function isRasterTag(el: HTMLElement): boolean {
+  const tag = el.tagName.toUpperCase();
+  return tag === 'SVG' || tag === 'CANVAS';
+}
+
 function shouldRasterizeElement(el: HTMLElement, cs: CSSStyleDeclaration): boolean {
   const mode = el.dataset.dom2pdfMode;
   if (mode === 'vector' || mode === 'skip') return false;
-  if (el.tagName === 'SVG' || el.tagName === 'CANVAS') return true;
+  if (isRasterTag(el)) return true;
   if (hasPseudoVisual(el)) return true;
   if ((cs.transform || '').trim() !== 'none') return true;
   if (hasComplexBackground(cs)) return true;
@@ -1437,7 +1445,7 @@ export async function collectSnapshotData(
       objectFit: isImg ? objectFitNum(cs.objectFit) : undefined,
     };
 
-    if (el.tagName === 'SVG' || el.tagName === 'CANVAS') {
+    if (isRasterTag(el)) {
       node.renderMode = 1;
       if (renderMode === 0) flags &= ~F_RENDER_MODE;
       if (node.renderMode !== 0) flags |= F_RENDER_MODE;
