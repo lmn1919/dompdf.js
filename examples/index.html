@@ -971,6 +971,10 @@
           fontStyle: "normal",
           fontWeight: 400,
         };
+        var readyResolve;
+        var readyPromise = new Promise(function (resolve) {
+          readyResolve = resolve;
+        });
 
         if (!api) {
           setStatus("dist/dompdf.js 未找到，请先执行 npm run build。");
@@ -1014,6 +1018,109 @@
             },
           };
         }
+
+        function mergeExportOptions(base, override) {
+          if (!override) return base;
+          var merged = Object.assign({}, base, override);
+          var basePageConfig = base.pageConfig || {};
+          var overridePageConfig = override.pageConfig || {};
+          merged.pageConfig = Object.assign({}, basePageConfig, overridePageConfig);
+          if (basePageConfig.header || overridePageConfig.header) {
+            merged.pageConfig.header = Object.assign({}, basePageConfig.header || {}, overridePageConfig.header || {});
+          }
+          if (basePageConfig.footer || overridePageConfig.footer) {
+            merged.pageConfig.footer = Object.assign({}, basePageConfig.footer || {}, overridePageConfig.footer || {});
+          }
+          return merged;
+        }
+
+        function encodeBase64(uint8) {
+          var binary = "";
+          var chunkSize = 32768;
+          for (var i = 0; i < uint8.length; i += chunkSize) {
+            var chunk = uint8.subarray(i, Math.min(i + chunkSize, uint8.length));
+            binary += String.fromCharCode.apply(null, chunk);
+          }
+          return btoa(binary);
+        }
+
+        function summarizeOptions(options) {
+          var pageConfig = options.pageConfig && typeof options.pageConfig === "object" ? options.pageConfig : null;
+          return {
+            format: options.format,
+            pagination: !!options.pagination,
+            marginPt: options.marginPt,
+            backgroundColor: options.backgroundColor,
+            useCORS: !!options.useCORS,
+            fontConfig: options.fontConfig
+              ? {
+                  fontFamily: options.fontConfig.fontFamily,
+                  fontStyle: options.fontConfig.fontStyle,
+                  fontWeight: options.fontConfig.fontWeight,
+                  hasFontBytes: !!options.fontConfig.fontBytes,
+                }
+              : null,
+            pageConfig: pageConfig
+              ? {
+                  header: pageConfig.header
+                    ? {
+                        height: pageConfig.header.height,
+                        content: pageConfig.header.content,
+                        contentFontSize: pageConfig.header.contentFontSize,
+                      }
+                    : null,
+                  footer: pageConfig.footer
+                    ? {
+                        height: pageConfig.footer.height,
+                        content: pageConfig.footer.content,
+                        contentFontSize: pageConfig.footer.contentFontSize,
+                      }
+                    : null,
+                }
+              : null,
+          };
+        }
+
+        function automationMeta(options) {
+          var rect = doc.getBoundingClientRect();
+          return {
+            selector: "#document",
+            rootWidthPx: rect.width,
+            rootHeightPx: rect.height,
+            devicePixelRatio: window.devicePixelRatio || 1,
+            pageBreaks: api.computePageBreaks(doc, options),
+            options: summarizeOptions(options),
+          };
+        }
+
+        window.__DOMPDF_AUTOMATION__ = {
+          ready: function () {
+            return readyPromise;
+          },
+          getMeta: function (override) {
+            var options = mergeExportOptions(currentOptions(), override || {});
+            return automationMeta(options);
+          },
+          inspect: function (override) {
+            var options = mergeExportOptions(currentOptions(), override || {});
+            return readyPromise.then(function () {
+              return api.inspect(doc, options);
+            });
+          },
+          exportPdf: function (override) {
+            var options = mergeExportOptions(currentOptions(), override || {});
+            return readyPromise.then(function () {
+              return api(doc, options).then(function (blob) {
+                return blob.arrayBuffer().then(function (buf) {
+                  return {
+                    pdfBase64: encodeBase64(new Uint8Array(buf)),
+                    meta: automationMeta(options),
+                  };
+                });
+              });
+            });
+          },
+        };
 
         function buildLongList() {
           var list = document.getElementById("long-list");
@@ -1201,6 +1308,10 @@
           })
           .finally(function () {
             wireButtons();
+            readyResolve({
+              status: statusEl.textContent,
+              hasFontBytes: !!sharedFontConfig.fontBytes,
+            });
           });
       })();
     </script>
