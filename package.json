@@ -21,7 +21,9 @@
     "build": "rollup -c rollup.config.mjs && npm run build:types",
     "build:minify": "npm run build",
     "dev": "rollup -c rollup.config.mjs -w",
-    "serve": "npx --yes serve . -l 8080"
+    "serve": "npx --yes serve . -l 8080",
+    "pdf-diff:mvp": "npm run build && node scripts/pdf-diff-mvp.mjs",
+    "playwright:install": "playwright install chromium"
   },
   "author": {
     "name": "lfc",
@@ -34,10 +36,15 @@
     "url": "git@github.com:lmn1919/dompdf.js.git"
   },
   "devDependencies": {
+    "@napi-rs/canvas": "^1.0.0",
     "@rollup/plugin-commonjs": "^25.0.0",
     "@rollup/plugin-node-resolve": "^15.2.3",
     "@rollup/plugin-terser": "^0.4.4",
     "@rollup/plugin-typescript": "^11.1.6",
+    "pdfjs-dist": "^6.0.227",
+    "pixelmatch": "^7.2.0",
+    "playwright": "^1.61.1",
+    "pngjs": "^7.0.0",
     "rimraf": "^5.0.5",
     "rollup": "^4.0.0",
     "tslib": "^2.8.1",
