@@ -15,12 +15,12 @@ export function defaultCorpus({ port = 4173 } = {}) {
   ];
 }
 
-// Default output root: `<domain>-<YYYY-MM-DD>` (e.g. juejin.cn-2026-06-25).
+// Default output root: `<domain>-<YYYY-MM-DD_HH-MM-SS>` (e.g. juejin.cn-2026-06-25_14-30-05).
 // Domain comes from the target URL's hostname; the local default corpus has no
-// URL, so it falls back to `local`. Note: same domain + same day reuses the same
-// folder, so a re-run overwrites that day's per-entry artifacts.
+// URL, so it falls back to `local`. The timestamp includes time-of-day, so each
+// run gets its own folder instead of overwriting the day's earlier artifacts.
 export function defaultOutRoot(options, baseDir = resolve(rootDir, 'tmp', 'pdf-diff')) {
-  const date = new Date().toISOString().slice(0, 10);
+  const date = new Date().toISOString().slice(0, 19).replace('T', '_').replace(/:/g, '-');
   let domain = 'local';
   if (options.url) {
     try { domain = new URL(options.url).hostname || 'local'; } catch { domain = 'local'; }

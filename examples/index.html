@@ -667,6 +667,51 @@
         color: #ef4444;
         font-size: 10px;
       }
+
+      .math-block {
+        margin-top: 28px;
+        padding: 18px 22px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+      }
+
+      .math-block h3 {
+        margin: 0 0 12px;
+        font-size: 18px;
+        color: #1e293b;
+      }
+
+      .math-block p {
+        margin: 6px 0;
+        color: #334155;
+        line-height: 1.7;
+      }
+
+      .math-block .equation {
+        margin: 6px 0 14px;
+        padding: 10px 14px;
+        background: #ffffff;
+        border-left: 3px solid #2563eb;
+        border-radius: 4px;
+        font-family: "Cambria Math", "Latin Modern Math", "STIX Two Math", "Times New Roman", serif;
+        font-size: 16px;
+        color: #0f172a;
+        line-height: 1.9;
+      }
+
+      .math-block .cases {
+        display: inline-block;
+        vertical-align: middle;
+        border-left: 1px solid #94a3b8;
+        padding-left: 8px;
+        margin-left: 4px;
+      }
+
+      .math-block .cases span {
+        display: block;
+        line-height: 1.5;
+      }
     </style>
   </head>
   <body>
@@ -956,6 +1001,62 @@
             如果这个卡片在页边界被切开，就说明复杂容器在分页上的边界处理仍存在问题。
           </p>
         </div>
+
+
+        <section class="math-block">
+          <h3>复杂数学公式样例</h3>
+
+          <p>欧拉恒等式被广泛视为数学中最美的等式之一：</p>
+          <p class="equation">e<sup>i&pi;</sup> + 1 = 0</p>
+
+          <p>高斯积分将指数函数与 π 联系在一起：</p>
+          <p class="equation">&int;<sub>-&infin;</sub><sup>+&infin;</sup> e<sup>-x&sup2;</sup> dx = &radic;&pi;</p>
+
+          <p>二次方程的求根公式：</p>
+          <p class="equation">x = (-b &plusmn; &radic;(b&sup2; - 4ac)) / 2a</p>
+
+          <p>贝叶斯定理描述了后验概率的更新方式：</p>
+          <p class="equation">P(A | B) = P(B | A) &middot; P(A) / P(B)</p>
+
+          <p>矩阵乘法 C = A &times; B 的元素定义如下：</p>
+          <p class="equation">C<sub>ij</sub> = &sum;<sub>k=1</sub><sup>n</sup> A<sub>ik</sub> &middot; B<sub>kj</sub></p>
+
+          <p>傅里叶变换把时域信号转换到频域：</p>
+          <p class="equation">&#x1D54F;(&omega;) = &int;<sub>-&infin;</sub><sup>+&infin;</sup> f(t) &middot; e<sup>-i&omega;t</sup> dt</p>
+
+          <p>麦克斯韦方程组的微分形式概括了经典电磁学：</p>
+          <p class="equation">
+            &nabla; &middot; <b>E</b> = &rho; / &epsilon;<sub>0</sub><br/>
+            &nabla; &times; <b>E</b> = -&part;<sub>t</sub><b>B</b><br/>
+            &nabla; &middot; <b>B</b> = 0<br/>
+            &nabla; &times; <b>B</b> = &mu;<sub>0</sub><b>J</b> + &mu;<sub>0</sub>&epsilon;<sub>0</sub>&part;<sub>t</sub><b>E</b>
+          </p>
+
+          <p>相对论的质能等价：</p>
+          <p class="equation">E = mc&sup2;</p>
+
+          <p>薛定谔方程描述了非相对论性粒子的波函数演化：</p>
+          <p class="equation">i&#8463; &part;<sub>t</sub> &Psi;(r, t) = [ -(&#8463;&sup2;/2m)&nabla;&sup2; + V(r, t) ] &Psi;(r, t)</p>
+
+          <p>自然对数的换底公式：</p>
+          <p class="equation">log<sub>a</sub> b = log<sub>c</sub> b / log<sub>c</sub> a</p>
+
+          <p>一个分段函数示例：</p>
+          <p class="equation">
+            f(x) =
+            <span class="cases">
+              <span>x&sup2;</span>
+              <span>2x + 1</span>
+              <span>3 - x</span>
+            </span>
+            &nbsp;&nbsp;if&nbsp;
+            <span class="cases">
+              <span>x &lt; 0</span>
+              <span>0 &le; x &lt; 1</span>
+              <span>x &ge; 1</span>
+            </span>
+          </p>
+        </section>
       </article>
     </main>
 
