@@ -184,18 +184,31 @@ export function diffVisuals({ elements, pixelPages, meta, metrics }) {
     const bg = parseCssColor(el.backgroundColor);
     if (bg && bg.a >= 0.95 && !el.isIcon) {
       const inset = 0.25;
-      const got = sampleColor(actual, ix + iw * inset, iy + ih * inset, iw * (1 - 2 * inset), ih * (1 - 2 * inset));
+      const rx = ix + iw * inset;
+      const ry = iy + ih * inset;
+      const rw = iw * (1 - 2 * inset);
+      const rh = ih * (1 - 2 * inset);
+      const got = sampleColor(actual, rx, ry, rw, rh);
+      // Ground truth is the BROWSER raster, not the declared CSS color. A child box,
+      // a gradient/image layer, or an ancestor's overflow:hidden legitimately changes
+      // the rendered interior — and the browser shows the very same thing the PDF does.
+      // Comparing against the declared color flags those composited/clipped boxes as
+      // false positives (e.g. a progress track covered by its fill, a clipped child).
+      // Only flag when the PDF interior actually diverges from the browser interior.
+      // (Fall back to the declared color only when no browser raster is available.)
+      const ref = expected ? sampleColor(expected, rx, ry, rw, rh) : null;
+      const truth = ref || bg;
       if (got) {
-        const de = deltaE(bg, got);
+        const de = deltaE(truth, got);
         if (de > BG_DELTA_E) {
           counts['bg-color'] += 1;
           deltaEs.push(de);
           discrepancies.push({
             ...base,
             kind: 'bg-color',
-            expected: rgbHex(bg),
+            expected: rgbHex(truth),
             actual: rgbHex(got),
-            delta: { deltaE: round(de) },
+            delta: { deltaE: round(de), declared: rgbHex(bg) },
           });
         }
       }
@@ -215,7 +228,17 @@ export function diffVisuals({ elements, pixelPages, meta, metrics }) {
         else if (side === 'left') { sw = t; }
         else if (side === 'right') { sx = ix + iw - t; sw = t; }
         const frac = colorMatchFraction(actual, sx, sy, sw, sh, want, BORDER_MATCH_E);
-        if (frac != null && frac < BORDER_MIN_PRESENCE && (!worst || frac < worst.frac)) {
+        if (frac == null || frac >= BORDER_MIN_PRESENCE) continue;
+        // Cross-check against the browser: only a real defect when the browser renders
+        // this border color along the edge but the PDF does not. A translucent
+        // (rgba alpha) or thin/antialiased border the browser itself shows faintly
+        // also yields a low presence on the browser side, so the PDF matching that is
+        // a match, not a miss. (Skip the cross-check only if no browser raster exists.)
+        if (expected) {
+          const fracExp = colorMatchFraction(expected, sx, sy, sw, sh, want, BORDER_MATCH_E);
+          if (fracExp == null || fracExp < BORDER_MIN_PRESENCE) continue;
+        }
+        if (!worst || frac < worst.frac) {
           worst = { frac, side, want };
         }
       }
