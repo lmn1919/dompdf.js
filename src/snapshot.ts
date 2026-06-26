@@ -133,6 +133,34 @@ interface CollectedImage {
   bytes: Uint8Array;
   width: number;
   height: number;
+  /** 0 = JPEG (DCTDecode), 1 = raw RGB888 (lossless, FlateDecode). */
+  format: number;
+}
+
+/** Image byte payload + the format tag the Rust embedder branches on. */
+const IMG_JPEG = 0;
+const IMG_RAW_RGB = 1;
+
+/**
+ * Read a fully-opaque canvas back as packed RGB888 (alpha dropped). Used for
+ * flat fills and line-art icons, where JPEG's chroma loss shows up as visible
+ * color drift / fuzz. Callers must have painted an opaque background first.
+ */
+function canvasToRawRgb(
+  canvas: HTMLCanvasElement,
+): { bytes: Uint8Array; width: number; height: number } | null {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  const w = canvas.width;
+  const h = canvas.height;
+  const rgba = ctx.getImageData(0, 0, w, h).data;
+  const rgb = new Uint8Array(w * h * 3);
+  for (let i = 0, j = 0; i < rgba.length; i += 4, j += 3) {
+    rgb[j] = rgba[i];
+    rgb[j + 1] = rgba[i + 1];
+    rgb[j + 2] = rgba[i + 2];
+  }
+  return { bytes: rgb, width: w, height: h };
 }
 
 interface CollectedFont {
@@ -317,7 +345,7 @@ async function convertImage(
   img: HTMLImageElement,
   quality: number,
   useCORS: boolean,
-): Promise<{ bytes: Uint8Array; width: number; height: number } | null> {
+): Promise<{ bytes: Uint8Array; width: number; height: number; format: number } | null> {
   try {
     if (useCORS) img.crossOrigin = 'anonymous';
     if (!img.complete || img.naturalWidth === 0) {
@@ -336,7 +364,7 @@ async function convertImage(
     );
     if (!blob) return null;
     const bytes = new Uint8Array(await blob.arrayBuffer());
-    return { bytes, width: w, height: h };
+    return { bytes, width: w, height: h, format: IMG_JPEG };
   } catch {
     return null;
   }
@@ -421,13 +449,6 @@ function pseudoHasVisual(cs: CSSStyleDeclaration): boolean {
   const hasBg = bg[3] > 0.001;
   const hasBox = pxNumber(cs.width) > 0 || pxNumber(cs.height) > 0;
   return hasContent || hasBg || hasBox || hasVisibleBorder(cs);
-}
-
-function hasPseudoVisual(el: HTMLElement): boolean {
-  const before = getComputedStyle(el, '::before');
-  if (pseudoHasVisual(before)) return true;
-  const after = getComputedStyle(el, '::after');
-  return pseudoHasVisual(after);
 }
 
 function hasComplexBackground(cs: CSSStyleDeclaration): boolean {
@@ -556,6 +577,21 @@ function cloneElementForRaster(src: HTMLElement): HTMLElement {
   return clone;
 }
 
+// Clone only an element's own background layer: its computed styles + ::before
+// decoration, with NO real children/text and NO box-shadow. Used to bake a
+// backdrop image that sits under the element's still-vector text. box-shadow is
+// dropped because the box node paints it vectorially (avoids double shadow);
+// ::after is intentionally excluded (it paints above content — handled by the
+// classifier falling back to full-raster when ::after has visuals).
+function cloneElementBackgroundOnly(src: HTMLElement): HTMLElement {
+  const clone = src.cloneNode(false) as HTMLElement;
+  copyComputedStyles(clone, getComputedStyle(src));
+  clone.style.boxShadow = 'none';
+  const before = buildPseudoClone(src, '::before');
+  if (before) clone.appendChild(before);
+  return clone;
+}
+
 function loadImageFromUrl(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -566,56 +602,117 @@ function loadImageFromUrl(url: string): Promise<HTMLImageElement> {
   });
 }
 
+// raw RGB is uncompressed (3 bytes/px); cap total pixels so a supersampled large
+// element can't blow up memory / PDF size. ~4M px ≈ 12 MB raw.
+const MAX_RASTER_PIXELS = 4_000_000;
+
+// Supersample factor for rasterized elements: render the foreignObject into a
+// canvas larger than its CSS box so baked pixels (incl. text that cannot be
+// vectorized) stay crisp. At least 2x; capped at 3x and pulled back to fit the
+// pixel budget.
+function superSampleFactor(cssW: number, cssH: number): number {
+  const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 2;
+  let ss = Math.min(3, Math.max(2, dpr));
+  while (ss > 1 && cssW * cssH * ss * ss > MAX_RASTER_PIXELS) ss -= 0.5;
+  return Math.max(1, ss);
+}
+
+// Serialize a wrapper (containing the element clone) through an SVG foreignObject
+// into a supersampled canvas, returned as lossless raw RGB.
+async function rasterizeWrapper(
+  wrapper: HTMLElement,
+  captureWidth: number,
+  captureHeight: number,
+): Promise<{ bytes: Uint8Array; width: number; height: number; format: number } | null> {
+  const serialized = new XMLSerializer().serializeToString(wrapper);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${captureWidth}" height="${captureHeight}" viewBox="0 0 ${captureWidth} ${captureHeight}"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml">${serialized}</div></foreignObject></svg>`;
+  const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  const img = await loadImageFromUrl(url);
+  const ss = superSampleFactor(captureWidth, captureHeight);
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(captureWidth * ss));
+  canvas.height = Math.max(1, Math.round(captureHeight * ss));
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  const raw = canvasToRawRgb(canvas);
+  if (!raw) return null;
+  return { bytes: raw.bytes, width: raw.width, height: raw.height, format: IMG_RAW_RGB };
+}
+
+// Wrapper of fixed CSS size holding the positioned element clone. Opaque backdrop
+// (nearest opaque ancestor bg) fills transparent areas so raw RGB (no alpha)
+// composites correctly instead of going black.
+function buildRasterWrapper(
+  el: HTMLElement,
+  rawRect: DOMRect,
+  shadowPad: EdgePadding,
+  captureWidth: number,
+  captureHeight: number,
+  backgroundOnly: boolean,
+): HTMLElement {
+  const wrapper = document.createElement('div');
+  wrapper.style.position = 'relative';
+  wrapper.style.width = `${captureWidth}px`;
+  wrapper.style.height = `${captureHeight}px`;
+  wrapper.style.overflow = 'hidden';
+  wrapper.style.background = findOpaqueBackdropColor(el);
+
+  const clone = backgroundOnly ? cloneElementBackgroundOnly(el) : cloneElementForRaster(el);
+  clone.style.position = 'absolute';
+  clone.style.left = `${shadowPad.left}px`;
+  clone.style.top = `${shadowPad.top}px`;
+  clone.style.width = `${Math.max(1, Math.ceil(rawRect.width))}px`;
+  clone.style.height = `${Math.max(1, Math.ceil(rawRect.height))}px`;
+  clone.style.margin = '0';
+  clone.style.transform = 'none';
+  clone.style.transformOrigin = 'top left';
+  wrapper.appendChild(clone);
+  return wrapper;
+}
+
 async function rasterizeElement(
   el: HTMLElement,
   rawRect: DOMRect,
-  quality: number,
+  _quality: number,
   cs: CSSStyleDeclaration,
-): Promise<{ bytes: Uint8Array; width: number; height: number; rawLeft: number; rawTop: number } | null> {
+): Promise<{ bytes: Uint8Array; width: number; height: number; format: number; cssWidth: number; cssHeight: number; rawLeft: number; rawTop: number } | null> {
   try {
     const shadowPad = computeBoxShadowPadding(cs.boxShadow);
     const captureWidth = Math.max(1, Math.ceil(rawRect.width + shadowPad.left + shadowPad.right));
     const captureHeight = Math.max(1, Math.ceil(rawRect.height + shadowPad.top + shadowPad.bottom));
-
-    const wrapper = document.createElement('div');
-    wrapper.style.position = 'relative';
-    wrapper.style.width = `${captureWidth}px`;
-    wrapper.style.height = `${captureHeight}px`;
-    wrapper.style.overflow = 'hidden';
-    wrapper.style.background = findOpaqueBackdropColor(el);
-
-    const clone = cloneElementForRaster(el);
-    clone.style.position = 'absolute';
-    clone.style.left = `${shadowPad.left}px`;
-    clone.style.top = `${shadowPad.top}px`;
-    clone.style.width = `${Math.max(1, Math.ceil(rawRect.width))}px`;
-    clone.style.height = `${Math.max(1, Math.ceil(rawRect.height))}px`;
-    clone.style.margin = '0';
-    clone.style.transform = 'none';
-    clone.style.transformOrigin = 'top left';
-    wrapper.appendChild(clone);
-
-    const serialized = new XMLSerializer().serializeToString(wrapper);
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${captureWidth}" height="${captureHeight}" viewBox="0 0 ${captureWidth} ${captureHeight}"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml">${serialized}</div></foreignObject></svg>`;
-    const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-    const img = await loadImageFromUrl(url);
-
-    const canvas = document.createElement('canvas');
-    canvas.width = captureWidth;
-    canvas.height = captureHeight;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return null;
-    ctx.drawImage(img, 0, 0, captureWidth, captureHeight);
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
-    if (!blob) return null;
-
+    const wrapper = buildRasterWrapper(el, rawRect, shadowPad, captureWidth, captureHeight, false);
+    const out = await rasterizeWrapper(wrapper, captureWidth, captureHeight);
+    if (!out) return null;
     return {
-      bytes: new Uint8Array(await blob.arrayBuffer()),
-      width: captureWidth,
-      height: captureHeight,
+      ...out,
+      // Layout (CSS px) size is independent of the supersampled pixel count — the
+      // engine draws the image into the layout box; pixels only set resolution.
+      cssWidth: captureWidth,
+      cssHeight: captureHeight,
       rawLeft: rawRect.left - shadowPad.left,
       rawTop: rawRect.top - shadowPad.top,
     };
+  } catch {
+    return null;
+  }
+}
+
+// Background-only raster: bakes just the element's own background + ::before
+// decoration (no real text/children, no box-shadow) so text stays vector. The
+// backdrop node uses objectFit:0, so pixel count is decoupled from layout size —
+// no cssWidth round-trip needed.
+async function rasterizeElementBackgroundOnly(
+  el: HTMLElement,
+  rawRect: DOMRect,
+): Promise<{ bytes: Uint8Array; width: number; height: number; format: number } | null> {
+  try {
+    // No shadow padding: box-shadow is painted vectorially by the box node.
+    const captureWidth = Math.max(1, Math.ceil(rawRect.width));
+    const captureHeight = Math.max(1, Math.ceil(rawRect.height));
+    const noPad: EdgePadding = { top: 0, right: 0, bottom: 0, left: 0 };
+    const wrapper = buildRasterWrapper(el, rawRect, noPad, captureWidth, captureHeight, true);
+    return await rasterizeWrapper(wrapper, captureWidth, captureHeight);
   } catch {
     return null;
   }
@@ -629,14 +726,60 @@ function isRasterTag(el: HTMLElement): boolean {
   return tag === 'SVG' || tag === 'CANVAS';
 }
 
-function shouldRasterizeElement(el: HTMLElement, cs: CSSStyleDeclaration): boolean {
+// Render strategy for an element:
+//   'full-raster'       — bake the whole subtree (incl. text) to one image. Used
+//                         for SVG/canvas and non-translate transforms (rotate /
+//                         scale / skew), where text cannot be reproduced as
+//                         horizontal vector runs.
+//   'background-raster' — bake only the element's background + ::before decoration
+//                         to a backdrop image; real text stays vector (selectable).
+//   'vector'            — ordinary element (incl. pure-translate transforms, whose
+//                         getBoundingClientRect already carries the offset).
+type RenderStrategy = 'full-raster' | 'background-raster' | 'vector';
+
+// True when `transform` is a pure translation (no rotate/scale/skew). Such an
+// element needs no rasterization at all: getBoundingClientRect (and every
+// descendant's) already reflects the translated position, so vector text lands
+// correctly. getComputedStyle normalizes transform to matrix()/matrix3d(), so
+// those are the primary paths; the function-form check is a defensive fallback.
+function transformIsPureTranslate(cs: CSSStyleDeclaration): boolean {
+  const t = (cs.transform || '').trim();
+  if (t === '' || t === 'none') return true;
+  const EPS = 1e-3;
+  const near = (a: number, b: number) => Math.abs(a - b) < EPS;
+  const m2 = /^matrix\(([^)]+)\)$/.exec(t);
+  if (m2) {
+    const n = m2[1].split(',').map((s) => parseFloat(s));
+    return n.length === 6 && near(n[0], 1) && near(n[1], 0) && near(n[2], 0) && near(n[3], 1);
+  }
+  const m3 = /^matrix3d\(([^)]+)\)$/.exec(t);
+  if (m3) {
+    const n = m3[1].split(',').map((s) => parseFloat(s));
+    // Linear part (excluding the tx,ty,tz column n[12..14]) must be identity.
+    return n.length === 16
+      && near(n[0], 1) && near(n[1], 0) && near(n[2], 0) && near(n[3], 0)
+      && near(n[4], 0) && near(n[5], 1) && near(n[6], 0) && near(n[7], 0)
+      && near(n[8], 0) && near(n[9], 0) && near(n[10], 1) && near(n[11], 0)
+      && near(n[15], 1);
+  }
+  return /^(translate|translateX|translateY|translateZ|translate3d)\(/.test(t)
+    && !/(rotate|scale|skew|matrix|perspective)/.test(t);
+}
+
+function classifyRenderStrategy(el: HTMLElement, cs: CSSStyleDeclaration): RenderStrategy {
   const mode = el.dataset.dom2pdfMode;
-  if (mode === 'vector' || mode === 'skip') return false;
-  if (isRasterTag(el)) return true;
-  if (hasPseudoVisual(el)) return true;
-  if ((cs.transform || '').trim() !== 'none') return true;
-  if (hasComplexBackground(cs)) return true;
-  return false;
+  if (mode === 'vector' || mode === 'skip') return 'vector';
+  if (isRasterTag(el)) return 'full-raster';
+  // Non-translate transforms skew/scale/rotate the text — must check before the
+  // background branch so e.g. "rotate + gradient" doesn't try to keep text vector.
+  if (!transformIsPureTranslate(cs)) return 'full-raster';
+  // ::after paints ABOVE content; a backdrop image is drawn BELOW the text, so an
+  // ::after overlay would end up hidden behind the text. Fall back to full-raster
+  // for those rather than mislayer them.
+  if (pseudoHasVisual(getComputedStyle(el, '::after'))) return 'full-raster';
+  const beforeVisual = pseudoHasVisual(getComputedStyle(el, '::before'));
+  if (beforeVisual || hasComplexBackground(cs)) return 'background-raster';
+  return 'vector';
 }
 
 function gradientAngleDeg(token: string): number | null {
@@ -718,9 +861,9 @@ function convertLinearGradientToImage(
   gradientText: string,
   width: number,
   height: number,
-  quality: number,
+  _quality: number,
   fallbackBg: [number, number, number, number] | null,
-): { bytes: Uint8Array; width: number; height: number } | null {
+): { bytes: Uint8Array; width: number; height: number; format: number } | null {
   const spec = parseLinearGradient(gradientText);
   if (!spec) return null;
   const w = Math.max(1, Math.round(width));
@@ -752,14 +895,9 @@ function convertLinearGradientToImage(
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, w, h);
 
-  const dataUrl = canvas.toDataURL('image/jpeg', quality);
-  const comma = dataUrl.indexOf(',');
-  if (comma < 0) return null;
-  return {
-    bytes: base64ToBytes(dataUrl.slice(comma + 1)),
-    width: w,
-    height: h,
-  };
+  const raw = canvasToRawRgb(canvas);
+  if (!raw) return null;
+  return { bytes: raw.bytes, width: raw.width, height: raw.height, format: IMG_RAW_RGB };
 }
 
 interface RawGradientStop {
@@ -1065,9 +1203,9 @@ function convertBackgroundImageToImage(
   backgroundImageText: string,
   width: number,
   height: number,
-  quality: number,
+  _quality: number,
   fallbackBg: [number, number, number, number] | null,
-): { bytes: Uint8Array; width: number; height: number } | null {
+): { bytes: Uint8Array; width: number; height: number; format: number } | null {
   const text = (backgroundImageText || '').trim();
   if (!text || text === 'none') return null;
 
@@ -1100,15 +1238,15 @@ function convertBackgroundImageToImage(
     }
   }
 
-  ctx.putImageData(imageData, 0, 0);
-  const dataUrl = canvas.toDataURL('image/jpeg', quality);
-  const comma = dataUrl.indexOf(',');
-  if (comma < 0) return null;
-  return {
-    bytes: base64ToBytes(dataUrl.slice(comma + 1)),
-    width: w,
-    height: h,
-  };
+  // Pack the RGBA buffer we just computed straight to lossless RGB888 — no
+  // canvas/JPEG round-trip, so gradient colors stay exact.
+  const rgb = new Uint8Array(w * h * 3);
+  for (let i = 0, j = 0; i < data.length; i += 4, j += 3) {
+    rgb[j] = data[i];
+    rgb[j + 1] = data[i + 1];
+    rgb[j + 2] = data[i + 2];
+  }
+  return { bytes: rgb, width: w, height: h, format: IMG_RAW_RGB };
 }
 
 interface ResolvedHF {
@@ -1332,8 +1470,9 @@ export async function collectSnapshotData(
 
     const isImg = el.tagName === 'IMG' && imgToId.has(el);
     const kind = isImg ? 2 : 0;
+    const strategy: RenderStrategy = isImg ? 'vector' : classifyRenderStrategy(el, cs);
 
-    if (!isImg && shouldRasterizeElement(el, cs) && r.w > 0 && r.h > 0) {
+    if (strategy === 'full-raster' && r.w > 0 && r.h > 0) {
       const raster = await rasterizeElement(el, rawRect, quality, cs);
       if (raster) {
         const imageId = images.length + 1;
@@ -1342,11 +1481,14 @@ export async function collectSnapshotData(
           bytes: raster.bytes,
           width: raster.width,
           height: raster.height,
+          format: raster.format,
         });
         const rawX = raster.rawLeft + window.scrollX - offX;
         const rawY = raster.rawTop + window.scrollY - offY;
-        const scaledW = raster.width * layoutScale;
-        const scaledH = raster.height * layoutScale;
+        // Layout size comes from the CSS box, NOT the supersampled pixel count —
+        // otherwise a 2-3x raster would scale the element up by the same factor.
+        const scaledW = raster.cssWidth * layoutScale;
+        const scaledH = raster.cssHeight * layoutScale;
         nodes.push({
           id,
           parent: parentId,
@@ -1369,7 +1511,9 @@ export async function collectSnapshotData(
 
     const bg = parseColor(cs.backgroundColor);
     const hasBg = bg[3] > 0.001;
-    const gradientImage = !isImg && kind === 0 && r.w > 0 && r.h > 0
+    // background-raster elements bake their whole background (incl. gradients) via
+    // foreignObject below, so skip the gradient→image path to avoid a double backdrop.
+    const gradientImage = !isImg && kind === 0 && r.w > 0 && r.h > 0 && strategy !== 'background-raster'
       ? convertBackgroundImageToImage(cs.backgroundImage, r.w, r.h, quality, hasBg ? bg : null)
       : null;
     const bw: [number, number, number, number] = [
@@ -1475,6 +1619,35 @@ export async function collectSnapshotData(
         objectFit: 0,
       };
       nodes.push(bgImageNode);
+    }
+
+    // background-raster: bake only this element's background + ::before into a
+    // backdrop image laid under the (still vector) text. Same node shape as the
+    // gradient backdrop above; pushed before children so it draws beneath text.
+    if (strategy === 'background-raster' && !gradientImage && r.w > 0 && r.h > 0) {
+      const bgRaster = await rasterizeElementBackgroundOnly(el, rawRect);
+      if (bgRaster) {
+        const imageId = images.length + 1;
+        images.push({ id: imageId, ...bgRaster });
+        const bgImageNode: NodeRec = {
+          id: nodes.length,
+          parent: id,
+          kind: 2,
+          x: r.x,
+          y: r.y,
+          w: r.w,
+          h: r.h,
+          flags: F_IMAGE | (hasRadius ? F_RADIUS : 0),
+          radius: hasRadius ? radius : undefined,
+          overflowHidden: false,
+          renderMode: 0,
+          divisionDisable: false,
+          pageBreak: false,
+          imageId,
+          objectFit: 0,
+        };
+        nodes.push(bgImageNode);
+      }
     }
 
     for (let child = el.firstChild; child; child = child.nextSibling) {
@@ -1592,7 +1765,7 @@ function writeOptHF(w: BinWriter, hf: ResolvedHF | null) {
 function encode(a: EncodeArgs): Uint8Array {
   const w = new BinWriter();
   w.bytes(new Uint8Array([0x44, 0x32, 0x50, 0x31])); // "D2P1"
-  w.u32(4); // version 4
+  w.u32(5); // version 5 (per-image format byte)
   w.f32(a.pageWidthPt);
   w.f32(a.pageHeightPt);
   w.f32(a.mTop);
@@ -1711,6 +1884,7 @@ function encode(a: EncodeArgs): Uint8Array {
     w.u32(img.id);
     w.u32(img.width);
     w.u32(img.height);
+    w.u8(img.format);
     w.u32(img.bytes.length);
     w.bytes(img.bytes);
   }

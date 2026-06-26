@@ -1423,11 +1423,22 @@ pub fn build_pdf(snap: &Snapshot, pages: &[PagePlan], fontctx: &FontCtx) -> Vec<
     for (i, img) in snap.images.iter().enumerate() {
         let oid = image_ids_first + i as u32;
         image_obj_for.insert(img.id, oid);
-        let dict = format!(
-            " /Type /XObject /Subtype /Image /Width {} /Height {} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode",
-            img.width, img.height
-        );
-        w.stream(oid, &dict, &img.bytes);
+        if img.format == 1 {
+            // Raw RGB888, lossless. Embed FlateDecode (stored zlib) to avoid the
+            // JPEG color/chroma loss that flat fills and line-art icons suffer.
+            let dict = format!(
+                " /Type /XObject /Subtype /Image /Width {} /Height {} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode",
+                img.width, img.height
+            );
+            let compressed = crate::pdf::zlib_store(&img.bytes);
+            w.stream(oid, &dict, &compressed);
+        } else {
+            let dict = format!(
+                " /Type /XObject /Subtype /Image /Width {} /Height {} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode",
+                img.width, img.height
+            );
+            w.stream(oid, &dict, &img.bytes);
+        }
     }
 
     // Helvetica (Base14, not embedded).

@@ -94,3 +94,45 @@ impl PdfWriter {
         self.out
     }
 }
+
+fn adler32(data: &[u8]) -> u32 {
+    const MOD: u32 = 65521;
+    let mut a: u32 = 1;
+    let mut b: u32 = 0;
+    for &byte in data {
+        a = (a + byte as u32) % MOD;
+        b = (b + a) % MOD;
+    }
+    (b << 16) | a
+}
+
+/// Wrap `data` in a zlib stream using only *stored* (uncompressed) deflate
+/// blocks. The result is a valid `/FlateDecode` stream with no actual
+/// compression — used to embed lossless raw-RGB images without pulling in a
+/// real deflate implementation (the crate is pure-std, no third-party libs).
+pub fn zlib_store(data: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(data.len() + data.len() / 0xFFFF * 5 + 16);
+    // zlib header: CMF=0x78 (deflate, 32K window), FLG=0x01 (no preset dict,
+    // fastest level). 0x7801 % 31 == 0, so the FCHECK bits are valid.
+    out.push(0x78);
+    out.push(0x01);
+    if data.is_empty() {
+        out.push(0x01); // BFINAL=1, BTYPE=00 (stored)
+        out.extend_from_slice(&[0x00, 0x00, 0xFF, 0xFF]); // LEN=0, NLEN=~0
+    } else {
+        let mut i = 0usize;
+        let n = data.len();
+        while i < n {
+            let chunk = (n - i).min(0xFFFF);
+            let is_final = i + chunk >= n;
+            out.push(if is_final { 0x01 } else { 0x00 });
+            let len = chunk as u16;
+            out.extend_from_slice(&len.to_le_bytes());
+            out.extend_from_slice(&(!len).to_le_bytes());
+            out.extend_from_slice(&data[i..i + chunk]);
+            i += chunk;
+        }
+    }
+    out.extend_from_slice(&adler32(data).to_be_bytes());
+    out
+}

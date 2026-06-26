@@ -4,7 +4,7 @@
 //!
 //! Header:
 //!   magic: 4 bytes = "D2P1"
-//!   version: u32 = 4
+//!   version: u32 = 5
 //!   pageWidthPt, pageHeightPt, marginTop, marginRight, marginBottom, marginLeft: f32
 //!
 //! Config block:
@@ -51,7 +51,8 @@
 //!                    lines: lineCount x (x,y,w,h f32 ; start u32 ; end u32)
 //!
 //! Images (imageCount): each ->
-//!   id u32 ; width u32 ; height u32 ; byteLen u32 ; bytes[byteLen]
+//!   id u32 ; width u32 ; height u32 ; format u8 ; byteLen u32 ; bytes[byteLen]
+//!   format: 0 = JPEG (DCTDecode), 1 = raw RGB888 (FlateDecode, lossless)
 
 pub struct Snapshot {
     pub page_width_pt: f32,
@@ -200,6 +201,9 @@ pub struct Image {
     pub id: u32,
     pub width: u32,
     pub height: u32,
+    /// 0 = JPEG bytes (embed as /DCTDecode), 1 = raw RGB888 (lossless,
+    /// embed as /FlateDecode). Lets flat/line-art rasters avoid JPEG color loss.
+    pub format: u8,
     pub bytes: Vec<u8>,
 }
 
@@ -316,8 +320,8 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
         return Err(format!("bad magic: {:?}", magic));
     }
     let version = c.u32()?;
-    if version != 4 {
-        return Err(format!("unsupported version {} (expected 4)", version));
+    if version != 5 {
+        return Err(format!("unsupported version {} (expected 5)", version));
     }
     let page_width_pt = c.f32()?;
     let page_height_pt = c.f32()?;
@@ -531,12 +535,14 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
         let id = c.u32()?;
         let width = c.u32()?;
         let height = c.u32()?;
+        let format = c.u8()?;
         let byte_len = c.u32()? as usize;
         let bytes = c.bytes(byte_len)?.to_vec();
         images.push(Image {
             id,
             width,
             height,
+            format,
             bytes,
         });
     }
