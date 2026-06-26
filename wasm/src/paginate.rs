@@ -896,6 +896,14 @@ fn draw_box_border(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h
     let (x0, bottom, w, h) = rect_pt(snap, geo, node, page, content_h_px, page_h_pt);
     let radii = rounded_rect_radii_pt(node, w, h);
     if let Some(b) = &node.border {
+        // A translucent border color (rgba alpha < 1) must be stroked through an
+        // ExtGState that sets CA; the stroke operators carry no alpha otherwise.
+        let alpha = b.c[3];
+        let use_alpha = alpha > 0.0 && alpha < 0.999;
+        if use_alpha {
+            out.push_str("q\n");
+            out.push_str(&format!("/{} gs\n", opacity_resource_name(opacity_key(alpha))));
+        }
         if let (Some(radii), Some(bw), Some(style)) =
             (radii, uniform_border_width_pt(node), uniform_border_style(node))
         {
@@ -904,6 +912,9 @@ fn draw_box_border(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h
             push_rounded_rect_path(out, x0, bottom, w, h, radii);
             out.push_str("S\n");
             out.push_str("[] 0 d\n");
+            if use_alpha {
+                out.push_str("Q\n");
+            }
             return;
         }
         let top_pt = bottom + h;
@@ -959,6 +970,9 @@ fn draw_box_border(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h
                 f(x0), f(top_pt), f(x0), f(bottom)
             ));
             out.push_str("[] 0 d\n");
+        }
+        if use_alpha {
+            out.push_str("Q\n");
         }
     }
 }
@@ -1410,6 +1424,15 @@ pub fn build_pdf(snap: &Snapshot, pages: &[PagePlan], fontctx: &FontCtx) -> Vec<
                     if key < 1000 && key > 0 {
                         keys.push(key);
                     }
+                }
+            }
+            if let Some(border) = &n.border {
+                // Stroke alpha (border-color rgba) needs its own ExtGState; the
+                // stroke op (RG/S) carries no alpha, so without this a faint
+                // rgba() border renders fully opaque.
+                let key = opacity_key(border.c[3]);
+                if key < 1000 && key > 0 {
+                    keys.push(key);
                 }
             }
             keys
