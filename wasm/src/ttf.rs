@@ -202,15 +202,32 @@ impl TtfFont {
         if self.units_per_em == 0 {
             raw
         } else {
-            (raw * 1000) / self.units_per_em as u32
+            // Round to nearest rather than truncate: truncation drops up to ~1
+            // unit per glyph, which accumulates into a visible per-line narrowing.
+            let upem = self.units_per_em as u32;
+            (raw * 1000 + upem / 2) / upem
         }
+    }
+
+    /// Left side bearing of a glyph in 1/1000 em.
+    #[allow(dead_code)]
+    pub fn lsb_1000(&self, gid: u16) -> i32 {
+        let g = (gid as usize).min(self.left_side_bearings.len().saturating_sub(1));
+        self.to_1000(self.left_side_bearings[g] as i32)
     }
 
     fn to_1000(&self, v: i32) -> i32 {
         if self.units_per_em == 0 {
             v
         } else {
-            (v * 1000) / self.units_per_em as i32
+            // Symmetric rounding (toward nearest, halves away from zero).
+            let upem = self.units_per_em as i32;
+            let half = upem / 2;
+            if v >= 0 {
+                (v * 1000 + half) / upem
+            } else {
+                -((-v * 1000 + half) / upem)
+            }
         }
     }
 
