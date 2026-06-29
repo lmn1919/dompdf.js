@@ -150,9 +150,9 @@ pub const F_SHADOW: u16 = 0x400;
 
 #[derive(Clone)]
 pub struct Border {
-    pub w: [f32; 4], // top,right,bottom,left px
-    pub c: [f32; 4], // rgba
-    pub s: [u8; 4],  // 0 solid, 1 dashed
+    pub w: [f32; 4],      // top,right,bottom,left px
+    pub c: [[f32; 4]; 4], // per-side rgba: top,right,bottom,left
+    pub s: [u8; 4],       // 0 solid, 1 dashed
 }
 
 #[derive(Clone)]
@@ -320,8 +320,8 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
         return Err(format!("bad magic: {:?}", magic));
     }
     let version = c.u32()?;
-    if version != 5 {
-        return Err(format!("unsupported version {} (expected 5)", version));
+    if version != 6 {
+        return Err(format!("unsupported version {} (expected 6)", version));
     }
     let page_width_pt = c.f32()?;
     let page_height_pt = c.f32()?;
@@ -409,7 +409,12 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
         };
         let border = if flags & F_BORDER != 0 {
             let bw = [c.f32()?, c.f32()?, c.f32()?, c.f32()?];
-            let bc = [c.f32()?, c.f32()?, c.f32()?, c.f32()?];
+            let bc = [
+                [c.f32()?, c.f32()?, c.f32()?, c.f32()?],
+                [c.f32()?, c.f32()?, c.f32()?, c.f32()?],
+                [c.f32()?, c.f32()?, c.f32()?, c.f32()?],
+                [c.f32()?, c.f32()?, c.f32()?, c.f32()?],
+            ];
             let bs = [c.u8()?, c.u8()?, c.u8()?, c.u8()?];
             Some(Border {
                 w: bw,

@@ -213,6 +213,23 @@ fn uniform_border_style(node: &Node) -> Option<u8> {
     }
 }
 
+/// Some(rgba) only when all four sides share an identical color (incl. alpha).
+/// The rounded-rect fast path strokes the whole outline in one color, so it is
+/// valid only under this condition; multi-color borders fall back to per-side.
+fn uniform_border_color(node: &Node) -> Option<[f32; 4]> {
+    let border = node.border.as_ref()?;
+    let c0 = border.c[0];
+    if border
+        .c
+        .iter()
+        .all(|c| c.iter().zip(c0.iter()).all(|(a, b)| approx_eq(*a, *b)))
+    {
+        Some(c0)
+    } else {
+        None
+    }
+}
+
 fn dash_pattern_pt(style: u8, width_pt: f32) -> Option<(f32, f32)> {
     if style == 1 {
         let on = (width_pt * 3.0).max(1.0);
@@ -896,18 +913,23 @@ fn draw_box_border(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h
     let (x0, bottom, w, h) = rect_pt(snap, geo, node, page, content_h_px, page_h_pt);
     let radii = rounded_rect_radii_pt(node, w, h);
     if let Some(b) = &node.border {
-        // A translucent border color (rgba alpha < 1) must be stroked through an
-        // ExtGState that sets CA; the stroke operators carry no alpha otherwise.
-        let alpha = b.c[3];
-        let use_alpha = alpha > 0.0 && alpha < 0.999;
-        if use_alpha {
-            out.push_str("q\n");
-            out.push_str(&format!("/{} gs\n", opacity_resource_name(opacity_key(alpha))));
-        }
-        if let (Some(radii), Some(bw), Some(style)) =
-            (radii, uniform_border_width_pt(node), uniform_border_style(node))
-        {
-            out.push_str(&format!("{} {} {} RG {} w\n", f(b.c[0]), f(b.c[1]), f(b.c[2]), f(bw)));
+        // Rounded-rect fast path: one stroke for the whole outline, valid only
+        // when width, style, radii AND color are uniform across all four sides.
+        if let (Some(radii), Some(bw), Some(style), Some(col)) = (
+            radii,
+            uniform_border_width_pt(node),
+            uniform_border_style(node),
+            uniform_border_color(node),
+        ) {
+            // A translucent border color (rgba alpha < 1) must be stroked through
+            // an ExtGState that sets CA; the stroke operators carry no alpha.
+            let alpha = col[3];
+            let use_alpha = alpha > 0.0 && alpha < 0.999;
+            if use_alpha {
+                out.push_str("q\n");
+                out.push_str(&format!("/{} gs\n", opacity_resource_name(opacity_key(alpha))));
+            }
+            out.push_str(&format!("{} {} {} RG {} w\n", f(col[0]), f(col[1]), f(col[2]), f(bw)));
             set_dash(out, style, bw);
             push_rounded_rect_path(out, x0, bottom, w, h, radii);
             out.push_str("S\n");
@@ -919,61 +941,51 @@ fn draw_box_border(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h
         }
         let top_pt = bottom + h;
         let right = x0 + w;
-        if b.w[0] > 0.0 {
-            let bw = b.w[0] * PX_TO_PT;
-            out.push_str(&format!(
-                "{} {} {} RG {} w\n",
-                f(b.c[0]), f(b.c[1]), f(b.c[2]), f(bw)
-            ));
-            set_dash(out, b.s[0], bw);
-            out.push_str(&format!(
-                "{} {} m {} {} l S\n",
-                f(x0), f(top_pt), f(right), f(top_pt)
-            ));
+        // Per-side stroke. Each side carries its own color (and its own alpha,
+        // wrapped in its own ExtGState so rgba() borders stay translucent).
+        let stroke_side = |bw_px: f32, style: u8, col: &[f32; 4], path: &str, out: &mut String| {
+            if bw_px <= 0.0 {
+                return;
+            }
+            let alpha = col[3];
+            let use_alpha = alpha > 0.0 && alpha < 0.999;
+            if use_alpha {
+                out.push_str("q\n");
+                out.push_str(&format!("/{} gs\n", opacity_resource_name(opacity_key(alpha))));
+            }
+            let bw = bw_px * PX_TO_PT;
+            out.push_str(&format!("{} {} {} RG {} w\n", f(col[0]), f(col[1]), f(col[2]), f(bw)));
+            set_dash(out, style, bw);
+            out.push_str(path);
             out.push_str("[] 0 d\n");
-        }
-        if b.w[1] > 0.0 {
-            let bw = b.w[1] * PX_TO_PT;
-            out.push_str(&format!(
-                "{} {} {} RG {} w\n",
-                f(b.c[0]), f(b.c[1]), f(b.c[2]), f(bw)
-            ));
-            set_dash(out, b.s[1], bw);
-            out.push_str(&format!(
-                "{} {} m {} {} l S\n",
-                f(right), f(top_pt), f(right), f(bottom)
-            ));
-            out.push_str("[] 0 d\n");
-        }
-        if b.w[2] > 0.0 {
-            let bw = b.w[2] * PX_TO_PT;
-            out.push_str(&format!(
-                "{} {} {} RG {} w\n",
-                f(b.c[0]), f(b.c[1]), f(b.c[2]), f(bw)
-            ));
-            set_dash(out, b.s[2], bw);
-            out.push_str(&format!(
-                "{} {} m {} {} l S\n",
-                f(x0), f(bottom), f(right), f(bottom)
-            ));
-            out.push_str("[] 0 d\n");
-        }
-        if b.w[3] > 0.0 {
-            let bw = b.w[3] * PX_TO_PT;
-            out.push_str(&format!(
-                "{} {} {} RG {} w\n",
-                f(b.c[0]), f(b.c[1]), f(b.c[2]), f(bw)
-            ));
-            set_dash(out, b.s[3], bw);
-            out.push_str(&format!(
-                "{} {} m {} {} l S\n",
-                f(x0), f(top_pt), f(x0), f(bottom)
-            ));
-            out.push_str("[] 0 d\n");
-        }
-        if use_alpha {
-            out.push_str("Q\n");
-        }
+            if use_alpha {
+                out.push_str("Q\n");
+            }
+        };
+        // top
+        stroke_side(
+            b.w[0], b.s[0], &b.c[0],
+            &format!("{} {} m {} {} l S\n", f(x0), f(top_pt), f(right), f(top_pt)),
+            out,
+        );
+        // right
+        stroke_side(
+            b.w[1], b.s[1], &b.c[1],
+            &format!("{} {} m {} {} l S\n", f(right), f(top_pt), f(right), f(bottom)),
+            out,
+        );
+        // bottom
+        stroke_side(
+            b.w[2], b.s[2], &b.c[2],
+            &format!("{} {} m {} {} l S\n", f(x0), f(bottom), f(right), f(bottom)),
+            out,
+        );
+        // left
+        stroke_side(
+            b.w[3], b.s[3], &b.c[3],
+            &format!("{} {} m {} {} l S\n", f(x0), f(top_pt), f(x0), f(bottom)),
+            out,
+        );
     }
 }
 
@@ -1429,10 +1441,12 @@ pub fn build_pdf(snap: &Snapshot, pages: &[PagePlan], fontctx: &FontCtx) -> Vec<
             if let Some(border) = &n.border {
                 // Stroke alpha (border-color rgba) needs its own ExtGState; the
                 // stroke op (RG/S) carries no alpha, so without this a faint
-                // rgba() border renders fully opaque.
-                let key = opacity_key(border.c[3]);
-                if key < 1000 && key > 0 {
-                    keys.push(key);
+                // rgba() border renders fully opaque. Each side may differ.
+                for side in border.c.iter() {
+                    let key = opacity_key(side[3]);
+                    if key < 1000 && key > 0 {
+                        keys.push(key);
+                    }
                 }
             }
             keys

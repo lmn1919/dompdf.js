@@ -192,7 +192,13 @@ interface NodeRec {
   bg?: [number, number, number, number];
   border?: {
     w: [number, number, number, number];
-    c: [number, number, number, number];
+    // per-side rgba: top, right, bottom, left
+    c: [
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+    ];
     s: [number, number, number, number];
   };
   shadow?: {
@@ -1522,18 +1528,29 @@ export async function collectSnapshotData(
       (parseFloat(cs.borderBottomWidth) || 0) * layoutScale,
       (parseFloat(cs.borderLeftWidth) || 0) * layoutScale,
     ];
-    const bc = parseColor(cs.borderTopColor);
+    const bc: [
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+    ] = [
+      parseColor(cs.borderTopColor),
+      parseColor(cs.borderRightColor),
+      parseColor(cs.borderBottomColor),
+      parseColor(cs.borderLeftColor),
+    ];
     const bs: [number, number, number, number] = [
       borderStyleNum(cs.borderTopStyle),
       borderStyleNum(cs.borderRightStyle),
       borderStyleNum(cs.borderBottomStyle),
       borderStyleNum(cs.borderLeftStyle),
     ];
-    const hasBorder = (bw[0] > 0 && cs.borderTopStyle !== 'none' && cs.borderTopStyle !== 'hidden')
-      || (bw[1] > 0 && cs.borderRightStyle !== 'none' && cs.borderRightStyle !== 'hidden')
-      || (bw[2] > 0 && cs.borderBottomStyle !== 'none' && cs.borderBottomStyle !== 'hidden')
-      || (bw[3] > 0 && cs.borderLeftStyle !== 'none' && cs.borderLeftStyle !== 'hidden');
-    const visibleBorder = hasBorder && bc[3] > 0.001;
+    const sidePaints = (i: number, style: string): boolean =>
+      bw[i] > 0 && style !== 'none' && style !== 'hidden' && bc[i][3] > 0.001;
+    const visibleBorder = sidePaints(0, cs.borderTopStyle)
+      || sidePaints(1, cs.borderRightStyle)
+      || sidePaints(2, cs.borderBottomStyle)
+      || sidePaints(3, cs.borderLeftStyle);
     const shadow = kind === 0 ? parseBoxShadow(cs.boxShadow) : null;
     const radius: [number, number, number, number] = [
       (parseFloat(cs.borderTopLeftRadius) || 0) * layoutScale,
@@ -1765,7 +1782,7 @@ function writeOptHF(w: BinWriter, hf: ResolvedHF | null) {
 function encode(a: EncodeArgs): Uint8Array {
   const w = new BinWriter();
   w.bytes(new Uint8Array([0x44, 0x32, 0x50, 0x31])); // "D2P1"
-  w.u32(5); // version 5 (per-image format byte)
+  w.u32(6); // version 6 (per-side border colors)
   w.f32(a.pageWidthPt);
   w.f32(a.pageHeightPt);
   w.f32(a.mTop);
@@ -1835,7 +1852,9 @@ function encode(a: EncodeArgs): Uint8Array {
     }
     if (n.border) {
       w.f32(n.border.w[0]); w.f32(n.border.w[1]); w.f32(n.border.w[2]); w.f32(n.border.w[3]);
-      w.f32(n.border.c[0]); w.f32(n.border.c[1]); w.f32(n.border.c[2]); w.f32(n.border.c[3]);
+      for (let i = 0; i < 4; i++) {
+        w.f32(n.border.c[i][0]); w.f32(n.border.c[i][1]); w.f32(n.border.c[i][2]); w.f32(n.border.c[i][3]);
+      }
       w.u8(n.border.s[0]); w.u8(n.border.s[1]); w.u8(n.border.s[2]); w.u8(n.border.s[3]);
     }
     if (n.shadow) {
