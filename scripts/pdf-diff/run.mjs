@@ -37,7 +37,14 @@ export async function runEntry({
   const page = await context.newPage();
   try {
     console.log(`[${entry.name}] 正在打开页面: ${entry.url}`);
-    await page.goto(entry.url, { waitUntil: 'networkidle' });
+    // Load to DOMContentLoaded first (always resolves), then make a best-effort
+    // wait for the network to quiet. Pages with a persistent connection — a
+    // Discourse /message-bus long-poll, a websocket, an analytics beacon loop —
+    // never reach 'networkidle', so waiting on it as the goto condition hangs
+    // until timeout. Bound the idle wait and swallow its timeout so those pages
+    // still render instead of failing outright.
+    await page.goto(entry.url, { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
 
     const oracle = await collectOracle({
       page,
