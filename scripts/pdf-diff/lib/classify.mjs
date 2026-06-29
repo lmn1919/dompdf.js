@@ -12,6 +12,7 @@ const SUSPECTED = {
   'font-size': { file: 'src/snapshot.ts', fn: 'PX_TO_PT / fontSize collection', also: 'wasm/src/font.rs (size scaling)' },
   'font-family': { file: 'wasm/src/font.rs', fn: 'font selection / CID embedding', also: 'wasm/src/ttf.rs' },
   'font-encoding': { file: 'wasm/src/font.rs', fn: 'encode_winansi / ToUnicode', also: 'wasm/src/ttf.rs (cmap) / paginate.rs (text stream)' },
+  'missing-glyph': { file: 'wasm/src/font.rs', fn: 'encode_cid (per-glyph fallback)', also: 'wasm/src/ttf.rs gid_for (cmap miss → gid 0/.notdef)' },
   color: { file: 'src/snapshot.ts', fn: 'color parsing', also: 'wasm/src/paginate.rs (alpha compositing)' },
   'bg-color': { file: 'src/snapshot.ts', fn: 'background-color capture', also: 'wasm/src/paginate.rs (rect fill / alpha)' },
   border: { file: 'src/snapshot.ts', fn: 'border capture', also: 'wasm/src/paginate.rs (border stroke)' },
@@ -29,6 +30,7 @@ const HINTS = {
   'font-size': 'Font size is off by a constant ratio. Verify the px→pt conversion (PX_TO_PT) in snapshot collection and any scaling in font.rs. A consistent ΔfontSize across all items is the signature.',
   'font-family': 'A different font/glyph set is embedded than the page uses. Check font.rs font selection and CID-font embedding; confirm the injected FontConfig reached the WASM side.',
   'font-encoding': 'Text is visible in the PDF but not extractable (many oracle lines have no matching PDF text item, yet pixel mismatch is low). The text stream lacks a usable ToUnicode / character encoding. Check font.rs::encode_winansi and the CID font ToUnicode mapping, and ttf.rs cmap handling.',
+  'missing-glyph': 'Specific codepoints present in the browser text are absent from the PDF text stream and render as blank .notdef, while the rest of the text extracts fine (charCoverage stays near 1). Signature of a cmap miss with no per-glyph font fallback: the selected CID font lacks these glyphs (gid_for → 0 in ttf.rs) and encode_cid emits the blank glyph instead of falling back to another embedded font that covers the codepoint. Check encode_cid in font.rs and route missing codepoints to a fallback font.',
   color: 'Colors differ while text positions align. Check color parsing in src/snapshot.ts and alpha compositing in paginate.rs.',
   'bg-color': "An element's painted background color diverges from the browser (located per element, ΔE in Lab). Check background-color capture in src/snapshot.ts and rect fill/alpha in paginate.rs.",
   border: "An element's border color/presence diverges from the browser at the box edge. Check border capture in src/snapshot.ts and border stroking in paginate.rs.",
@@ -121,6 +123,7 @@ export function classify({ textDiff, pixelDiff, visualDiff, inspectText, meta })
   const aligned = summary.aligned || 1;
   const pixelMismatch = pixelDiff?.aggregateMismatchRatio || 0;
   const charCoverage = summary.charCoverage ?? 1;
+  const missingChars = summary.missingChars || [];
   const manyUnmatchedOracle = unmatchedOracle / oracleItems > 0.3;
   if (manyUnmatchedOracle && pixelMismatch < 0.3 && charCoverage < 0.6) {
     categories.push(makeCategory('font-encoding', unmatchedOracle, 0, {
@@ -140,7 +143,9 @@ export function classify({ textDiff, pixelDiff, visualDiff, inspectText, meta })
       aligned,
       charCoverage,
       note: charCoverage >= 0.6
-        ? 'Characters are present in the extracted text (high charCoverage); unmatched lines are a wrap/segmentation difference between logical oracle lines and pdfjs Tj runs, not missing text.'
+        ? (missingChars.length === 0
+          ? 'Characters are present in the extracted text (high charCoverage); unmatched lines are a wrap/segmentation difference between logical oracle lines and pdfjs Tj runs, not missing text.'
+          : `Most text is present, but ${missingChars.length} oracle codepoint(s) are missing from the PDF stream — see the missing-glyph category; the remaining unmatched lines are a wrap/segmentation difference.`)
         : 'Text wraps/segments differently from the oracle.',
     });
     // Severity of a wrap/segmentation difference is set by its VISUAL impact, not
@@ -150,6 +155,35 @@ export function classify({ textDiff, pixelDiff, visualDiff, inspectText, meta })
     cat.severity = charCoverage < 0.6
       ? 'high'
       : pixelMismatch >= 0.2 ? 'high' : pixelMismatch >= 0.08 ? 'medium' : 'low';
+    categories.push(cat);
+  }
+
+  // Specific codepoints dropped to a blank .notdef — present in the oracle text
+  // but absent from the extracted PDF stream — even when overall coverage is high
+  // and the wrap/font-encoding gates above never fired. This is the no-per-glyph
+  // -fallback signature: a few symbols (∫ √ ± ∇ × …) vanish while the bulk of the
+  // text extracts cleanly, so it would otherwise hide inside the wrap noise.
+  //
+  // Gate on high coverage: when coverage is LOW the missing codepoints are a
+  // *systemic* failure (broken ToUnicode → text rendered but unextractable, owned
+  // by the font-encoding category above), not a handful of per-glyph fallback
+  // gaps. Without this gate a CJK page with broken ToUnicode would mislabel
+  // hundreds of rendered-but-unextractable characters as "missing glyphs".
+  if (missingChars.length > 0 && charCoverage >= 0.6) {
+    const nonAscii = missingChars.filter((m) => (m.char?.codePointAt(0) || 0) > 0x7f);
+    const cat = makeCategory('missing-glyph', missingChars.length, 0, {
+      kind: 'dropped-codepoints',
+      charCoverage,
+      missingCount: missingChars.length,
+      nonAsciiCount: nonAscii.length,
+      missing: missingChars.slice(0, 30).map((m) => `${m.codepoint} ${JSON.stringify(m.char)}`),
+    });
+    // A handful of vanished symbols is a real, localized defect. Escalate to
+    // medium when several distinct glyphs drop or any are non-ASCII symbols
+    // (almost always the .notdef-blank case rather than an extraction quirk like
+    // an em-dash extracting as a hyphen); a lone ASCII miss stays low.
+    cat.severity = (nonAscii.length >= 2 || missingChars.length >= 5) ? 'medium' : 'low';
+    cat.samples = missingChars.slice(0, 10);
     categories.push(cat);
   }
 

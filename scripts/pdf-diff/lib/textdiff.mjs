@@ -191,6 +191,8 @@ export function diffTexts(oracle, pdfTextItems, metrics) {
   // (e.g. a real top-margin error) stays visible without flagging every line.
   const dyOffset = median(matched.map((m) => m.dy));
 
+  const cov = charCoverageDetail(oracleSeq, actualSeq);
+
   const discrepancies = [];
   const deltas = { dx: [], dy: [], dFontSize: [], dWidth: [] };
 
@@ -224,7 +226,12 @@ export function diffTexts(oracle, pdfTextItems, metrics) {
       // ~1.0 means the text IS present in the stream (any unmatched lines are a
       // wrap/segmentation artifact); a low value means it is genuinely
       // unextractable (broken ToUnicode/encoding). Lets Tier 3 tell them apart.
-      charCoverage: charCoverage(oracleSeq, actualSeq),
+      charCoverage: cov.coverage,
+      // Distinct oracle codepoints absent from the extracted PDF text — i.e. the
+      // characters that dropped to a blank .notdef (no per-glyph font fallback).
+      // Surfaced even when charCoverage is near 1, so a few vanished symbols
+      // (∫ √ ± …) are classifiable instead of hiding inside the wrap noise.
+      missingChars: cov.missing,
       // Systematic uniform vertical baseline offset (px) removed before y-drift
       // detection. Small values are oracle/dompdf baseline-model calibration.
       dyOffset: round(dyOffset),
@@ -258,32 +265,47 @@ function median(arr) {
 }
 
 // Whitespace-insensitive distinct-character coverage of oracle text by actual
-// text: of the distinct characters the oracle contains, what fraction also
-// appear anywhere in the extracted PDF text. Distinct (set), NOT multiset, on
-// purpose — the oracle captures per-word client rects that can overlap and
-// double-count the same visual text (e.g. a wrapped heading), which would deflate
-// a multiset ratio even when every character extracts cleanly. A broken
-// ToUnicode/encoding instead emits NUL/garbage codepoints, so the real characters
-// go missing and this ratio collapses — exactly the signal Tier 3 needs to tell
-// "drawn but unextractable" apart from "merely wrapped/segmented differently".
-function charCoverage(oracleSeq, actualSeq) {
-  const charsOf = (seq) => {
-    const set = new Set();
-    for (const item of seq) {
-      for (const ch of item.norm) {
-        if (ch !== ' ') set.add(ch);
-      }
+// text, PLUS the list of oracle characters that never appear in the extracted
+// PDF text. Distinct (set), NOT multiset, on purpose — the oracle captures
+// per-word client rects that can overlap and double-count the same visual text
+// (e.g. a wrapped heading), which would deflate a multiset ratio even when every
+// character extracts cleanly. A broken ToUnicode/encoding emits NUL/garbage
+// codepoints, so the real characters go missing and `coverage` collapses (the
+// font-encoding signal). A few specific symbols dropping to .notdef (no
+// per-glyph fallback) instead leaves `coverage` near 1 but populates `missing`
+// — the signal Tier 3 turns into the missing-glyph category.
+function charCoverageDetail(oracleSeq, actualSeq) {
+  const actualChars = new Set();
+  for (const item of actualSeq) {
+    for (const ch of item.norm) {
+      if (ch !== ' ') actualChars.add(ch);
     }
-    return set;
-  };
-  const oracleChars = charsOf(oracleSeq);
-  if (oracleChars.size === 0) return 1;
-  const actualChars = charsOf(actualSeq);
-  let covered = 0;
-  for (const ch of oracleChars) {
-    if (actualChars.has(ch)) covered += 1;
   }
-  return round(covered / oracleChars.size);
+  const oracleChars = new Set();
+  const sampleFor = new Map(); // char -> first oracle line containing it
+  for (const item of oracleSeq) {
+    for (const ch of item.norm) {
+      if (ch === ' ') continue;
+      oracleChars.add(ch);
+      if (!sampleFor.has(ch)) sampleFor.set(ch, item.text);
+    }
+  }
+  if (oracleChars.size === 0) return { coverage: 1, missing: [] };
+  let covered = 0;
+  const missing = [];
+  for (const ch of oracleChars) {
+    if (actualChars.has(ch)) {
+      covered += 1;
+    } else {
+      const cp = ch.codePointAt(0) || 0;
+      missing.push({
+        char: ch,
+        codepoint: `U+${cp.toString(16).toUpperCase().padStart(4, '0')}`,
+        sample: sampleFor.get(ch),
+      });
+    }
+  }
+  return { coverage: round(covered / oracleChars.size), missing };
 }
 
 function std(arr) {
