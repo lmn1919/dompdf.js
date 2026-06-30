@@ -1047,7 +1047,8 @@ fn collect_used_cid_run(fontctx: &FontCtx, family: &str, weight: u16, italic: u8
         return;
     }
     if let Some(cf) = select_cid_font(fontctx, family, weight, italic, &normalized) {
-        let _ = encode_cid(cf, &normalized);
+        let primary_idx = (cf.key - 2) as usize;
+        let _ = fontctx.shape(primary_idx, &normalized, true);
     }
 }
 
@@ -1156,28 +1157,27 @@ fn draw_text_lines(
         out.push_str("BT\n");
 
         if let Some(cf) = cid {
-            let (gbytes, width_1000) = encode_cid(cf, &normalized);
-            if gbytes.is_empty() {
+            // Per-glyph font fallback: a single line may mix the primary font
+            // (e.g. CJK) with fallback fonts (e.g. a math/symbol font) for chars
+            // the primary lacks. Shape once, then emit one text-show per run of
+            // consecutive same-font glyphs, repositioning with an absolute Tm.
+            let primary_idx = (cf.key - 2) as usize;
+            let glyphs = fontctx.shape(primary_idx, &normalized, false);
+            if glyphs.is_empty() {
                 out.push_str("ET\n");
                 continue;
             }
-            let space_count = normalized.chars().filter(|c| *c == ' ').count() as f32;
-            let base_extra_px = font.letter_spacing_px * (normalized.chars().count() as f32)
+            let char_count = glyphs.len() as f32;
+            let space_count = glyphs.iter().filter(|g| g.is_space).count() as f32;
+            let sum_glyph_w_px: f32 = glyphs
+                .iter()
+                .map(|g| (g.width_1000 as f32 / 1000.0) * font.size_px)
+                .sum();
+            let base_extra_px = font.letter_spacing_px * char_count
                 + font.word_spacing_px * space_count;
-            let base_text_w_px = (width_1000 as f32 / 1000.0) * font.size_px + base_extra_px;
+            let base_text_w_px = sum_glyph_w_px + base_extra_px;
             let justify_extra_px = if allow_justify && space_count > 0.0 {
                 (line.w - base_text_w_px).max(0.0)
-            } else {
-                0.0
-            };
-            let text_w_px = base_text_w_px + justify_extra_px;
-            let x_pt = match font.align {
-                1 => snap.margin_left + (line.x + line.w - text_w_px) * PX_TO_PT,
-                2 => snap.margin_left + (line.x + line.w / 2.0 - text_w_px / 2.0) * PX_TO_PT,
-                _ => snap.margin_left + line.x * PX_TO_PT,
-            };
-            let tc = if font.letter_spacing_px != 0.0 {
-                font.letter_spacing_px * PX_TO_PT
             } else {
                 0.0
             };
@@ -1186,16 +1186,43 @@ fn draw_text_lines(
             } else {
                 0.0
             };
-            let tw = if font.word_spacing_px != 0.0 || justify_word_spacing_px != 0.0 {
-                (font.word_spacing_px + justify_word_spacing_px) * PX_TO_PT
-            } else {
-                0.0
+            // Per-glyph advance applied by the PDF viewer inside each Tj.
+            let tc_px = font.letter_spacing_px;
+            let tw_px = font.word_spacing_px + justify_word_spacing_px;
+            let total_text_w_px = sum_glyph_w_px + tc_px * char_count + tw_px * space_count;
+            let x_left_px = match font.align {
+                1 => line.x + line.w - total_text_w_px,
+                2 => line.x + line.w / 2.0 - total_text_w_px / 2.0,
+                _ => line.x,
             };
-            out.push_str(&format!("/F{} {} Tf\n", cf.key, f(fs_pt)));
-            out.push_str(&format!("{} Tc\n", f(tc)));
-            out.push_str(&format!("{} Tw\n", f(tw)));
-            out.push_str(&format!("1 0 0 1 {} {} Tm\n", f(x_pt), f(y_pt)));
-            out.push_str(&format!("<{}> Tj\n", hex(&gbytes)));
+            let tc_pt = if tc_px != 0.0 { tc_px * PX_TO_PT } else { 0.0 };
+            let tw_pt = if tw_px != 0.0 { tw_px * PX_TO_PT } else { 0.0 };
+
+            let mut gi = 0usize;
+            let mut pen_px = 0.0f32; // advance from the line text start, in px
+            while gi < glyphs.len() {
+                let seg_font_idx = glyphs[gi].font_idx;
+                let seg_cf = &fontctx.cid[seg_font_idx];
+                let seg_start_pen = pen_px;
+                let mut gbytes: Vec<u8> = Vec::new();
+                while gi < glyphs.len() && glyphs[gi].font_idx == seg_font_idx {
+                    let g = &glyphs[gi];
+                    let draw_gid = seg_cf.subset_gid(g.old_gid);
+                    gbytes.push((draw_gid >> 8) as u8);
+                    gbytes.push((draw_gid & 0xff) as u8);
+                    pen_px += (g.width_1000 as f32 / 1000.0) * font.size_px + tc_px;
+                    if g.is_space {
+                        pen_px += tw_px;
+                    }
+                    gi += 1;
+                }
+                let seg_x_pt = snap.margin_left + (x_left_px + seg_start_pen) * PX_TO_PT;
+                out.push_str(&format!("/F{} {} Tf\n", seg_cf.key, f(fs_pt)));
+                out.push_str(&format!("{} Tc\n", f(tc_pt)));
+                out.push_str(&format!("{} Tw\n", f(tw_pt)));
+                out.push_str(&format!("1 0 0 1 {} {} Tm\n", f(seg_x_pt), f(y_pt)));
+                out.push_str(&format!("<{}> Tj\n", hex(&gbytes)));
+            }
         } else {
             let bytes = encode_winansi(&normalized);
             if bytes.is_empty() {
@@ -1391,7 +1418,17 @@ fn build_tounicode(cf: &crate::font::CidFont) -> Vec<u8> {
         s.push_str(&format!("{} beginbfchar\n", chunk));
         for j in i..i + chunk {
             let (gid, cp) = entries[j];
-            s.push_str(&format!("<{:04X}> <{:04X}>\n", gid, cp));
+            // ToUnicode values are UTF-16BE. Astral codepoints (> U+FFFF, e.g.
+            // blackboard-bold 𝕏 U+1D54F) must be a surrogate pair, not a raw
+            // 5-hex value, or text copy/search yields garbage for that glyph.
+            if cp > 0xFFFF {
+                let v = cp - 0x10000;
+                let hi = 0xD800 + (v >> 10);
+                let lo = 0xDC00 + (v & 0x3FF);
+                s.push_str(&format!("<{:04X}> <{:04X}{:04X}>\n", gid, hi, lo));
+            } else {
+                s.push_str(&format!("<{:04X}> <{:04X}>\n", gid, cp));
+            }
         }
         s.push_str("endbfchar\n");
         i += chunk;

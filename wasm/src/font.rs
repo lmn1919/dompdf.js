@@ -285,6 +285,51 @@ impl FontCtx {
         self.cid.first()
     }
 
+    /// Shape a text run into glyphs with per-glyph font fallback.
+    ///
+    /// For each char: use `primary_idx` when it has the glyph; otherwise scan
+    /// the other registered fonts (registration order) for the first that does.
+    /// If none has it, fall back to the primary's `.notdef` (gid 0), preserving
+    /// the previous single-font behavior. When `record` is true, the resolved
+    /// gid is registered into the font that supplies it (used for subsetting);
+    /// this must run during the collect pass, before `prepare_subset_maps()`.
+    pub fn shape(&self, primary_idx: usize, text: &str, record: bool) -> Vec<ShapedGlyph> {
+        let mut out = Vec::with_capacity(text.chars().count());
+        let primary_idx = primary_idx.min(self.cid.len().saturating_sub(1));
+        for c in text.chars() {
+            let cp = c as u32;
+            let mut font_idx = primary_idx;
+            let mut gid = self.cid[primary_idx].ttf.gid_for(cp);
+            if gid == 0 {
+                for (i, cf) in self.cid.iter().enumerate() {
+                    if i == primary_idx {
+                        continue;
+                    }
+                    let g = cf.ttf.gid_for(cp);
+                    if g != 0 {
+                        font_idx = i;
+                        gid = g;
+                        break;
+                    }
+                }
+            }
+            let width_1000 = self.cid[font_idx].ttf.width_1000(gid);
+            if record {
+                let mut used = self.cid[font_idx].used_gids.borrow_mut();
+                if !used.contains(&gid) {
+                    used.push(gid);
+                }
+            }
+            out.push(ShapedGlyph {
+                font_idx,
+                old_gid: gid,
+                width_1000,
+                is_space: c == ' ',
+            });
+        }
+        out
+    }
+
     /// Select the most compatible CID font across all registered resources.
     pub fn fallback_cid(&self, weight: u16, italic: u8) -> Option<&CidFont> {
         let mut best_idx = None;
@@ -332,6 +377,16 @@ impl CidFont {
             .and_then(|m| m.get(&old_gid).copied())
             .unwrap_or(old_gid)
     }
+}
+
+/// One shaped glyph after per-glyph font fallback. `font_idx` indexes into
+/// `FontCtx::cid`; `old_gid` is the gid in that font (subset-mapped at draw
+/// time); `width_1000` is its advance in 1/1000 em (font-independent units).
+pub struct ShapedGlyph {
+    pub font_idx: usize,
+    pub old_gid: u16,
+    pub width_1000: u32,
+    pub is_space: bool,
 }
 
 /// Result of encoding a text run for a CID font: glyph id bytes (big-endian,

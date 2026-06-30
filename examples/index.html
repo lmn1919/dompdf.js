@@ -1072,6 +1072,12 @@
           fontStyle: "normal",
           fontWeight: 400,
         };
+        // Standalone symbol/math fallback font (NOT bundled into dompdf.js).
+        // Loaded separately and appended to the fontConfig array; the engine's
+        // per-glyph fallback uses it only for glyphs the primary font lacks
+        // (∫ ∑ √ ∇ ∂ ℏ 𝕏 …). See assets/symbol-fallback.ttf (subset of DejaVu
+        // Sans, free license).
+        var symbolFontConfig = null;
         var readyResolve;
         var readyPromise = new Promise(function (resolve) {
           readyResolve = resolve;
@@ -1098,7 +1104,7 @@
             marginPt: 0,
             backgroundColor: "#ffffff",
             useCORS: true,
-            fontConfig: sharedFontConfig,
+            fontConfig: symbolFontConfig ? [sharedFontConfig, symbolFontConfig] : sharedFontConfig,
             pageConfig: {
               header: {
                 content: "dompdf · Single HTML Demo",
@@ -1342,6 +1348,27 @@
             });
         }
 
+        function loadSymbolFont() {
+          // Separate file, fetched at runtime — not part of the dompdf.js bundle.
+          return fetch("../assets/symbol-fallback.ttf")
+            .then(function (res) {
+              if (!res.ok) return null;
+              return res.arrayBuffer();
+            })
+            .then(function (buf) {
+              if (!buf) return;
+              symbolFontConfig = {
+                fontFamily: "SymbolFallback",
+                fontStyle: "normal",
+                fontWeight: 400,
+                fontBytes: new Uint8Array(buf),
+              };
+            })
+            .catch(function () {
+              /* symbol font unavailable; symbols limited to the primary font */
+            });
+        }
+
         function wireButtons() {
           document.getElementById("btn-export").addEventListener("click", function () {
             var startedAt = performance.now();
@@ -1399,9 +1426,9 @@
 
         buildLongList();
         document.getElementById("sample-img").src = createChartDataUrl();
-        loadFont()
+        Promise.all([loadFont(), loadSymbolFont()])
           .then(function () {
-            setStatus("ready");
+            setStatus(symbolFontConfig ? "ready (symbol font loaded)" : "ready");
           })
           .catch(function (err) {
             setStatus("font load warning: " + err.message);
