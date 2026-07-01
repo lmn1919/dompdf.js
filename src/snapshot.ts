@@ -133,13 +133,14 @@ interface CollectedImage {
   bytes: Uint8Array;
   width: number;
   height: number;
-  /** 0 = JPEG (DCTDecode), 1 = raw RGB888 (lossless, FlateDecode). */
+  /** 0 = JPEG, 1 = raw RGB888, 2 = raw RGBA8888 (alpha via SMask). */
   format: number;
 }
 
 /** Image byte payload + the format tag the Rust embedder branches on. */
 const IMG_JPEG = 0;
 const IMG_RAW_RGB = 1;
+const IMG_RAW_RGBA = 2;
 
 /**
  * Read a fully-opaque canvas back as packed RGB888 (alpha dropped). Used for
@@ -163,6 +164,26 @@ function canvasToRawRgb(
   return { bytes: rgb, width: w, height: h };
 }
 
+function canvasToRawRgba(
+  canvas: HTMLCanvasElement,
+): { bytes: Uint8Array; width: number; height: number } | null {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  const w = canvas.width;
+  const h = canvas.height;
+  const rgba = ctx.getImageData(0, 0, w, h).data;
+  const bytes = new Uint8Array(rgba.length);
+  bytes.set(rgba);
+  return { bytes, width: w, height: h };
+}
+
+function rgbaHasTransparency(rgba: Uint8ClampedArray): boolean {
+  for (let i = 3; i < rgba.length; i += 4) {
+    if (rgba[i] !== 255) return true;
+  }
+  return false;
+}
+
 interface CollectedFont {
   family: string;
   style: number; // 0 normal, 1 italic
@@ -178,6 +199,19 @@ interface LineBox {
   h: number;
   start: number;
   end: number;
+}
+
+interface GraphemeSegment {
+  text: string;
+  start16: number;
+  end16: number;
+}
+
+interface InlineRun {
+  kind: 'text' | 'bitmap';
+  text: string;
+  start16: number;
+  end16: number;
 }
 
 interface NodeRec {
@@ -221,6 +255,7 @@ interface NodeRec {
     align: number;
     letterSpacingPx: number;
     wordSpacingPx: number;
+    preserveWhitespace: number;
   };
   imageId?: number;
   objectFit?: number; // 0 fill, 1 contain, 2 cover, 3 none, 4 scale-down
@@ -347,6 +382,62 @@ function utf8Offsets(text: string): Int32Array {
   return off;
 }
 
+function segmentGraphemes(text: string): GraphemeSegment[] {
+  if (!text) return [];
+  const SegmenterCtor = (Intl as typeof Intl & {
+    Segmenter?: new (
+      locales?: string | string[],
+      options?: { granularity?: 'grapheme' | 'word' | 'sentence' },
+    ) => {
+      segment(input: string): Iterable<{ segment: string; index: number }>;
+    };
+  }).Segmenter;
+  if (SegmenterCtor) {
+    const segmenter = new SegmenterCtor(undefined, { granularity: 'grapheme' });
+    const out: GraphemeSegment[] = [];
+    for (const part of segmenter.segment(text)) {
+      out.push({
+        text: part.segment,
+        start16: part.index,
+        end16: part.index + part.segment.length,
+      });
+    }
+    return out;
+  }
+  const out: GraphemeSegment[] = [];
+  for (let i = 0; i < text.length;) {
+    const cp = text.codePointAt(i);
+    if (cp == null) break;
+    const len = cp > 0xFFFF ? 2 : 1;
+    out.push({ text: text.slice(i, i + len), start16: i, end16: i + len });
+    i += len;
+  }
+  return out;
+}
+
+function isBitmapFallbackCodePoint(cp: number): boolean {
+  return (
+    (cp >= 0x2190 && cp <= 0x21FF) // arrows
+    || (cp >= 0x2300 && cp <= 0x23FF) // misc technical / emoji symbols
+    || (cp >= 0x2460 && cp <= 0x24FF) // enclosed numbers/symbols
+    || (cp >= 0x2500 && cp <= 0x259F) // box drawing + block elements
+    || (cp >= 0x25A0 && cp <= 0x25FF) // geometric shapes
+    || (cp >= 0x2600 && cp <= 0x27FF) // misc symbols, dingbats, arrows
+    || (cp >= 0x2900 && cp <= 0x2BFF) // supplemental arrows / misc symbols
+    || (cp >= 0xFE00 && cp <= 0xFE0F) // variation selectors
+    || cp === 0x200D // ZWJ emoji sequences
+    || (cp >= 0x1F000 && cp <= 0x1FAFF) // emoji blocks
+  );
+}
+
+function graphemeNeedsBitmapFallback(grapheme: string): boolean {
+  for (const ch of grapheme) {
+    const cp = ch.codePointAt(0);
+    if (cp != null && isBitmapFallbackCodePoint(cp)) return true;
+  }
+  return false;
+}
+
 async function convertImage(
   img: HTMLImageElement,
   quality: number,
@@ -365,6 +456,12 @@ async function convertImage(
     canvas.height = h;
     const ctx = canvas.getContext('2d')!;
     ctx.drawImage(img, 0, 0, w, h);
+    const rgba = ctx.getImageData(0, 0, w, h).data;
+    if (rgbaHasTransparency(rgba)) {
+      const bytes = new Uint8Array(rgba.length);
+      bytes.set(rgba);
+      return { bytes, width: w, height: h, format: IMG_RAW_RGBA };
+    }
     const blob = await new Promise<Blob | null>((res) =>
       canvas.toBlob(res, 'image/jpeg', quality),
     );
@@ -435,6 +532,7 @@ function cssQuotedContentToText(content: string): string | null {
     body = body.replace(/\\A\s*/g, '\n');
     body = body.replace(/\\(['"\\])/g, '$1');
     if (quote === '\'') body = body.replace(/\\"/g, '"');
+    if (!body) return null;
     return body;
   }
   return trimmed;
@@ -450,10 +548,10 @@ function hasVisibleBorder(cs: CSSStyleDeclaration): boolean {
 }
 
 function pseudoHasVisual(cs: CSSStyleDeclaration): boolean {
-  const hasContent = cs.content !== 'none' && cs.content !== 'normal';
+  const hasContent = !!cssQuotedContentToText(cs.content);
   const bg = parseColor(cs.backgroundColor);
   const hasBg = bg[3] > 0.001;
-  const hasBox = pxNumber(cs.width) > 0 || pxNumber(cs.height) > 0;
+  const hasBox = pxNumber(cs.width) > 0 && pxNumber(cs.height) > 0;
   return hasContent || hasBg || hasBox || hasVisibleBorder(cs);
 }
 
@@ -547,6 +645,15 @@ function buildPseudoClone(
   const pseudoEl = document.createElement('span');
   pseudoEl.setAttribute('data-dom2pdf-pseudo', pseudo);
   copyComputedStyles(pseudoEl, computed);
+  if (computed.position === 'sticky') {
+    // Pseudo clones are inserted as real inline children. Keeping sticky here makes
+    // foreignObject rasterization drift or drop line-number style markers entirely.
+    pseudoEl.style.position = 'static';
+    pseudoEl.style.top = 'auto';
+    pseudoEl.style.right = 'auto';
+    pseudoEl.style.bottom = 'auto';
+    pseudoEl.style.left = 'auto';
+  }
   const text = cssQuotedContentToText(computed.content);
   if (text) pseudoEl.textContent = text;
   return pseudoEl;
@@ -776,6 +883,12 @@ function classifyRenderStrategy(el: HTMLElement, cs: CSSStyleDeclaration): Rende
   const mode = el.dataset.dom2pdfMode;
   if (mode === 'vector' || mode === 'skip') return 'vector';
   if (isRasterTag(el)) return 'full-raster';
+  const clipsText = cs.backgroundImage !== 'none'
+    && ((cs.backgroundClip || '').trim() === 'text'
+      || (cs.webkitBackgroundClip || '').trim() === 'text');
+  const transparentTextFill = (cs.webkitTextFillColor || '').trim() === 'rgba(0, 0, 0, 0)'
+    || (cs.getPropertyValue('-webkit-text-fill-color') || '').trim() === 'rgba(0, 0, 0, 0)';
+  if (clipsText || transparentTextFill) return 'full-raster';
   // Non-translate transforms skew/scale/rotate the text — must check before the
   // background branch so e.g. "rotate + gradient" doesn't try to keep text vector.
   if (!transformIsPureTranslate(cs)) return 'full-raster';
@@ -1402,10 +1515,25 @@ export async function collectSnapshotData(
     return l;
   }
 
-  function collectTextLines(textNode: Text): LineBox[] {
+  type MeasuredTextFragment = {
+    rawRect: DOMRect;
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    start16: number;
+    end16: number;
+  };
+
+  function collectTextFragments(
+    textNode: Text,
+    start16 = 0,
+    end16 = textNode.data.length,
+  ): MeasuredTextFragment[] {
     const text = textNode.data;
-    if (!text || !text.trim()) return [];
-    range.selectNodeContents(textNode);
+    if (!text || start16 >= end16) return [];
+    range.setStart(textNode, start16);
+    range.setEnd(textNode, end16);
     let rects = Array.from(range.getClientRects()).filter((r) => r.width > 0 && r.height > 0);
     if (rects.length === 0) return [];
     rects = rects.slice().sort((a, b) => a.top - b.top || a.left - b.left);
@@ -1423,29 +1551,148 @@ export async function collectSnapshotData(
         groups[groups.length - 1] = new DOMRect(left, top, right - left, bottom - top);
       }
     }
-    const off = utf8Offsets(text);
-    const n = text.length;
     if (groups.length === 1) {
       const d = docRect(groups[0]);
-      return [{ x: d.x, y: d.y, w: d.w, h: d.h, start: 0, end: off[n] }];
+      return [{
+        rawRect: groups[0],
+        x: d.x,
+        y: d.y,
+        w: d.w,
+        h: d.h,
+        start16,
+        end16,
+      }];
     }
-    const lines: LineBox[] = [];
-    let prev = 0;
+    const lines: MeasuredTextFragment[] = [];
+    let prev = start16;
     for (let li = 0; li < groups.length; li++) {
-      const r = groups[li];
-      const start16 = lowerBoundTop(textNode, r.top - 1, prev, n);
+      const raw = groups[li];
+      const lineStart16 = lowerBoundTop(textNode, raw.top - 1, prev, end16);
       const nextTop = li + 1 < groups.length ? groups[li + 1].top : Infinity;
-      const end16 = lowerBoundTop(textNode, nextTop - 1, start16, n);
-      prev = end16;
-      if (end16 <= start16) continue;
-      const d = docRect(r);
+      const lineEnd16 = lowerBoundTop(textNode, nextTop - 1, lineStart16, end16);
+      prev = lineEnd16;
+      if (lineEnd16 <= lineStart16) continue;
+      const d = docRect(raw);
       lines.push({
-        x: d.x, y: d.y, w: d.w, h: d.h,
-        start: off[start16],
-        end: off[Math.min(end16, n)],
+        rawRect: raw,
+        x: d.x,
+        y: d.y,
+        w: d.w,
+        h: d.h,
+        start16: lineStart16,
+        end16: Math.min(lineEnd16, end16),
       });
     }
     return lines;
+  }
+
+  function linesFromFragments(text: string, baseStart16: number, fragments: MeasuredTextFragment[]): LineBox[] {
+    const off = utf8Offsets(text);
+    return fragments.map((frag) => ({
+      x: frag.x,
+      y: frag.y,
+      w: frag.w,
+      h: frag.h,
+      start: off[Math.max(0, frag.start16 - baseStart16)],
+      end: off[Math.max(0, Math.min(text.length, frag.end16 - baseStart16))],
+    }));
+  }
+
+  function collectTextLines(textNode: Text, start16 = 0, end16 = textNode.data.length): LineBox[] {
+    const text = textNode.data.slice(start16, end16);
+    if (!text) return [];
+    return linesFromFragments(text, start16, collectTextFragments(textNode, start16, end16));
+  }
+
+  function buildInlineRuns(text: string): InlineRun[] {
+    const graphemes = segmentGraphemes(text);
+    if (graphemes.length === 0) return [];
+    const runs: InlineRun[] = [];
+    let currentKind: InlineRun['kind'] = graphemeNeedsBitmapFallback(graphemes[0].text) ? 'bitmap' : 'text';
+    let start16 = graphemes[0].start16;
+    let end16 = graphemes[0].end16;
+    for (let i = 1; i < graphemes.length; i++) {
+      const segment = graphemes[i];
+      const kind: InlineRun['kind'] = graphemeNeedsBitmapFallback(segment.text) ? 'bitmap' : 'text';
+      if (kind === currentKind) {
+        end16 = segment.end16;
+      } else {
+        runs.push({ kind: currentKind, text: text.slice(start16, end16), start16, end16 });
+        currentKind = kind;
+        start16 = segment.start16;
+        end16 = segment.end16;
+      }
+    }
+    runs.push({ kind: currentKind, text: text.slice(start16, end16), start16, end16 });
+    return runs;
+  }
+
+  function canvasFontForComputedStyle(cs: CSSStyleDeclaration): string {
+    const style = cs.fontStyle && cs.fontStyle !== 'normal' ? `${cs.fontStyle} ` : '';
+    const weight = cs.fontWeight && cs.fontWeight !== 'normal' ? `${cs.fontWeight} ` : '';
+    const size = `${parseFloat(cs.fontSize) || 16}px`;
+    const family = cs.fontFamily || 'sans-serif';
+    return `${style}${weight}${size} ${family}`.trim();
+  }
+
+  async function rasterizeInlineBitmapRun(
+    text: string,
+    rawRect: DOMRect,
+    cs: CSSStyleDeclaration,
+  ): Promise<{
+    image: Omit<CollectedImage, 'id'>;
+    offsetX: number;
+    offsetY: number;
+    cssWidth: number;
+    cssHeight: number;
+  } | null> {
+    if (!text || rawRect.width <= 0 || rawRect.height <= 0) return null;
+    const pad = 1;
+    const cssWidth = rawRect.width + pad * 2;
+    const cssHeight = rawRect.height + pad * 2;
+    const ss = superSampleFactor(cssWidth, cssHeight);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.ceil(cssWidth * ss));
+    canvas.height = Math.max(1, Math.ceil(cssHeight * ss));
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    ctx.scale(ss, ss);
+    ctx.clearRect(0, 0, cssWidth, cssHeight);
+    ctx.font = canvasFontForComputedStyle(cs);
+    ctx.textBaseline = 'alphabetic';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = rgbaCss(parseColor(cs.color));
+    const metrics = ctx.measureText(text || 'M');
+    const ascent = metrics.actualBoundingBoxAscent || (parseFloat(cs.fontSize) || 16) * 0.8;
+    const descent = metrics.actualBoundingBoxDescent || (parseFloat(cs.fontSize) || 16) * 0.2;
+    const baseline = pad + Math.max(ascent, (rawRect.height - (ascent + descent)) / 2 + ascent);
+    const letterSpacing = parseFloat(cs.letterSpacing) || 0;
+    const wordSpacing = parseFloat(cs.wordSpacing) || 0;
+    let x = pad;
+    const graphemes = segmentGraphemes(text);
+    for (let i = 0; i < graphemes.length; i++) {
+      const segment = graphemes[i].text;
+      ctx.fillText(segment, x, baseline);
+      x += ctx.measureText(segment).width;
+      if (i + 1 < graphemes.length) {
+        x += letterSpacing;
+        if (segment === ' ') x += wordSpacing;
+      }
+    }
+    const rgba = canvasToRawRgba(canvas);
+    if (!rgba) return null;
+    return {
+      image: {
+        bytes: rgba.bytes,
+        width: rgba.width,
+        height: rgba.height,
+        format: IMG_RAW_RGBA,
+      },
+      offsetX: pad * layoutScale,
+      offsetY: pad * layoutScale,
+      cssWidth: cssWidth * layoutScale,
+      cssHeight: cssHeight * layoutScale,
+    };
   }
 
   function makeFont(cs: CSSStyleDeclaration): NodeRec['font'] {
@@ -1455,6 +1702,7 @@ export async function collectSnapshotData(
     else lh *= layoutScale;
     const letterSpacingPx = (parseFloat(cs.letterSpacing) || 0) * layoutScale;
     const wordSpacingPx = (parseFloat(cs.wordSpacing) || 0) * layoutScale;
+    const preserveWhitespace = /^(pre|pre-wrap|break-spaces)$/.test((cs.whiteSpace || '').trim()) ? 1 : 0;
     return {
       family: (cs.fontFamily || 'Helvetica').split(',')[0].replace(/['"]/g, '').trim(),
       sizePx,
@@ -1465,7 +1713,36 @@ export async function collectSnapshotData(
       align: alignNum(cs.textAlign),
       letterSpacingPx,
       wordSpacingPx,
+      preserveWhitespace,
     };
+  }
+
+  function pushTextNode(
+    parentId: number,
+    font: NonNullable<NodeRec['font']>,
+    text: string,
+    lines: LineBox[],
+    opacity?: number,
+  ) {
+    if (!text || lines.length === 0) return;
+    nodes.push({
+      id: nodes.length,
+      parent: parentId,
+      kind: 1,
+      x: lines[0].x,
+      y: lines[0].y,
+      w: Math.max(...lines.map((l) => l.x + l.w)) - Math.min(...lines.map((l) => l.x)),
+      h: Math.max(...lines.map((l) => l.y + l.h)) - Math.min(...lines.map((l) => l.y)),
+      flags: F_FONT | (opacity !== undefined ? F_OPACITY : 0),
+      font,
+      overflowHidden: false,
+      opacity,
+      renderMode: 0,
+      divisionDisable: false,
+      pageBreak: false,
+      text,
+      lines,
+    });
   }
 
   async function visit(el: HTMLElement, parentId: number): Promise<void> {
@@ -1669,32 +1946,81 @@ export async function collectSnapshotData(
 
     for (let child = el.firstChild; child; child = child.nextSibling) {
       if (child.nodeType === 1) {
-                await visit(child as HTMLElement, id);
+        await visit(child as HTMLElement, id);
       } else if (child.nodeType === 3) {
-        const text = (child as Text).data;
-        if (!text || !text.trim()) continue;
-        const lines = collectTextLines(child as Text);
-        if (lines.length === 0) continue;
-        const font = makeFont(cs);
-        const textId = nodes.length;
-        const textNode: NodeRec = {
-          id: textId,
-          parent: id,
-          kind: 1,
-          x: lines[0].x,
-          y: lines[0].y,
-          w: Math.max(...lines.map((l) => l.x + l.w)) - Math.min(...lines.map((l) => l.x)),
-          h: Math.max(...lines.map((l) => l.y + l.h)) - Math.min(...lines.map((l) => l.y)),
-          flags: F_FONT,
-          font,
-          overflowHidden: false,
-          renderMode: 0,
-          divisionDisable: false,
-          pageBreak: false,
-          text,
-          lines,
-        };
-        nodes.push(textNode);
+        const textNode = child as Text;
+        const text = textNode.data;
+        if (!text) continue;
+        const font = makeFont(cs) as NonNullable<NodeRec['font']>;
+        const runs = buildInlineRuns(text);
+        const hasBitmapRun = runs.some((run) => run.kind === 'bitmap');
+        if (!hasBitmapRun) {
+          const lines = collectTextLines(textNode);
+          if (lines.length === 0) continue;
+          pushTextNode(id, font, text, lines);
+          continue;
+        }
+        for (const run of runs) {
+          const fragments = collectTextFragments(textNode, run.start16, run.end16);
+          if (fragments.length === 0) continue;
+          if (run.kind === 'text') {
+            const lines = linesFromFragments(run.text, run.start16, fragments);
+            pushTextNode(id, font, run.text, lines);
+            continue;
+          }
+          const bitmapNodes: Array<{
+            image: Omit<CollectedImage, 'id'>;
+            x: number;
+            y: number;
+            w: number;
+            h: number;
+          }> = [];
+          for (const fragment of fragments) {
+            const fragmentText = text.slice(fragment.start16, fragment.end16);
+            const raster = await rasterizeInlineBitmapRun(fragmentText, fragment.rawRect, cs);
+            if (!raster) {
+              bitmapNodes.length = 0;
+              break;
+            }
+            bitmapNodes.push({
+              image: raster.image,
+              x: fragment.x - raster.offsetX,
+              y: fragment.y - raster.offsetY,
+              w: raster.cssWidth,
+              h: raster.cssHeight,
+            });
+          }
+          if (bitmapNodes.length === 0) {
+            const fallbackLines = linesFromFragments(run.text, run.start16, fragments);
+            pushTextNode(id, font, run.text, fallbackLines);
+            continue;
+          }
+          for (const bitmapNode of bitmapNodes) {
+            const imageId = images.length + 1;
+            images.push({ id: imageId, ...bitmapNode.image });
+            nodes.push({
+              id: nodes.length,
+              parent: id,
+              kind: 2,
+              x: bitmapNode.x,
+              y: bitmapNode.y,
+              w: bitmapNode.w,
+              h: bitmapNode.h,
+              flags: F_IMAGE,
+              overflowHidden: false,
+              renderMode: 0,
+              divisionDisable: false,
+              pageBreak: false,
+              imageId,
+              objectFit: 0,
+            });
+          }
+          // Preserve extractable text for bitmap fallback runs by adding an
+          // invisible text node at the same geometry. Visual output still comes
+          // from the rasterized image nodes above.
+          const hiddenLines = linesFromFragments(run.text, run.start16, fragments);
+          pushTextNode(id, font, run.text, hiddenLines, 0);
+        }
       }
     }
   }
@@ -1782,7 +2108,7 @@ function writeOptHF(w: BinWriter, hf: ResolvedHF | null) {
 function encode(a: EncodeArgs): Uint8Array {
   const w = new BinWriter();
   w.bytes(new Uint8Array([0x44, 0x32, 0x50, 0x31])); // "D2P1"
-  w.u32(6); // version 6 (per-side border colors)
+  w.u32(7); // version 7 (font whitespace mode)
   w.f32(a.pageWidthPt);
   w.f32(a.pageHeightPt);
   w.f32(a.mTop);
@@ -1877,6 +2203,7 @@ function encode(a: EncodeArgs): Uint8Array {
       w.u8(n.font.align);
       w.f32(n.font.letterSpacingPx);
       w.f32(n.font.wordSpacingPx);
+      w.u8(n.font.preserveWhitespace);
     }
     if (n.imageId !== undefined) {
       w.u32(n.imageId);

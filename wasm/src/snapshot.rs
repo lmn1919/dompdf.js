@@ -4,7 +4,7 @@
 //!
 //! Header:
 //!   magic: 4 bytes = "D2P1"
-//!   version: u32 = 5
+//!   version: u32 = 7
 //!   pageWidthPt, pageHeightPt, marginTop, marginRight, marginBottom, marginLeft: f32
 //!
 //! Config block:
@@ -44,7 +44,7 @@
 //!     if hasOpacity: opacity f32
 //!     if hasFont: familyLen u16 + utf8 ; sizePx f32 ; weight u16 ; italic u8 ;
 //!                 cr,cg,cb,ca f32 ; lineHeightPx f32 ; align u8 ;
-//!                 letterSpacingPx f32 ; wordSpacingPx f32
+//!                 letterSpacingPx f32 ; wordSpacingPx f32 ; preserveWhitespace u8
 //!     if hasImage: imageId u32 ; objectFit u8
 //!     if hasRenderMode: renderMode u8
 //!     if kind==text: textLen u32 + utf8 ; lineCount u32 ;
@@ -52,7 +52,8 @@
 //!
 //! Images (imageCount): each ->
 //!   id u32 ; width u32 ; height u32 ; format u8 ; byteLen u32 ; bytes[byteLen]
-//!   format: 0 = JPEG (DCTDecode), 1 = raw RGB888 (FlateDecode, lossless)
+//!   format: 0 = JPEG (DCTDecode), 1 = raw RGB888 (FlateDecode, lossless),
+//!           2 = raw RGBA8888 (FlateDecode + SMask)
 
 pub struct Snapshot {
     pub page_width_pt: f32,
@@ -177,6 +178,7 @@ pub struct Font {
     pub align: u8, // 0 left,1 right,2 center,3 justify
     pub letter_spacing_px: f32,
     pub word_spacing_px: f32,
+    pub preserve_whitespace: bool,
 }
 
 #[derive(Clone)]
@@ -202,7 +204,8 @@ pub struct Image {
     pub width: u32,
     pub height: u32,
     /// 0 = JPEG bytes (embed as /DCTDecode), 1 = raw RGB888 (lossless,
-    /// embed as /FlateDecode). Lets flat/line-art rasters avoid JPEG color loss.
+    /// embed as /FlateDecode), 2 = raw RGBA8888 (lossless, split into RGB +
+    /// soft-mask image objects).
     pub format: u8,
     pub bytes: Vec<u8>,
 }
@@ -320,8 +323,8 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
         return Err(format!("bad magic: {:?}", magic));
     }
     let version = c.u32()?;
-    if version != 6 {
-        return Err(format!("unsupported version {} (expected 6)", version));
+    if version != 7 {
+        return Err(format!("unsupported version {} (expected 7)", version));
     }
     let page_width_pt = c.f32()?;
     let page_height_pt = c.f32()?;
@@ -457,6 +460,7 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
             let align = c.u8()?;
             let letter_spacing_px = c.f32()?;
             let word_spacing_px = c.f32()?;
+            let preserve_whitespace = c.u8()? != 0;
             Some(Font {
                 family,
                 size_px,
@@ -467,6 +471,7 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
                 align,
                 letter_spacing_px,
                 word_spacing_px,
+                preserve_whitespace,
             })
         } else {
             None
