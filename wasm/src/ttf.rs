@@ -754,4 +754,15 @@ mod tests {
             assert_ne!(ttf.gid_for(cp), 0, "expected glyph for U+{:04X}", cp);
         }
     }
+
+    #[test]
+    fn source_han_covers_basic_latin_demo_text() {
+        let ttf = load_source_han();
+        for ch in "Single HTML DemoBundle ShapeRender Core".chars() {
+            if ch == ' ' {
+                continue;
+            }
+            assert_ne!(ttf.gid_for(ch as u32), 0, "expected glyph for {:?}", ch);
+        }
+    }
 }

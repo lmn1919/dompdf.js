@@ -120,7 +120,7 @@ pub fn encode_winansi(s: &str) -> Vec<u8> {
     out
 }
 
-fn encode_char_winansi(c: char) -> Option<u8> {
+pub fn encode_char_winansi(c: char) -> Option<u8> {
     let u = c as u32;
     if u <= 0x7F {
         return Some(u as u8);
@@ -302,6 +302,7 @@ impl FontCtx {
             let cp = c as u32;
             let mut font_idx = primary_idx;
             let mut gid = self.cid[primary_idx].ttf.gid_for(cp);
+            let mut latin_byte = None;
             if gid == 0 {
                 for (i, cf) in self.cid.iter().enumerate() {
                     if i == primary_idx {
@@ -315,23 +316,29 @@ impl FontCtx {
                     }
                 }
             }
-            let width_1000 = self.cid[font_idx].ttf.width_1000(gid);
-            if record {
+            let (resolved_font_idx, width_1000) = if gid != 0 {
+                (Some(font_idx), self.cid[font_idx].ttf.width_1000(gid))
+            } else if let Some(b) = encode_char_winansi(c) {
+                latin_byte = Some(b);
+                (None, HELVETICA_WIDTHS[b as usize] as u32)
+            } else {
+                (Some(primary_idx), self.cid[primary_idx].ttf.width_1000(0))
+            };
+            if record && gid != 0 {
                 let mut used = self.cid[font_idx].used_gids.borrow_mut();
                 if !used.contains(&gid) {
                     used.push(gid);
                 }
-                if gid != 0 {
-                    self.cid[font_idx]
-                        .used_gid_to_unicode
-                        .borrow_mut()
-                        .entry(gid)
-                        .or_insert(cp);
-                }
+                self.cid[font_idx]
+                    .used_gid_to_unicode
+                    .borrow_mut()
+                    .entry(gid)
+                    .or_insert(cp);
             }
             out.push(ShapedGlyph {
-                font_idx,
+                font_idx: resolved_font_idx,
                 old_gid: gid,
+                latin_byte,
                 width_1000,
                 is_space: c == ' ',
             });
@@ -396,18 +403,27 @@ impl CidFont {
     }
 }
 
-/// One shaped glyph after per-glyph font fallback. `font_idx` indexes into
-/// `FontCtx::cid`; `old_gid` is the gid in that font (subset-mapped at draw
-/// time); `width_1000` is its advance in 1/1000 em (font-independent units).
+/// One shaped glyph after per-glyph font fallback.
+///
+/// `font_idx = Some(i)` means the glyph comes from `FontCtx::cid[i]`.
+/// `font_idx = None` means it falls back to Helvetica/WinAnsi and `latin_byte`
+/// carries the encoded byte used in the PDF text stream.
 pub struct ShapedGlyph {
-    pub font_idx: usize,
+    pub font_idx: Option<usize>,
     pub old_gid: u16,
+    pub latin_byte: Option<u8>,
     pub width_1000: u32,
     pub is_space: bool,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum EncodedFontKind {
+    Cid(usize),
+    Latin,
+}
+
 pub struct EncodedCidRun {
-    pub font_idx: usize,
+    pub kind: EncodedFontKind,
     pub bytes: Vec<u8>,
     pub width_1000: u32,
 }
@@ -424,18 +440,41 @@ pub fn encode_cid_with_fallback(
     }
     let mut runs: Vec<EncodedCidRun> = Vec::new();
     for glyph in glyphs {
-        let draw_gid = fontctx.cid[glyph.font_idx].subset_gid(glyph.old_gid);
+        let kind = glyph
+            .font_idx
+            .map(EncodedFontKind::Cid)
+            .unwrap_or(EncodedFontKind::Latin);
         if let Some(last) = runs.last_mut() {
-            if last.font_idx == glyph.font_idx {
-                last.bytes.push((draw_gid >> 8) as u8);
-                last.bytes.push((draw_gid & 0xff) as u8);
+            if last.kind == kind {
+                match kind {
+                    EncodedFontKind::Cid(font_idx) => {
+                        let draw_gid = fontctx.cid[font_idx].subset_gid(glyph.old_gid);
+                        last.bytes.push((draw_gid >> 8) as u8);
+                        last.bytes.push((draw_gid & 0xff) as u8);
+                    }
+                    EncodedFontKind::Latin => {
+                        if let Some(b) = glyph.latin_byte {
+                            last.bytes.push(b);
+                        }
+                    }
+                }
                 last.width_1000 += glyph.width_1000;
                 continue;
             }
         }
+        let bytes = match kind {
+            EncodedFontKind::Cid(font_idx) => {
+                let draw_gid = fontctx.cid[font_idx].subset_gid(glyph.old_gid);
+                vec![(draw_gid >> 8) as u8, (draw_gid & 0xff) as u8]
+            }
+            EncodedFontKind::Latin => glyph.latin_byte.map(|b| vec![b]).unwrap_or_default(),
+        };
+        if bytes.is_empty() {
+            continue;
+        }
         runs.push(EncodedCidRun {
-            font_idx: glyph.font_idx,
-            bytes: vec![(draw_gid >> 8) as u8, (draw_gid & 0xff) as u8],
+            kind,
+            bytes,
             width_1000: glyph.width_1000,
         });
     }
