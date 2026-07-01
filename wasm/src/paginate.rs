@@ -11,13 +11,14 @@
 //! Document y is CSS px (top-left origin); each page covers a content_h_px slice.
 
 use crate::font::{
-    encode_cid_with_fallback, encode_winansi, text_width_units, CidFont, FontCtx,
+    encode_cid_with_fallback, encode_winansi, text_width_units, CidFont, EncodedFontKind, FontCtx,
 };
 use crate::pdf::PdfWriter;
 use crate::snapshot::{HFSpec, Image, Node, Snapshot};
 
 pub const PX_TO_PT: f32 = 0.75;
 const ASCENT: f32 = 0.8; // approx Helvetica ascent / em, for baseline placement
+const BORDER_SOLID: u8 = 0;
 const SHADOW_LAYERS: [(f32, f32); 5] = [
     (0.18, 0.16),
     (0.36, 0.12),
@@ -65,6 +66,15 @@ fn hex(bytes: &[u8]) -> String {
         s.push_str(&format!("{:02X}", b));
     }
     s
+}
+
+fn pdf_utf16_hex(text: &str) -> String {
+    let mut bytes = Vec::with_capacity(2 + text.len() * 2);
+    bytes.extend_from_slice(&[0xFE, 0xFF]);
+    for unit in text.encode_utf16() {
+        bytes.extend_from_slice(&unit.to_be_bytes());
+    }
+    hex(&bytes)
 }
 
 fn opacity_key(opacity: f32) -> u16 {
@@ -142,6 +152,21 @@ fn expanded_radii(radii: Option<[f32; 4]>, expand: f32) -> Option<[f32; 4]> {
             (rbl + expand).max(0.0),
         ]
     })
+}
+
+fn inset_radii(radii: [f32; 4], inset: f32) -> Option<[f32; 4]> {
+    let [rtl, rtr, rbr, rbl] = radii;
+    let inner = [
+        (rtl - inset).max(0.0),
+        (rtr - inset).max(0.0),
+        (rbr - inset).max(0.0),
+        (rbl - inset).max(0.0),
+    ];
+    if inner.iter().all(|r| *r <= 0.0) {
+        None
+    } else {
+        Some(inner)
+    }
 }
 
 fn push_rounded_rect_path(
@@ -298,9 +323,11 @@ fn build_children(snap: &Snapshot) -> Vec<Vec<usize>> {
 /// Pagination can move descendant content downward while ancestor box heights
 /// stay at their original DOM values. Expand box heights to the deepest child
 /// bottom so borders like table section rules do not render at stale positions.
+/// Overflow-clipping containers must keep their original DOM height; otherwise
+/// clipped descendants incorrectly enlarge the clip rect and leak into later content.
 fn expand_box_heights_to_fit_children(snap: &mut Snapshot, children: &[Vec<usize>]) {
     for idx in (0..snap.nodes.len()).rev() {
-        if snap.nodes[idx].kind != 0 || children[idx].is_empty() {
+        if snap.nodes[idx].kind != 0 || children[idx].is_empty() || snap.nodes[idx].overflow_hidden {
             continue;
         }
         let node_top = snap.nodes[idx].y;
@@ -931,27 +958,52 @@ fn draw_box_border(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h
     let (x0, bottom, w, h) = rect_pt(snap, geo, node, page, content_h_px, page_h_pt);
     let radii = rounded_rect_radii_pt(node, w, h);
     if let Some(b) = &node.border {
-        // Rounded-rect fast path: one stroke for the whole outline, valid only
-        // when width, style, radii AND color are uniform across all four sides.
+        // Rounded-rect fast path: when width, style, radii AND color are uniform
+        // across all four sides, draw the border ring as a fill instead of
+        // centering a stroke on the outer edge. Browser borders live inside the
+        // border box; stroking the outer path loses half the line outside the box
+        // and makes thin top borders look missing in raster comparisons.
         if let (Some(radii), Some(bw), Some(style), Some(col)) = (
             radii,
             uniform_border_width_pt(node),
             uniform_border_style(node),
             uniform_border_color(node),
         ) {
-            // A translucent border color (rgba alpha < 1) must be stroked through
-            // an ExtGState that sets CA; the stroke operators carry no alpha.
             let alpha = col[3];
             let use_alpha = alpha > 0.0 && alpha < 0.999;
             if use_alpha {
                 out.push_str("q\n");
                 out.push_str(&format!("/{} gs\n", opacity_resource_name(opacity_key(alpha))));
             }
-            out.push_str(&format!("{} {} {} RG {} w\n", f(col[0]), f(col[1]), f(col[2]), f(bw)));
-            set_dash(out, style, bw);
-            push_rounded_rect_path(out, x0, bottom, w, h, radii);
-            out.push_str("S\n");
-            out.push_str("[] 0 d\n");
+            if style == BORDER_SOLID {
+                out.push_str(&format!("{} {} {} rg\n", f(col[0]), f(col[1]), f(col[2])));
+                push_rounded_rect_path(out, x0, bottom, w, h, radii);
+                let inner_x = x0 + bw;
+                let inner_bottom = bottom + bw;
+                let inner_w = (w - bw * 2.0).max(0.0);
+                let inner_h = (h - bw * 2.0).max(0.0);
+                if inner_w > 0.01 && inner_h > 0.01 {
+                    if let Some(inner_radii) = inset_radii(radii, bw) {
+                        push_rounded_rect_path(out, inner_x, inner_bottom, inner_w, inner_h, inner_radii);
+                    } else {
+                        out.push_str(&format!(
+                            "{} {} {} {} re\n",
+                            f(inner_x),
+                            f(inner_bottom),
+                            f(inner_w),
+                            f(inner_h)
+                        ));
+                    }
+                }
+                out.push_str("f*\n");
+            } else {
+                // Dashed borders still rely on stroke semantics.
+                out.push_str(&format!("{} {} {} RG {} w\n", f(col[0]), f(col[1]), f(col[2]), f(bw)));
+                set_dash(out, style, bw);
+                push_rounded_rect_path(out, x0, bottom, w, h, radii);
+                out.push_str("S\n");
+                out.push_str("[] 0 d\n");
+            }
             if use_alpha {
                 out.push_str("Q\n");
             }
@@ -959,6 +1011,35 @@ fn draw_box_border(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h
         }
         let top_pt = bottom + h;
         let right = x0 + w;
+        let fill_side_with_clip = |side: usize, bw_px: f32, col: &[f32; 4], out: &mut String| {
+            let Some(radii) = radii else {
+                return;
+            };
+            if bw_px <= 0.0 {
+                return;
+            }
+            let alpha = col[3];
+            if alpha <= 0.0 {
+                return;
+            }
+            let bw = bw_px * PX_TO_PT;
+            let (rx, ry, rw, rh) = match side {
+                0 => (x0, top_pt - bw, w, bw),
+                1 => (right - bw, bottom, bw, h),
+                2 => (x0, bottom, w, bw),
+                3 => (x0, bottom, bw, h),
+                _ => return,
+            };
+            out.push_str("q\n");
+            if alpha < 0.999 {
+                out.push_str(&format!("/{} gs\n", opacity_resource_name(opacity_key(alpha))));
+            }
+            push_rounded_rect_path(out, x0, bottom, w, h, radii);
+            out.push_str("W n\n");
+            out.push_str(&format!("{} {} {} rg\n", f(col[0]), f(col[1]), f(col[2])));
+            out.push_str(&format!("{} {} {} {} re f\n", f(rx), f(ry), f(rw), f(rh)));
+            out.push_str("Q\n");
+        };
         // Per-side stroke. Each side carries its own color (and its own alpha,
         // wrapped in its own ExtGState so rgba() borders stay translucent).
         let stroke_side = |bw_px: f32, style: u8, col: &[f32; 4], path: &str, out: &mut String| {
@@ -981,29 +1062,45 @@ fn draw_box_border(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h
             }
         };
         // top
-        stroke_side(
-            b.w[0], b.s[0], &b.c[0],
-            &format!("{} {} m {} {} l S\n", f(x0), f(top_pt), f(right), f(top_pt)),
-            out,
-        );
+        if radii.is_some() && b.s[0] == BORDER_SOLID {
+            fill_side_with_clip(0, b.w[0], &b.c[0], out);
+        } else {
+            stroke_side(
+                b.w[0], b.s[0], &b.c[0],
+                &format!("{} {} m {} {} l S\n", f(x0), f(top_pt), f(right), f(top_pt)),
+                out,
+            );
+        }
         // right
-        stroke_side(
-            b.w[1], b.s[1], &b.c[1],
-            &format!("{} {} m {} {} l S\n", f(right), f(top_pt), f(right), f(bottom)),
-            out,
-        );
+        if radii.is_some() && b.s[1] == BORDER_SOLID {
+            fill_side_with_clip(1, b.w[1], &b.c[1], out);
+        } else {
+            stroke_side(
+                b.w[1], b.s[1], &b.c[1],
+                &format!("{} {} m {} {} l S\n", f(right), f(top_pt), f(right), f(bottom)),
+                out,
+            );
+        }
         // bottom
-        stroke_side(
-            b.w[2], b.s[2], &b.c[2],
-            &format!("{} {} m {} {} l S\n", f(x0), f(bottom), f(right), f(bottom)),
-            out,
-        );
+        if radii.is_some() && b.s[2] == BORDER_SOLID {
+            fill_side_with_clip(2, b.w[2], &b.c[2], out);
+        } else {
+            stroke_side(
+                b.w[2], b.s[2], &b.c[2],
+                &format!("{} {} m {} {} l S\n", f(x0), f(bottom), f(right), f(bottom)),
+                out,
+            );
+        }
         // left
-        stroke_side(
-            b.w[3], b.s[3], &b.c[3],
-            &format!("{} {} m {} {} l S\n", f(x0), f(top_pt), f(x0), f(bottom)),
-            out,
-        );
+        if radii.is_some() && b.s[3] == BORDER_SOLID {
+            fill_side_with_clip(3, b.w[3], &b.c[3], out);
+        } else {
+            stroke_side(
+                b.w[3], b.s[3], &b.c[3],
+                &format!("{} {} m {} {} l S\n", f(x0), f(top_pt), f(x0), f(bottom)),
+                out,
+            );
+        }
     }
 }
 
@@ -1173,13 +1270,24 @@ fn draw_text_lines(
         }
         let allow_justify = font.align == 3 && line_idx + 1 < node.lines.len();
         let cid = select_cid_font(fontctx, &font.family, font.weight, font.italic, &normalized);
+        let actual_text_hex = if node.render_mode == 3 || node.opacity.unwrap_or(1.0) <= 0.001 {
+            Some(pdf_utf16_hex(&normalized))
+        } else {
+            None
+        };
 
         let baseline_px = line.draw_y + (line.h - font.size_px) / 2.0 + ASCENT * font.size_px;
         let y_pt = page_h_pt - snap.margin_top - geo.header_h_pt
             - (baseline_px - page as f32 * content_h_px) * PX_TO_PT;
 
         out.push_str(&color_op);
+        if let Some(actual_text) = actual_text_hex.as_ref() {
+            out.push_str(&format!("/Span << /ActualText <{}> >> BDC\n", actual_text));
+        }
         out.push_str("BT\n");
+        if node.render_mode == 3 {
+            out.push_str("3 Tr\n");
+        }
 
         if let Some(cf) = cid {
             // Per-glyph font fallback: a single line may mix the primary font
@@ -1190,6 +1298,9 @@ fn draw_text_lines(
             let glyphs = fontctx.shape(primary_idx, &normalized, false);
             if glyphs.is_empty() {
                 out.push_str("ET\n");
+                if actual_text_hex.is_some() {
+                    out.push_str("EMC\n");
+                }
                 continue;
             }
             let char_count = glyphs.len() as f32;
@@ -1227,22 +1338,37 @@ fn draw_text_lines(
             let mut pen_px = 0.0f32; // advance from the line text start, in px
             while gi < glyphs.len() {
                 let seg_font_idx = glyphs[gi].font_idx;
-                let seg_cf = &fontctx.cid[seg_font_idx];
                 let seg_start_pen = pen_px;
                 let mut gbytes: Vec<u8> = Vec::new();
                 while gi < glyphs.len() && glyphs[gi].font_idx == seg_font_idx {
                     let g = &glyphs[gi];
-                    let draw_gid = seg_cf.subset_gid(g.old_gid);
-                    gbytes.push((draw_gid >> 8) as u8);
-                    gbytes.push((draw_gid & 0xff) as u8);
+                    match seg_font_idx {
+                        Some(font_idx) => {
+                            let draw_gid = fontctx.cid[font_idx].subset_gid(g.old_gid);
+                            gbytes.push((draw_gid >> 8) as u8);
+                            gbytes.push((draw_gid & 0xff) as u8);
+                        }
+                        None => {
+                            if let Some(b) = g.latin_byte {
+                                gbytes.push(b);
+                            }
+                        }
+                    }
                     pen_px += (g.width_1000 as f32 / 1000.0) * font.size_px + tc_px;
                     if g.is_space {
                         pen_px += tw_px;
                     }
                     gi += 1;
                 }
+                if gbytes.is_empty() {
+                    continue;
+                }
                 let seg_x_pt = snap.margin_left + (x_left_px + seg_start_pen) * PX_TO_PT;
-                out.push_str(&format!("/F{} {} Tf\n", seg_cf.key, f(fs_pt)));
+                let font_op = match seg_font_idx {
+                    Some(font_idx) => format!("/F{} {} Tf\n", fontctx.cid[font_idx].key, f(fs_pt)),
+                    None => format!("{} {} Tf\n", latin_font_token(font.weight, font.italic), f(fs_pt)),
+                };
+                out.push_str(&font_op);
                 out.push_str(&format!("{} Tc\n", f(tc_pt)));
                 out.push_str(&format!("{} Tw\n", f(tw_pt)));
                 out.push_str(&format!("1 0 0 1 {} {} Tm\n", f(seg_x_pt), f(y_pt)));
@@ -1252,6 +1378,9 @@ fn draw_text_lines(
             let bytes = encode_winansi(&normalized);
             if bytes.is_empty() {
                 out.push_str("ET\n");
+                if actual_text_hex.is_some() {
+                    out.push_str("EMC\n");
+                }
                 continue;
             }
             let width_units = text_width_units(&bytes);
@@ -1292,6 +1421,9 @@ fn draw_text_lines(
             out.push_str(&format!("<{}> Tj\n", hex(&bytes)));
         }
         out.push_str("ET\n");
+        if actual_text_hex.is_some() {
+            out.push_str("EMC\n");
+        }
     }
 }
 
@@ -1388,8 +1520,13 @@ fn draw_hf_region(
     if let Some(runs) = cid_runs {
         let mut pen_pt = 0.0_f32;
         for run in runs {
-            let cf = &fontctx.cid[run.font_idx];
-            out.push_str(&format!("/F{} {} Tf\n", cf.key, f(fs_pt)));
+            let font_op = match run.kind {
+                EncodedFontKind::Cid(font_idx) => {
+                    format!("/F{} {} Tf\n", fontctx.cid[font_idx].key, f(fs_pt))
+                }
+                EncodedFontKind::Latin => format!("{} {} Tf\n", latin_font_token(400, 0), f(fs_pt)),
+            };
+            out.push_str(&font_op);
             out.push_str(&format!("1 0 0 1 {} {} Tm\n", f(x_pt + pen_pt), f(y_pt)));
             out.push_str(&format!("<{}> Tj\n", hex(&run.bytes)));
             pen_pt += (run.width_1000 as f32 / 1000.0) * fs_pt;
