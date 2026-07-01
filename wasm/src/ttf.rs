@@ -577,8 +577,12 @@ fn parse_cmap(bytes: &[u8], &(off, _): &(usize, usize)) -> Result<HashMap<u32, u
         return Err("cmap header".into());
     }
     let num_tables = rd_u16(bytes, off + 2).ok_or("cmap numTables")? as usize;
-    // Pick best subtable: prefer (3,10), then (3,1), then (0,*).
-    let mut best: Option<(u32, usize)> = None; // (priority, subtable offset)
+    // Merge all usable Unicode subtables instead of picking only one "best"
+    // record. Many fonts split coverage across subtables (e.g. BMP in format 4
+    // plus astral/codepoint extensions in format 12). Choosing a single record
+    // drops perfectly valid glyph mappings and later shows up as gid_for()==0 /
+    // broken ToUnicode for characters the font actually contains.
+    let mut subtables: Vec<(u32, usize)> = Vec::new(); // (priority, subtable offset)
     for i in 0..num_tables {
         let rec = off + 4 + i * 8;
         if rec + 8 > bytes.len() {
@@ -594,22 +598,40 @@ fn parse_cmap(bytes: &[u8], &(off, _): &(usize, usize)) -> Result<HashMap<u32, u
             (3, 0) => 40,
             _ => 0,
         };
-        if prio > 0 && best.map(|(p, _)| prio > p).unwrap_or(true) {
-            best = Some((prio, off + sub_off));
+        if prio > 0 {
+            subtables.push((prio, off + sub_off));
         }
     }
-    let sub_off = best.ok_or("no usable cmap subtable")?.1;
-    if sub_off + 2 > bytes.len() {
-        return Err("cmap subtable".into());
+    if subtables.is_empty() {
+        return Err("no usable cmap subtable".into());
     }
-    let format = rd_u16(bytes, sub_off).unwrap_or(0);
-    match format {
-        0 => parse_cmap_fmt0(bytes, sub_off),
-        4 => parse_cmap_fmt4(bytes, sub_off),
-        6 => parse_cmap_fmt6(bytes, sub_off),
-        12 => parse_cmap_fmt12(bytes, sub_off),
-        _ => Err(format!("unsupported cmap format {}", format)),
+    subtables.sort_by_key(|&(prio, sub_off)| (prio, sub_off));
+
+    let mut merged = HashMap::new();
+    let mut parsed_any = false;
+    for (_, sub_off) in subtables {
+        if sub_off + 2 > bytes.len() {
+            continue;
+        }
+        let format = rd_u16(bytes, sub_off).unwrap_or(0);
+        let parsed = match format {
+            0 => parse_cmap_fmt0(bytes, sub_off),
+            4 => parse_cmap_fmt4(bytes, sub_off),
+            6 => parse_cmap_fmt6(bytes, sub_off),
+            12 => parse_cmap_fmt12(bytes, sub_off),
+            _ => continue,
+        };
+        if let Ok(map) = parsed {
+            parsed_any = true;
+            for (cp, gid) in map {
+                merged.insert(cp, gid);
+            }
+        }
     }
+    if !parsed_any || merged.is_empty() {
+        return Err("no supported cmap format".into());
+    }
+    Ok(merged)
 }
 
 fn parse_cmap_fmt0(bytes: &[u8], off: usize) -> Result<HashMap<u32, u16>, String> {
@@ -665,8 +687,14 @@ fn parse_cmap_fmt4(bytes: &[u8], off: usize) -> Result<HashMap<u32, u16>, String
         while c <= end as u32 {
             let gid = if range != 0 {
                 let idx = c - start as u32;
-                let gid_off = range_base + i * 2 + 2 + (idx as usize) * 2;
-                rd_u16(bytes, gid_off).unwrap_or(0) as i32
+                let id_range_off_addr = range_base + i * 2;
+                let gid_off = id_range_off_addr + range as usize + (idx as usize) * 2;
+                let raw_gid = rd_u16(bytes, gid_off).unwrap_or(0);
+                if raw_gid == 0 {
+                    0
+                } else {
+                    (raw_gid as i32 + delta) & 0xFFFF
+                }
             } else {
                 (c as i32 + delta) & 0xFFFF
             };
@@ -699,4 +727,31 @@ fn parse_cmap_fmt12(bytes: &[u8], off: usize) -> Result<HashMap<u32, u16>, Strin
         }
     }
     Ok(m)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::TtfFont;
+    use std::fs;
+    use std::path::PathBuf;
+
+    fn load_source_han() -> TtfFont {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("examples")
+            .join("SourceHanSansSC-Regular.ttf");
+        let bytes = fs::read(path).expect("read SourceHanSansSC-Regular.ttf");
+        TtfFont::parse(&bytes).expect("parse SourceHanSansSC-Regular.ttf")
+    }
+
+    #[test]
+    fn source_han_covers_reported_missing_codepoints() {
+        let ttf = load_source_han();
+        for cp in [
+            0x544A, 0x9C7C, 0x8C28, 0x614E, 0x4EFF, 0x96F7, 0x660E, 0x54A6, 0x597D, 0x5FEB,
+            0x5427,
+        ] {
+            assert_ne!(ttf.gid_for(cp), 0, "expected glyph for U+{:04X}", cp);
+        }
+    }
 }
