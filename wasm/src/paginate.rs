@@ -10,7 +10,9 @@
 //! content_h_pt = pageHeight - margins - header_h_pt - footer_h_pt.
 //! Document y is CSS px (top-left origin); each page covers a content_h_px slice.
 
-use crate::font::{encode_cid, encode_winansi, text_width_units, CidFont, FontCtx};
+use crate::font::{
+    encode_cid_with_fallback, encode_winansi, text_width_units, CidFont, FontCtx,
+};
 use crate::pdf::PdfWriter;
 use crate::snapshot::{HFSpec, Image, Node, Snapshot};
 
@@ -89,6 +91,22 @@ fn collapse_html_whitespace(text: &str) -> String {
     }
     if in_ws {
         out.push(' ');
+    }
+    out
+}
+
+fn normalize_text_for_pdf(text: &str, preserve_whitespace: bool) -> String {
+    if !preserve_whitespace {
+        return collapse_html_whitespace(text);
+    }
+    let mut out = String::with_capacity(text.len());
+    for ch in text.chars() {
+        match ch {
+            '\r' | '\n' => {}
+            '\t' => out.push_str("    "),
+            '\u{000C}' => out.push(' '),
+            _ => out.push(ch),
+        }
     }
     out
 }
@@ -1042,7 +1060,7 @@ fn select_cid_font<'a>(
 }
 
 fn collect_used_cid_run(fontctx: &FontCtx, family: &str, weight: u16, italic: u8, text: &str) {
-    let normalized = collapse_html_whitespace(text);
+    let normalized = normalize_text_for_pdf(text, false);
     if normalized.is_empty() {
         return;
     }
@@ -1072,7 +1090,14 @@ fn collect_used_cid_gids(snap: &Snapshot, fontctx: &FontCtx, total: u32) {
             if e <= s {
                 continue;
             }
-            collect_used_cid_run(fontctx, &font.family, font.weight, font.italic, &txt[s..e]);
+            let normalized = normalize_text_for_pdf(&txt[s..e], font.preserve_whitespace);
+            if normalized.is_empty() {
+                continue;
+            }
+            if let Some(cf) = select_cid_font(fontctx, &font.family, font.weight, font.italic, &normalized) {
+                let primary_idx = (cf.key - 2) as usize;
+                let _ = fontctx.shape(primary_idx, &normalized, true);
+            }
         }
     }
 
@@ -1142,7 +1167,7 @@ fn draw_text_lines(
         if seg.is_empty() {
             continue;
         }
-        let normalized = collapse_html_whitespace(seg);
+        let normalized = normalize_text_for_pdf(seg, font.preserve_whitespace);
         if normalized.is_empty() {
             continue;
         }
@@ -1283,7 +1308,7 @@ fn draw_hf_region(
     out: &mut String,
 ) {
     let content = resolve_placeholders(&spec.content, page, total);
-    let normalized = collapse_html_whitespace(&content);
+    let normalized = normalize_text_for_pdf(&content, false);
     if normalized.is_empty() {
         return;
     }
@@ -1309,20 +1334,26 @@ fn draw_hf_region(
 
     // Choose font + measure width.
     let non_latin = has_non_latin(&normalized);
-    let cf = if non_latin {
-        fontctx.first_cid()
+    let cid_primary = if non_latin {
+        fontctx.fallback_cid(400, 0).or_else(|| fontctx.first_cid())
     } else {
         None
     };
-    let (bytes, text_w_pt) = if let Some(cf) = cf {
-        let (gb, w1000) = encode_cid(cf, &normalized);
-        (gb, (w1000 as f32 / 1000.0) * fs_pt)
+    let (bytes, text_w_pt, cid_runs) = if let Some(cf) = cid_primary {
+        let primary_idx = (cf.key - 2) as usize;
+        let runs = encode_cid_with_fallback(fontctx, primary_idx, &normalized, false);
+        let width_1000: u32 = runs.iter().map(|run| run.width_1000).sum();
+        let first_bytes = runs
+            .first()
+            .map(|run| run.bytes.clone())
+            .unwrap_or_default();
+        (first_bytes, (width_1000 as f32 / 1000.0) * fs_pt, Some(runs))
     } else {
         let b = encode_winansi(&normalized);
         let w = (text_width_units(&b) as f32 / 1000.0) * fs_pt;
-        (b, w)
+        (b, w, None)
     };
-    if bytes.is_empty() {
+    if bytes.is_empty() && cid_runs.as_ref().map(|runs| runs.is_empty()).unwrap_or(true) {
         return;
     }
 
@@ -1354,14 +1385,26 @@ fn draw_hf_region(
         f(color[1]),
         f(color[2])
     ));
-    let font_op = if cf.is_some() {
-        format!("/F{} {} Tf\n", cf.unwrap().key, f(fs_pt))
+    if let Some(runs) = cid_runs {
+        let mut pen_pt = 0.0_f32;
+        for run in runs {
+            let cf = &fontctx.cid[run.font_idx];
+            out.push_str(&format!("/F{} {} Tf\n", cf.key, f(fs_pt)));
+            out.push_str(&format!("1 0 0 1 {} {} Tm\n", f(x_pt + pen_pt), f(y_pt)));
+            out.push_str(&format!("<{}> Tj\n", hex(&run.bytes)));
+            pen_pt += (run.width_1000 as f32 / 1000.0) * fs_pt;
+        }
     } else {
-        format!("{} {} Tf\n", latin_font_token(400, 0), f(fs_pt))
-    };
-    out.push_str(&font_op);
-    out.push_str(&format!("1 0 0 1 {} {} Tm\n", f(x_pt), f(y_pt)));
-    out.push_str(&format!("<{}> Tj\nET\n", hex(&bytes)));
+        let font_op = if cid_primary.is_some() {
+            format!("/F{} {} Tf\n", cid_primary.unwrap().key, f(fs_pt))
+        } else {
+            format!("{} {} Tf\n", latin_font_token(400, 0), f(fs_pt))
+        };
+        out.push_str(&font_op);
+        out.push_str(&format!("1 0 0 1 {} {} Tm\n", f(x_pt), f(y_pt)));
+        out.push_str(&format!("<{}> Tj\n", hex(&bytes)));
+    }
+    out.push_str("ET\n");
 }
 
 fn draw_header_footer(
@@ -1398,11 +1441,7 @@ fn build_tounicode(cf: &crate::font::CidFont) -> Vec<u8> {
     let used = cf.used_gids.borrow();
     let mut entries: Vec<(u16, u32)> = used
         .iter()
-        .filter_map(|&gid| {
-            cf.gid_to_unicode
-                .get(&gid)
-                .map(|&cp| (cf.subset_gid(gid), cp))
-        })
+        .filter_map(|&gid| cf.actual_unicode_for_gid(gid).map(|cp| (cf.subset_gid(gid), cp)))
         .collect();
     entries.sort_by_key(|&(g, _)| g);
 
@@ -1456,6 +1495,8 @@ pub fn build_pdf(snap: &Snapshot, pages: &[PagePlan], fontctx: &FontCtx) -> Vec<
     let cid_objs_first = w.alloc(cid_count * 5);
     let image_count = snap.images.len() as u32;
     let image_ids_first = w.alloc(image_count);
+    let alpha_image_count = snap.images.iter().filter(|img| img.format == 2).count() as u32;
+    let alpha_image_ids_first = w.alloc(alpha_image_count);
     let opacity_keys: std::collections::BTreeSet<u16> = snap
         .nodes
         .iter()
@@ -1494,10 +1535,34 @@ pub fn build_pdf(snap: &Snapshot, pages: &[PagePlan], fontctx: &FontCtx) -> Vec<
 
     // Image XObjects.
     let mut image_obj_for: std::collections::HashMap<u32, u32> = std::collections::HashMap::new();
+    let mut next_alpha_image_id = alpha_image_ids_first;
     for (i, img) in snap.images.iter().enumerate() {
         let oid = image_ids_first + i as u32;
         image_obj_for.insert(img.id, oid);
-        if img.format == 1 {
+        if img.format == 2 {
+            let alpha_oid = next_alpha_image_id;
+            next_alpha_image_id += 1;
+            let mut rgb = Vec::with_capacity((img.width as usize) * (img.height as usize) * 3);
+            let mut alpha = Vec::with_capacity((img.width as usize) * (img.height as usize));
+            for px in img.bytes.chunks_exact(4) {
+                rgb.push(px[0]);
+                rgb.push(px[1]);
+                rgb.push(px[2]);
+                alpha.push(px[3]);
+            }
+            let alpha_dict = format!(
+                " /Type /XObject /Subtype /Image /Width {} /Height {} /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /FlateDecode",
+                img.width, img.height
+            );
+            let alpha_compressed = crate::pdf::zlib_store(&alpha);
+            w.stream(alpha_oid, &alpha_dict, &alpha_compressed);
+            let dict = format!(
+                " /Type /XObject /Subtype /Image /Width {} /Height {} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /SMask {} 0 R",
+                img.width, img.height, alpha_oid
+            );
+            let compressed = crate::pdf::zlib_store(&rgb);
+            w.stream(oid, &dict, &compressed);
+        } else if img.format == 1 {
             // Raw RGB888, lossless. Embed FlateDecode (stored zlib) to avoid the
             // JPEG color/chroma loss that flat fills and line-art icons suffer.
             let dict = format!(

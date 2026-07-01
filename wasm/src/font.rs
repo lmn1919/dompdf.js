@@ -182,6 +182,7 @@ pub struct CidFont {
     pub ttf: TtfFont,
     pub used_gids: std::cell::RefCell<Vec<u16>>,
     pub gid_to_unicode: HashMap<u16, u32>, // reverse cmap for ToUnicode (built lazily)
+    pub used_gid_to_unicode: std::cell::RefCell<HashMap<u16, u32>>,
     pub subset_old_to_new: std::cell::RefCell<Option<HashMap<u16, u16>>>,
 }
 
@@ -256,6 +257,7 @@ impl FontCtx {
                 ttf,
                 used_gids: std::cell::RefCell::new(Vec::new()),
                 gid_to_unicode: rev,
+                used_gid_to_unicode: std::cell::RefCell::new(HashMap::new()),
                 subset_old_to_new: std::cell::RefCell::new(None),
             });
         }
@@ -319,6 +321,13 @@ impl FontCtx {
                 if !used.contains(&gid) {
                     used.push(gid);
                 }
+                if gid != 0 {
+                    self.cid[font_idx]
+                        .used_gid_to_unicode
+                        .borrow_mut()
+                        .entry(gid)
+                        .or_insert(cp);
+                }
             }
             out.push(ShapedGlyph {
                 font_idx,
@@ -377,6 +386,14 @@ impl CidFont {
             .and_then(|m| m.get(&old_gid).copied())
             .unwrap_or(old_gid)
     }
+
+    pub fn actual_unicode_for_gid(&self, old_gid: u16) -> Option<u32> {
+        self.used_gid_to_unicode
+            .borrow()
+            .get(&old_gid)
+            .copied()
+            .or_else(|| self.gid_to_unicode.get(&old_gid).copied())
+    }
 }
 
 /// One shaped glyph after per-glyph font fallback. `font_idx` indexes into
@@ -389,13 +406,51 @@ pub struct ShapedGlyph {
     pub is_space: bool,
 }
 
+pub struct EncodedCidRun {
+    pub font_idx: usize,
+    pub bytes: Vec<u8>,
+    pub width_1000: u32,
+}
+
+pub fn encode_cid_with_fallback(
+    fontctx: &FontCtx,
+    primary_idx: usize,
+    text: &str,
+    record: bool,
+) -> Vec<EncodedCidRun> {
+    let glyphs = fontctx.shape(primary_idx, text, record);
+    if glyphs.is_empty() {
+        return Vec::new();
+    }
+    let mut runs: Vec<EncodedCidRun> = Vec::new();
+    for glyph in glyphs {
+        let draw_gid = fontctx.cid[glyph.font_idx].subset_gid(glyph.old_gid);
+        if let Some(last) = runs.last_mut() {
+            if last.font_idx == glyph.font_idx {
+                last.bytes.push((draw_gid >> 8) as u8);
+                last.bytes.push((draw_gid & 0xff) as u8);
+                last.width_1000 += glyph.width_1000;
+                continue;
+            }
+        }
+        runs.push(EncodedCidRun {
+            font_idx: glyph.font_idx,
+            bytes: vec![(draw_gid >> 8) as u8, (draw_gid & 0xff) as u8],
+            width_1000: glyph.width_1000,
+        });
+    }
+    runs
+}
+
 /// Result of encoding a text run for a CID font: glyph id bytes (big-endian,
 /// 2 bytes per gid for Identity-H) + total width in 1/1000 em.
+#[allow(dead_code)]
 pub fn encode_cid(cf: &CidFont, text: &str) -> (Vec<u8>, u32) {
     let mut bytes = Vec::with_capacity(text.chars().count() * 2);
     let mut width = 0u32;
     let mut used = cf.used_gids.borrow_mut();
     for c in text.chars() {
+        let cp = c as u32;
         let old_gid = cf.ttf.gid_for(c as u32);
         let draw_gid = cf.subset_gid(old_gid);
         bytes.push((draw_gid >> 8) as u8);
@@ -403,6 +458,12 @@ pub fn encode_cid(cf: &CidFont, text: &str) -> (Vec<u8>, u32) {
         width += cf.ttf.width_1000(old_gid);
         if !used.contains(&old_gid) {
             used.push(old_gid);
+        }
+        if old_gid != 0 {
+            cf.used_gid_to_unicode
+                .borrow_mut()
+                .entry(old_gid)
+                .or_insert(cp);
         }
     }
     (bytes, width)
