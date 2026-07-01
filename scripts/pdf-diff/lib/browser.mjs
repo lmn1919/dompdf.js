@@ -6,6 +6,8 @@ import { rootDir } from './server.mjs';
 
 export const defaultChineseFontPath = resolve(rootDir, 'examples', 'SourceHanSansSC-Regular.ttf');
 export const injectedCjkFontFamily = 'DompdfAutoCJK';
+export const systemCjkFallbackFontPath = 'C:\\Windows\\Fonts\\NotoSansSC-VF.ttf';
+export const injectedCjkFallbackFontFamily = 'DompdfAutoCJKFallback';
 export const symbolFallbackFontPath = resolve(rootDir, 'assets', 'symbol-fallback.ttf');
 export const injectedSymbolFontFamily = 'DompdfAutoSymbols';
 export const systemSymbolFontPath = 'C:\\Windows\\Fonts\\seguisym.ttf';
@@ -35,6 +37,9 @@ export function buildDefaultFontConfig() {
   };
   pushFont({ fontPath: defaultChineseFontPath, fontFamily: injectedCjkFontFamily, fontWeight: 400 });
   pushFont({ fontPath: defaultChineseFontPath, fontFamily: injectedCjkFontFamily, fontWeight: 700 });
+  // SourceHanSC misses a few punctuation codepoints seen in forum pages
+  // (for example U+30FB), so add a secondary CJK font for glyph coverage.
+  pushFont({ fontPath: systemCjkFallbackFontPath, fontFamily: injectedCjkFallbackFontFamily });
   if (existsSync(symbolFallbackFontPath)) {
     pushFont({ fontPath: symbolFallbackFontPath, fontFamily: injectedSymbolFontFamily });
   }

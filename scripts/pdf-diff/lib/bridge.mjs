@@ -213,7 +213,12 @@ export async function ensureAutomationBridge(page, preferredSelector, distBundle
 
       function mergeDebugExportOverride(override) {
         const next = override ? Object.assign({}, override) : {};
-        next.pagination = false;
+        if (next.pagination == null) {
+          next.pagination = true;
+        }
+        if (next.pageConfig == null) {
+          next.pageConfig = {};
+        }
         if (injectedFontConfig && !next.fontConfig) {
           next.fontConfig = Array.isArray(injectedFontConfig)
             ? injectedFontConfig.map((item) => ({
@@ -331,7 +336,8 @@ export async function ensureAutomationBridge(page, preferredSelector, distBundle
       fontConfig: injectedFontConfig || undefined,
       format: 'a4',
       marginPt: 0,
-      pagination: false,
+      pageConfig: {},
+      pagination: true,
       useCORS: true,
     };
     const fallbackSelectors = [];

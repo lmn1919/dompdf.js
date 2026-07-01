@@ -21,6 +21,8 @@ import { PNG } from 'pngjs';
 const BG_DELTA_E = 6; // CIE76 ΔE; <2.3 is imperceptible
 const BORDER_MATCH_E = 20; // an edge pixel within this ΔE of the wanted color "is" the border
 const BORDER_MIN_PRESENCE = 0.1; // <10% of the edge strip showing the border color → missing/wrong
+const BORDER_REGION_MISMATCH = 0.12; // if expected/actual edge rasters already match, do not flag color-presence noise
+const BORDER_REGION_MISMATCH_ROUNDED = 0.25; // large rounded thin borders antialias more heavily along the edge strip
 const SHADOW_LUMA_DROP = 18; // browser band this much darker (0..255) than dompdf → shadow missing
 const ICON_MISMATCH = 0.25; // fraction of differing pixels in the icon box
 const ICON_PIXEL_DIST = 48; // per-pixel channel-sum distance counted as "different"
@@ -113,6 +115,48 @@ function colorMatchFraction(png, rx, ry, rw, rh, want, matchE) {
     }
   }
   return total === 0 ? null : hit / total;
+}
+
+function borderRadiiPx(el, scale, iw, ih) {
+  const raw = Array.isArray(el?.borderRadius) ? el.borderRadius : [0, 0, 0, 0];
+  const maxR = Math.max(0, Math.min(iw, ih) / 2);
+  return raw.map((v) => clamp(Math.round((Number(v) || 0) * scale), 0, maxR));
+}
+
+function trimBorderSampleRect(side, rect, radii) {
+  let { sx, sy, sw, sh } = rect;
+  const [rtl, rtr, rbr, rbl] = radii;
+  if (side === 'top') {
+    const trimL = Math.max(0, Math.round(rtl * 0.8));
+    const trimR = Math.max(0, Math.round(rtr * 0.8));
+    sx += trimL;
+    sw -= trimL + trimR;
+  } else if (side === 'bottom') {
+    const trimL = Math.max(0, Math.round(rbl * 0.8));
+    const trimR = Math.max(0, Math.round(rbr * 0.8));
+    sx += trimL;
+    sw -= trimL + trimR;
+  } else if (side === 'left') {
+    const trimT = Math.max(0, Math.round(rtl * 0.8));
+    const trimB = Math.max(0, Math.round(rbl * 0.8));
+    sy += trimT;
+    sh -= trimT + trimB;
+  } else if (side === 'right') {
+    const trimT = Math.max(0, Math.round(rtr * 0.8));
+    const trimB = Math.max(0, Math.round(rbr * 0.8));
+    sy += trimT;
+    sh -= trimT + trimB;
+  }
+  return { sx, sy, sw, sh };
+}
+
+function borderRegionMismatchThreshold(radii, spec) {
+  const maxRadius = Math.max(...radii, 0);
+  const borderWidth = Number(spec?.width) || 0;
+  if (maxRadius >= 10 && borderWidth <= 1.5) {
+    return BORDER_REGION_MISMATCH_ROUNDED;
+  }
+  return BORDER_REGION_MISMATCH;
 }
 
 // Fraction of differing pixels between the two normalized rasters within a rect.
@@ -218,6 +262,7 @@ export function diffVisuals({ elements, pixelPages, meta, metrics }) {
     // in the dompdf raster? Report the side where it is most absent.
     if (el.border) {
       let worst = null;
+      const radii = borderRadiiPx(el, scale, iw, ih);
       for (const [side, spec] of Object.entries(el.border)) {
         const want = parseCssColor(spec.color);
         if (!want) continue;
@@ -227,6 +272,11 @@ export function diffVisuals({ elements, pixelPages, meta, metrics }) {
         else if (side === 'bottom') { sy = iy + ih - t; sh = t; }
         else if (side === 'left') { sw = t; }
         else if (side === 'right') { sx = ix + iw - t; sw = t; }
+        ({ sx, sy, sw, sh } = trimBorderSampleRect(side, { sx, sy, sw, sh }, radii));
+        // Tiny circular markers (e.g. 12x12 timeline dots) and heavily rounded
+        // corners do not have a meaningful straight-edge strip to sample; their
+        // top edge is mostly antialiasing, so treat them as non-actionable here.
+        if (sw < Math.max(3, t) || sh < Math.max(3, t)) continue;
         const frac = colorMatchFraction(actual, sx, sy, sw, sh, want, BORDER_MATCH_E);
         if (frac == null || frac >= BORDER_MIN_PRESENCE) continue;
         // Cross-check against the browser: only a real defect when the browser renders
@@ -237,6 +287,9 @@ export function diffVisuals({ elements, pixelPages, meta, metrics }) {
         if (expected) {
           const fracExp = colorMatchFraction(expected, sx, sy, sw, sh, want, BORDER_MATCH_E);
           if (fracExp == null || fracExp < BORDER_MIN_PRESENCE) continue;
+          const edgeMismatch = regionMismatch(expected, actual, sx, sy, sw, sh);
+          const mismatchThreshold = borderRegionMismatchThreshold(radii, spec);
+          if (edgeMismatch != null && edgeMismatch <= mismatchThreshold) continue;
         }
         if (!worst || frac < worst.frac) {
           worst = { frac, side, want };
