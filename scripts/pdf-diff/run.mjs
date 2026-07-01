@@ -76,7 +76,7 @@ export async function runEntry({
 
     // Tier 2 — structured text diff.
     const pdfTextItems = await extractPdfTextItems(oracle.actualPdfBuffer);
-    const textDiff = diffTexts(oracle.oracle, pdfTextItems, metrics);
+    const textDiff = diffTexts(oracle.oracle, pdfTextItems, metrics, meta);
 
     // Tier 2b — structured non-text visual diff (bg-color / border / shadow / icon).
     const visualDiff = diffVisuals({

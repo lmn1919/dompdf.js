@@ -12,7 +12,7 @@ import {
 // Tier 0 — collect the reference pair + structured HTML/CSS oracle for one corpus entry.
 //
 // Produces:
-//   actual.pdf  — dompdf export (single tall page, pagination:false)
+//   actual.pdf  — dompdf export (paginated PDF for the selected node)
 //   ref.pdf     — Chromium headless print of the same node (archival "headless PDF")
 //   html-source.png — cropped headless screenshot of the node (Tier 1 pixel reference)
 //   oracle.json — Range.getClientRects() text boxes in document space (Tier 2 ground truth)
@@ -77,6 +77,34 @@ export async function collectOracle({
     const targetRect = target.getBoundingClientRect();
     const rootLeft = targetRect.left + window.scrollX;
     const rootTop = targetRect.top + window.scrollY;
+    const measureCanvas = document.createElement('canvas');
+    const measureCtx = measureCanvas.getContext('2d');
+
+    const splitGraphemes = (() => {
+      if (typeof Intl !== 'undefined' && typeof Intl.Segmenter === 'function') {
+        const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+        return (text) => Array.from(segmenter.segment(text), (part) => part.segment);
+      }
+      return (text) => Array.from(text);
+    })();
+
+    const measureTokenWidth = (style, text) => {
+      if (!measureCtx || !text) return 0;
+      measureCtx.font = style.font || `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+      const letterSpacing = parseFloat(style.letterSpacing) || 0;
+      const wordSpacing = parseFloat(style.wordSpacing) || 0;
+      const graphemes = splitGraphemes(text);
+      let width = 0;
+      for (let i = 0; i < graphemes.length; i += 1) {
+        const segment = graphemes[i];
+        width += measureCtx.measureText(segment).width;
+        if (i + 1 < graphemes.length) {
+          width += letterSpacing;
+          if (segment === ' ') width += wordSpacing;
+        }
+      }
+      return width;
+    };
 
     const boxes = [];
     const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT, {
@@ -120,6 +148,9 @@ export async function collectOracle({
         const rects = range.getClientRects();
         for (const rect of rects) {
           if (rect.width <= 0 || rect.height <= 0) continue;
+          const measuredWidth = measureTokenWidth(style, token);
+          const visibleText = token.replace(/\s+$/u, '');
+          const visibleWidth = measureTokenWidth(style, visibleText || token);
           boxes.push({
             nodeId,
             text: token,
@@ -129,7 +160,10 @@ export async function collectOracle({
             // ...and coords relative to the target root (aligns with PDF content space).
             x: rect.left + window.scrollX - rootLeft,
             y: rect.top + window.scrollY - rootTop,
-            w: rect.width,
+            // Range widths can over-report when letter-spacing is applied; use
+            // browser glyph advance widths so oracle text metrics align with PDF text extraction.
+            w: measuredWidth || rect.width,
+            visibleW: visibleWidth || measuredWidth || rect.width,
             h: rect.height,
             fontSize,
             fontFamily,
@@ -151,18 +185,26 @@ export async function collectOracle({
       const parts = m[1].split(',').map((s) => parseFloat(s));
       return parts.length >= 4 ? parts[3] : 1;
     };
+    const hasImageLikeBackground = (backgroundImage) => {
+      if (!backgroundImage || backgroundImage === 'none') return false;
+      return /url\(|image-set\(|cross-fade\(/i.test(backgroundImage);
+    };
     const pseudoIsIcon = (el, which) => {
       const ps = getComputedStyle(el, which);
       if (!ps) return false;
       const content = ps.content;
       const hasContent = content && !['none', 'normal', '""', "''"].includes(content);
-      const hasBgImg = ps.backgroundImage && ps.backgroundImage !== 'none';
+      const hasBgImg = hasImageLikeBackground(ps.backgroundImage);
       return Boolean(hasContent || hasBgImg);
     };
 
     const elements = [];
     const ELEMENT_CAP = 800;
     const rootArea = targetRect.width * targetRect.height || 1;
+    const readRadiusPx = (value) => {
+      const parsed = parseFloat(value);
+      return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+    };
     for (const el of target.querySelectorAll('*')) {
       if (elements.length >= ELEMENT_CAP) break;
       const style = getComputedStyle(el);
@@ -191,10 +233,17 @@ export async function collectOracle({
 
       const boxShadow = style.boxShadow;
       const hasShadow = boxShadow && boxShadow !== 'none';
+      const borderRadius = [
+        readRadiusPx(style.borderTopLeftRadius),
+        readRadiusPx(style.borderTopRightRadius),
+        readRadiusPx(style.borderBottomRightRadius),
+        readRadiusPx(style.borderBottomLeftRadius),
+      ];
+      const hasBorderRadius = borderRadius.some((v) => v > 0.01);
 
       const tag = el.tagName.toUpperCase();
       const isIcon = tag === 'IMG' || tag === 'SVG'
-        || (style.backgroundImage && style.backgroundImage !== 'none')
+        || hasImageLikeBackground(style.backgroundImage)
         || pseudoIsIcon(el, '::before') || pseudoIsIcon(el, '::after');
 
       if (!hasBg && !hasBorder && !hasShadow && !isIcon) continue;
@@ -208,6 +257,7 @@ export async function collectOracle({
         h: rect.height,
         backgroundColor: hasBg ? bg : null,
         border: hasBorder ? border : null,
+        borderRadius: hasBorderRadius ? borderRadius : null,
         boxShadow: hasShadow ? boxShadow : null,
         isIcon: Boolean(isIcon),
       });

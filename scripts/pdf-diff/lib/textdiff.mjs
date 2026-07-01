@@ -17,9 +17,36 @@ const DY_TOL_PX = 2;
 const DFSIZE_TOL_PX = 0.5;
 const DWIDTH_TOL_PX = 3;
 const LINE_Y_TOL_PX = 3; // boxes within this y distance are treated as one line
+const X_OFFSET_STABLE_STD_PX = 0.2;
+const X_OFFSET_MIN_COUNT = 3;
+const X_OFFSET_APPLY_TOL_PX = 0.35;
+const SINGLE_SYMBOL_DX_TOL_PX = 3.75;
 
 function norm(s) {
   return String(s).trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function fontSizeBucket(px) {
+  return Math.round((Number(px) || 0) * 2) / 2;
+}
+
+function actualFontBucket(item) {
+  return `${item?.fontName || ''}@${fontSizeBucket(item?.fontSize)}`;
+}
+
+function isSingleSymbolText(text) {
+  const value = String(text || '').trim();
+  if ([...value].length !== 1) return false;
+  return /[^\p{L}\p{N}\s]/u.test(value);
+}
+
+function pageSliceStartPx(pageIndex, meta, metrics) {
+  const breaks = Array.isArray(meta?.pageBreaks) ? meta.pageBreaks : [];
+  if (pageIndex <= 0) return 0;
+  if (pageIndex - 1 < breaks.length) {
+    return breaks[pageIndex - 1] || 0;
+  }
+  return pageIndex * (metrics.contentHeightPx || 0);
 }
 
 // Convert a pdfjs text item into target-root CSS-px space (top-origin).
@@ -30,7 +57,7 @@ function norm(s) {
 // same top-origin target-root space as the oracle boxes. Skipping the flip makes
 // every item read as (pageHeight - y) — a constant-sum mirror that masquerades as
 // a huge, page-wide "text-y-drift".
-function actualItemToRootPx(item, metrics) {
+function actualItemToRootPx(item, metrics, meta) {
   const [mTopPt, , , mLeftPt] = normalizeMarginPt(metrics.options?.marginPt ?? 0);
   const headerOffsetPt = (metrics.options?.pageConfig?.header?.height || 0) * PX_TO_PT;
   const contentTopPt = mTopPt + headerOffsetPt;
@@ -40,9 +67,12 @@ function actualItemToRootPx(item, metrics) {
   // computed metrics for safety).
   const pageHeightPt = item.pageHeightPt || (metrics.pageHeightPx || 0) * PX_TO_PT;
   const yFromTopPt = pageHeightPt - item.y;
-  // Each PDF page maps to one contentHeightPx-tall slice of the continuous root.
+  // In paginated mode, pageBreak/divisionDisable can move whole subtrees so page
+  // slices are not always a simple pageIndex * contentHeightPx grid. Prefer the
+  // actual DOM slice starts captured in meta.pageBreaks; fall back to the fixed
+  // page-height model for callers that do not provide them.
   const pageIndex = Math.max(0, (item.page || 1) - 1);
-  const pageOffsetPx = pageIndex * (metrics.contentHeightPx || 0);
+  const pageOffsetPx = pageSliceStartPx(pageIndex, meta, metrics);
 
   const xRootPx = (item.x * PT_TO_PX) / layoutScale;
   const yRootPx = pageOffsetPx + ((yFromTopPt - contentTopPt) * PT_TO_PX) / layoutScale;
@@ -60,7 +90,7 @@ function alignSequences(a, b) {
   const dp = Array.from({ length: n + 1 }, () => new Int32Array(m + 1));
   for (let i = 1; i <= n; i += 1) {
     for (let j = 1; j <= m; j += 1) {
-      dp[i][j] = a[i - 1].norm === b[j - 1].norm
+      dp[i][j] = matchKey(a[i - 1]) === matchKey(b[j - 1])
         ? dp[i - 1][j - 1] + 1
         : Math.max(dp[i - 1][j], dp[i][j - 1]);
     }
@@ -71,7 +101,7 @@ function alignSequences(a, b) {
   const matchedA = new Set();
   const matchedB = new Set();
   while (i > 0 && j > 0) {
-    if (a[i - 1].norm === b[j - 1].norm) {
+    if (matchKey(a[i - 1]) === matchKey(b[j - 1])) {
       matches.unshift({ a: i - 1, b: j - 1 });
       matchedA.add(i - 1);
       matchedB.add(j - 1);
@@ -88,6 +118,125 @@ function alignSequences(a, b) {
   return { matches, unmatchedA, unmatchedB };
 }
 
+function matchKey(item) {
+  return item.matchNorm || item.norm;
+}
+
+function shouldDisambiguateShortNorm(norm, countA, countB) {
+  if (!norm || norm.length === 0 || norm.length > 2) return false;
+  if (countA !== countB || countA <= 1 || countA > 8) return false;
+  if (norm.includes(' ')) return false;
+  return true;
+}
+
+function isShortAmbiguousNorm(norm) {
+  return !!norm && norm.length > 0 && norm.length <= 2 && !norm.includes(' ');
+}
+
+function pageIndexForY(y, meta, metrics) {
+  const breaks = Array.isArray(meta?.pageBreaks) ? meta.pageBreaks : [];
+  if (!breaks.length) {
+    const contentHeightPx = metrics?.contentHeightPx || 0;
+    return contentHeightPx > 0 ? Math.max(0, Math.floor((Number(y) || 0) / contentHeightPx)) : 0;
+  }
+  let pageIndex = 0;
+  while (pageIndex < breaks.length && y >= breaks[pageIndex]) {
+    pageIndex += 1;
+  }
+  return pageIndex;
+}
+
+// Repeated 1-2 character formula tokens like "B", "0", "∂" are common in the
+// math demo. Plain LCS can legally match the wrong occurrence when nearby
+// superscript/subscript runs cause the surrounding tokenization to diverge. When
+// both streams contain the same number of such short tokens on the same page
+// slice, tag them with their occurrence order so alignment stays stable without
+// affecting longer prose.
+function annotateRepeatedShortNorms(oracleSeq, actualSeq, meta, metrics) {
+  const oracleCounts = new Map();
+  const actualCounts = new Map();
+  for (const item of oracleSeq) {
+    const page = pageIndexForY(item.yBaseline, meta, metrics);
+    const key = `${item.norm}@${page}`;
+    oracleCounts.set(key, (oracleCounts.get(key) || 0) + 1);
+  }
+  for (const item of actualSeq) {
+    const page = Math.max(0, (item.page || 1) - 1);
+    const key = `${item.norm}@${page}`;
+    actualCounts.set(key, (actualCounts.get(key) || 0) + 1);
+  }
+
+  const occurrence = new Map();
+  const annotate = (seq, countsA, countsB, resolvePage) => seq.map((item) => {
+    const page = resolvePage(item);
+    const key = `${item.norm}@${page}`;
+    const countA = countsA.get(key) || 0;
+    const countB = countsB.get(key) || 0;
+    if (!shouldDisambiguateShortNorm(item.norm, countA, countB)) {
+      return item;
+    }
+    const next = (occurrence.get(key) || 0) + 1;
+    occurrence.set(key, next);
+    return { ...item, matchNorm: `${item.norm}@${page}#${next}` };
+  });
+
+  return {
+    oracleSeq: annotate(
+      oracleSeq,
+      oracleCounts,
+      actualCounts,
+      (item) => pageIndexForY(item.yBaseline, meta, metrics),
+    ),
+    actualSeq: (() => {
+      occurrence.clear();
+      return annotate(
+        actualSeq,
+        actualCounts,
+        oracleCounts,
+        (item) => Math.max(0, (item.page || 1) - 1),
+      );
+    })(),
+  };
+}
+
+function spatialScore(oracleItem, actualItem) {
+  const dx = actualItem.x - oracleItem.x;
+  const dy = actualItem.yBaseline - oracleItem.yBaseline;
+  return (dx * dx) + (dy * dy);
+}
+
+function repairShortTokenMatches(matches, oracleSeq, actualSeq, unmatchedB) {
+  const unmatchedBSet = new Set(unmatchedB);
+  const repaired = matches.map((pair) => ({ ...pair }));
+  for (const pair of repaired) {
+    const oracleItem = oracleSeq[pair.a];
+    const actualItem = actualSeq[pair.b];
+    if (!isShortAmbiguousNorm(oracleItem.norm)) continue;
+    const currentScore = spatialScore(oracleItem, actualItem);
+    let bestIndex = pair.b;
+    let bestScore = currentScore;
+    for (const candidateIndex of unmatchedBSet) {
+      const candidate = actualSeq[candidateIndex];
+      if (candidate.norm !== oracleItem.norm) continue;
+      if (Math.abs((candidate.page || 1) - (actualItem.page || 1)) > 1) continue;
+      const candidateScore = spatialScore(oracleItem, candidate);
+      if (candidateScore + 4 < bestScore) {
+        bestScore = candidateScore;
+        bestIndex = candidateIndex;
+      }
+    }
+    if (bestIndex !== pair.b) {
+      unmatchedBSet.delete(bestIndex);
+      unmatchedBSet.add(pair.b);
+      pair.b = bestIndex;
+    }
+  }
+  return {
+    matches: repaired,
+    unmatchedB: Array.from(unmatchedBSet).sort((a, b) => a - b),
+  };
+}
+
 // Group per-word Range boxes into line-level entries so the granularity matches
 // dompdf's line-level text items. Consecutive boxes (DOM = reading order) whose
 // baseline y is within LINE_Y_TOL_PX form one line. Line width (last word's right
@@ -100,6 +249,10 @@ export function buildOracleSequence(oracle) {
       text: b.text,
       x: b.x,
       right: b.x + b.w,
+      width: b.w,
+      visibleRight: b.x + (b.visibleW ?? b.w),
+      visibleWidth: b.visibleW ?? b.w,
+      hasTrailingWhitespace: /\s+$/u.test(b.text),
       yBaseline: b.y + b.fontSize * ASCENT_FACTOR,
       fontSize: b.fontSize,
       fontFamily: b.fontFamily,
@@ -115,16 +268,24 @@ export function buildOracleSequence(oracle) {
         words: [b.text],
         x: b.x,
         right: b.right,
+        width: b.width,
+        visibleRight: b.visibleRight,
+        visibleWidth: b.visibleWidth,
         yBaseline: b.yBaseline,
         fontSize: b.fontSize,
         fontFamily: b.fontFamily,
         nodeIds: [b.nodeId],
+        hasTrailingWhitespace: b.hasTrailingWhitespace,
       };
     } else {
       current.words.push(b.text);
       current.right = Math.max(current.right, b.right);
+      current.width += b.width;
+      current.visibleRight = Math.max(current.visibleRight, b.visibleRight);
+      current.visibleWidth += b.visibleWidth;
       if (b.fontSize > current.fontSize) current.fontSize = b.fontSize;
       current.nodeIds.push(b.nodeId);
+      current.hasTrailingWhitespace = current.hasTrailingWhitespace || b.hasTrailingWhitespace;
     }
   }
   if (current) lines.push(finishLine(current));
@@ -133,6 +294,7 @@ export function buildOracleSequence(oracle) {
 
 function finishLine(line) {
   const text = line.words.join(' ').replace(/\s+([.,;:!?])/g, '$1');
+  const singleNode = new Set(line.nodeIds).size === 1;
   return {
     norm: norm(text),
     text,
@@ -140,17 +302,21 @@ function finishLine(line) {
     yBaseline: line.yBaseline,
     fontSize: line.fontSize,
     width: line.right - line.x,
+    visibleWidth: line.visibleRight - line.x,
+    summedWidth: singleNode ? line.width : undefined,
+    summedVisibleWidth: singleNode ? line.visibleWidth : undefined,
+    hasTrailingWhitespace: line.hasTrailingWhitespace,
     fontFamily: line.fontFamily,
     nodeId: line.nodeIds[0],
   };
 }
 
-export function buildActualSequence(pdfTextItems, metrics) {
+export function buildActualSequence(pdfTextItems, metrics, meta) {
   const layoutScale = metrics.layoutScale || 1;
   return pdfTextItems
     .filter((it) => it.str && it.str.trim())
     .map((it) => {
-      const c = actualItemToRootPx(it, metrics);
+      const c = actualItemToRootPx(it, metrics, meta);
       return {
         norm: norm(it.str),
         text: it.str,
@@ -164,22 +330,25 @@ export function buildActualSequence(pdfTextItems, metrics) {
     });
 }
 
-export function diffTexts(oracle, pdfTextItems, metrics) {
-  const oracleSeq = buildOracleSequence(oracle);
-  const actualSeq = buildActualSequence(pdfTextItems, metrics);
+export function diffTexts(oracle, pdfTextItems, metrics, meta) {
+  const oracleSeqRaw = buildOracleSequence(oracle);
+  const actualSeqRaw = buildActualSequence(pdfTextItems, metrics, meta);
+  const { oracleSeq, actualSeq } = annotateRepeatedShortNorms(oracleSeqRaw, actualSeqRaw, meta, metrics);
   const { matches, unmatchedA, unmatchedB } = alignSequences(oracleSeq, actualSeq);
+  const repaired = repairShortTokenMatches(matches, oracleSeq, actualSeq, unmatchedB);
 
   // First pass: raw per-match deltas.
-  const matched = matches.map((pair) => {
+  const matched = repaired.matches.map((pair) => {
     const o = oracleSeq[pair.a];
     const a = actualSeq[pair.b];
+    const oracleWidth = effectiveOracleWidth(o, a);
     return {
-      o,
+      o: { ...o, width: oracleWidth },
       a,
       dx: a.x - o.x,
       dy: a.yBaseline - o.yBaseline,
       dFontSize: a.fontSize - o.fontSize,
-      dWidth: a.width - o.width,
+      dWidth: a.width - oracleWidth,
     };
   });
 
@@ -190,6 +359,31 @@ export function diffTexts(oracle, pdfTextItems, metrics) {
   // the constant separately as dyOffset, where a genuinely large uniform shift
   // (e.g. a real top-margin error) stays visible without flagging every line.
   const dyOffset = median(matched.map((m) => m.dy));
+  // Pagination preserves whitespace by shifting later content downward in
+  // document space. That creates page-wise dy steps in the extracted PDF text
+  // which are not local line-stacking errors. Remove the per-page median first,
+  // then apply the finer font-size baseline calibration to the page-normalized
+  // residuals.
+  const dyOffsetsByPage = medianMap(
+    matched,
+    (m) => m.a.page || 1,
+    (m) => m.dy,
+    4,
+  );
+  const dyOffsetsByFontSize = medianMap(
+    matched,
+    (m) => fontSizeBucket(m.o.fontSize),
+    (m) => {
+      const pageDyOffset = dyOffsetsByPage.get(m.a.page || 1) ?? dyOffset;
+      return m.dy - pageDyOffset;
+    },
+    1,
+  );
+  // Some CID fonts extract from pdfjs with a stable text-origin x offset while
+  // preserving the correct visual width. Treat that as an extraction baseline,
+  // not a real subtree transform, but only when the pattern is stable within a
+  // font bucket and width agreement says layout itself is correct.
+  const xOffsetsByActualFont = stableXOffsetsByActualFont(matched);
 
   const cov = charCoverageDetail(oracleSeq, actualSeq);
 
@@ -197,14 +391,23 @@ export function diffTexts(oracle, pdfTextItems, metrics) {
   const deltas = { dx: [], dy: [], dFontSize: [], dWidth: [] };
 
   for (const m of matched) {
-    const { o, a, dx, dFontSize, dWidth } = m;
-    const dy = m.dy - dyOffset; // baseline-calibrated residual
+    const { o, a, dFontSize, dWidth } = m;
+    const pageDyOffset = dyOffsetsByPage.get(a.page || 1) ?? dyOffset;
+    const fontDyOffset = dyOffsetsByFontSize.get(fontSizeBucket(o.fontSize)) ?? 0;
+    const rawFontXOffset = xOffsetsByActualFont.get(actualFontBucket(a)) ?? 0;
+    const fontXOffset = Math.abs(dWidth) <= DWIDTH_TOL_PX
+      && Math.abs(m.dx - rawFontXOffset) <= X_OFFSET_APPLY_TOL_PX
+      ? rawFontXOffset
+      : 0;
+    const dx = m.dx - fontXOffset;
+    const dy = m.dy - pageDyOffset - fontDyOffset; // page + baseline calibrated residual
     deltas.dx.push(dx);
     deltas.dy.push(dy);
     deltas.dFontSize.push(dFontSize);
     deltas.dWidth.push(dWidth);
 
-    if (Math.abs(dx) > DX_TOL_PX || Math.abs(dy) > DY_TOL_PX
+    const dxTol = singleSymbolDxTolerance(o, dx, dy, dFontSize, dWidth);
+    if (Math.abs(dx) > dxTol || Math.abs(dy) > DY_TOL_PX
       || Math.abs(dFontSize) > DFSIZE_TOL_PX || Math.abs(dWidth) > DWIDTH_TOL_PX) {
       discrepancies.push({
         text: o.text,
@@ -219,9 +422,9 @@ export function diffTexts(oracle, pdfTextItems, metrics) {
     summary: {
       oracleItems: oracleSeq.length,
       actualItems: actualSeq.length,
-      aligned: matches.length,
+      aligned: repaired.matches.length,
       unmatchedOracle: unmatchedA.length,
-      unmatchedActual: unmatchedB.length,
+      unmatchedActual: repaired.unmatchedB.length,
       // Distinct-character coverage of oracle text by the extracted PDF text.
       // ~1.0 means the text IS present in the stream (any unmatched lines are a
       // wrap/segmentation artifact); a low value means it is genuinely
@@ -247,7 +450,7 @@ export function diffTexts(oracle, pdfTextItems, metrics) {
     discrepancies,
     unmatched: {
       oracle: unmatchedA.map((i) => ({ text: oracleSeq[i].text, nodeId: oracleSeq[i].nodeId })),
-      actual: unmatchedB.map((i) => ({ text: actualSeq[i].text, page: actualSeq[i].page })),
+      actual: repaired.unmatchedB.map((i) => ({ text: actualSeq[i].text, page: actualSeq[i].page })),
     },
   };
 }
@@ -262,6 +465,83 @@ function median(arr) {
   const sorted = [...arr].sort((a, b) => a - b);
   const mid = sorted.length >> 1;
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function medianMap(items, keyOf, valueOf, minCount = 1) {
+  const grouped = new Map();
+  for (const item of items) {
+    const key = keyOf(item);
+    const value = valueOf(item);
+    const list = grouped.get(key);
+    if (list) {
+      list.push(value);
+    } else {
+      grouped.set(key, [value]);
+    }
+  }
+  const medians = new Map();
+  for (const [key, values] of grouped) {
+    if (values.length >= minCount) {
+      medians.set(key, median(values));
+    }
+  }
+  return medians;
+}
+
+function stableXOffsetsByActualFont(matches) {
+  const grouped = new Map();
+  for (const match of matches) {
+    if (Math.abs(match.dx) <= DX_TOL_PX || Math.abs(match.dWidth) > DWIDTH_TOL_PX) continue;
+    const key = actualFontBucket(match.a);
+    if (!key || key.startsWith('@')) continue;
+    const list = grouped.get(key);
+    if (list) {
+      list.push(match.dx);
+    } else {
+      grouped.set(key, [match.dx]);
+    }
+  }
+  const offsets = new Map();
+  for (const [key, values] of grouped) {
+    if (values.length < X_OFFSET_MIN_COUNT) continue;
+    const offset = median(values);
+    if (Math.abs(offset) <= DX_TOL_PX) continue;
+    const scatter = std(values);
+    if (scatter > X_OFFSET_STABLE_STD_PX) continue;
+    offsets.set(key, offset);
+  }
+  return offsets;
+}
+
+function singleSymbolDxTolerance(oracleItem, dx, dy, dFontSize, dWidth) {
+  if (!isSingleSymbolText(oracleItem?.text)) return DX_TOL_PX;
+  if (Math.abs(dy) > DY_TOL_PX || Math.abs(dFontSize) > DFSIZE_TOL_PX) return DX_TOL_PX;
+  if (Math.abs(dWidth) > 0.25) return DX_TOL_PX;
+  if (Math.abs(dx) <= DX_TOL_PX) return DX_TOL_PX;
+  return SINGLE_SYMBOL_DX_TOL_PX;
+}
+
+function effectiveOracleWidth(oracleItem, actualItem) {
+  const fullWidth = oracleItem.width;
+  const actualWidth = actualItem?.width ?? fullWidth;
+  const candidates = [{ width: fullWidth, error: Math.abs(actualWidth - fullWidth) }];
+  const visibleWidth = oracleItem.visibleWidth ?? fullWidth;
+  if (oracleItem.hasTrailingWhitespace && Number.isFinite(visibleWidth)) {
+    candidates.push({ width: visibleWidth, error: Math.abs(actualWidth - visibleWidth) });
+  }
+  const summedWidth = oracleItem.summedWidth;
+  if (Number.isFinite(summedWidth)) {
+    candidates.push({ width: summedWidth, error: Math.abs(actualWidth - summedWidth) });
+  }
+  const summedVisibleWidth = oracleItem.summedVisibleWidth;
+  if (oracleItem.hasTrailingWhitespace && Number.isFinite(summedVisibleWidth)) {
+    candidates.push({ width: summedVisibleWidth, error: Math.abs(actualWidth - summedVisibleWidth) });
+  }
+  let best = candidates[0];
+  for (const candidate of candidates.slice(1)) {
+    if (candidate.error + 0.25 < best.error) best = candidate;
+  }
+  return best.width;
 }
 
 // Whitespace-insensitive distinct-character coverage of oracle text by actual
