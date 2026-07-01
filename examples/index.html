@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
@@ -29,7 +29,12 @@
         margin: 0;
         background: var(--bg);
         color: var(--ink);
-        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        font-family:
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
       }
 
       .toolbar {
@@ -145,7 +150,12 @@
         position: absolute;
         inset: 0;
         background:
-          radial-gradient(circle at top left, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.18) 42%, transparent 62%),
+          radial-gradient(
+            circle at top left,
+            rgba(255, 255, 255, 0.92),
+            rgba(255, 255, 255, 0.18) 42%,
+            transparent 62%
+          ),
           linear-gradient(135deg, #eff6ff 0%, #dbeafe 42%, #c7d2fe 100%);
       }
 
@@ -363,7 +373,12 @@
       }
 
       .gradient-card::before {
-        background-image: linear-gradient(180deg, #eff6ff 0%, #dbeafe 52%, #bfdbfe 100%);
+        background-image: linear-gradient(
+          180deg,
+          #eff6ff 0%,
+          #dbeafe 52%,
+          #bfdbfe 100%
+        );
       }
 
       .radial-card {
@@ -371,7 +386,12 @@
       }
 
       .radial-card::before {
-        background-image: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.92), rgba(125, 211, 252, 0.72) 35%, rgba(14, 116, 144, 0.88) 100%);
+        background-image: radial-gradient(
+          circle at 30% 30%,
+          rgba(255, 255, 255, 0.92),
+          rgba(125, 211, 252, 0.72) 35%,
+          rgba(14, 116, 144, 0.88) 100%
+        );
       }
 
       .opacity-panel {
@@ -397,7 +417,12 @@
         display: flex;
         align-items: flex-end;
         font-weight: 700;
-        background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.88), rgba(148, 163, 184, 0.4) 45%, rgba(51, 65, 85, 0.18) 100%);
+        background: radial-gradient(
+          circle at top left,
+          rgba(255, 255, 255, 0.88),
+          rgba(148, 163, 184, 0.4) 45%,
+          rgba(51, 65, 85, 0.18) 100%
+        );
       }
 
       .opacity-float {
@@ -694,7 +719,9 @@
         background: #ffffff;
         border-left: 3px solid #2563eb;
         border-radius: 4px;
-        font-family: "Cambria Math", "Latin Modern Math", "STIX Two Math", "Times New Roman", serif;
+        font-family:
+          "Cambria Math", "Latin Modern Math", "STIX Two Math",
+          "Times New Roman", serif;
         font-size: 16px;
         color: #0f172a;
         line-height: 1.9;
@@ -718,7 +745,10 @@
     <header class="toolbar">
       <div class="toolbar-title">
         <strong>dompdf</strong>
-        <span>单文件示例：`examples/index.html` 通过 `&lt;script src="../dist/dompdf.js"&gt;&lt;/script&gt;` 直接使用</span>
+        <span
+          >单文件示例：`examples/index.html` 通过 `&lt;script
+          src="../dist/dompdf.js"&gt;&lt;/script&gt;` 直接使用</span
+        >
       </div>
       <div class="spacer"></div>
       <button id="btn-export">Export PDF</button>
@@ -734,8 +764,8 @@
             <div class="eyebrow">Single HTML Demo</div>
             <h1>dompdf Open-Source Example</h1>
             <p class="lede">
-              这个页面本身就是演示文件。浏览器实时渲染 DOM，随后由
-              `dompdf` 收集快照，交给 Worker 和 Rust/WASM 输出 PDF。
+              这个页面本身就是演示文件。浏览器实时渲染 DOM，随后由 `dompdf`
+              收集快照，交给 Worker 和 Rust/WASM 输出 PDF。
             </p>
             <div class="tag-row">
               <span class="tag">Single HTML</span>
@@ -809,8 +839,8 @@
           <div>
             <h3>Canvas Chart To JPEG</h3>
             <p>
-              这里的图片由浏览器端 canvas 动态生成，再以 JPEG 形式嵌入到 PDF 中，
-              用来验证图片对象、尺寸换算与输出稳定性。
+              这里的图片由浏览器端 canvas 动态生成，再以 JPEG 形式嵌入到 PDF
+              中， 用来验证图片对象、尺寸换算与输出稳定性。
             </p>
             <div class="badge-row">
               <span class="badge">WAU +12%</span>
@@ -848,9 +878,13 @@
         </section>
         <div class="clip-box">
           <p>
-            这个容器带有 <code>overflow: hidden</code> 和圆角，溢出的子内容不应泄漏到裁剪区域之外。
+            这个容器带有
+            <code>overflow: hidden</code>
+            和圆角，溢出的子内容不应泄漏到裁剪区域之外。
           </p>
-          <div class="spill">I am a child that overflows the clipped parent.</div>
+          <div class="spill">
+            I am a child that overflows the clipped parent.
+          </div>
         </div>
 
         <h2>4. Layout And Table</h2>
@@ -859,23 +893,36 @@
             <section class="rail-card">
               <h3>Rollup Build Notes</h3>
               <p>
-                UMD 产物用于 `&lt;script&gt;` 直接引入；ESM 产物用于现代构建工具。worker
-                通过 Rollup 内联，wasm 则在构建时转换成 base64 常量。
+                UMD 产物用于 `&lt;script&gt;` 直接引入；ESM
+                产物用于现代构建工具。worker 通过 Rollup 内联，wasm
+                则在构建时转换成 base64 常量。
               </p>
             </section>
             <section class="rail-card">
               <h3>Initiative Health</h3>
               <div class="progress-row">
-                <div class="progress-meta"><span>Snapshot fidelity</span><strong>84%</strong></div>
-                <div class="progress-track"><div class="progress-fill fill-a"></div></div>
+                <div class="progress-meta">
+                  <span>Snapshot fidelity</span><strong>84%</strong>
+                </div>
+                <div class="progress-track">
+                  <div class="progress-fill fill-a"></div>
+                </div>
               </div>
               <div class="progress-row">
-                <div class="progress-meta"><span>Pagination stability</span><strong>76%</strong></div>
-                <div class="progress-track"><div class="progress-fill fill-b"></div></div>
+                <div class="progress-meta">
+                  <span>Pagination stability</span><strong>76%</strong>
+                </div>
+                <div class="progress-track">
+                  <div class="progress-fill fill-b"></div>
+                </div>
               </div>
               <div class="progress-row">
-                <div class="progress-meta"><span>Typography coverage</span><strong>68%</strong></div>
-                <div class="progress-track"><div class="progress-fill fill-c"></div></div>
+                <div class="progress-meta">
+                  <span>Typography coverage</span><strong>68%</strong>
+                </div>
+                <div class="progress-track">
+                  <div class="progress-fill fill-c"></div>
+                </div>
               </div>
             </section>
           </div>
@@ -912,13 +959,17 @@
               </tr>
               <tr>
                 <td class="cn-copy">状态摘要</td>
-                <td class="cn-copy">已完成 81%，风险等级 Low，下一里程碑 2026-09-30</td>
+                <td class="cn-copy">
+                  已完成 81%，风险等级 Low，下一里程碑 2026-09-30
+                </td>
                 <td class="cn-copy">百分比 + 英文等级 + 日期</td>
                 <td class="cn-copy">百分比、日期、英文单词应保持连续可复制</td>
               </tr>
               <tr>
                 <td class="cn-copy">验收说明</td>
-                <td class="cn-copy">复制后应得到完整表格文本，不应出现乱码、换序或缺字。</td>
+                <td class="cn-copy">
+                  复制后应得到完整表格文本，不应出现乱码、换序或缺字。
+                </td>
                 <td class="cn-copy">完整句子 + 中文标点</td>
                 <td class="cn-copy">验证 PDF ToUnicode 映射</td>
               </tr>
@@ -936,15 +987,23 @@
             <dl class="definition-list">
               <div>
                 <dt>Snapshot</dt>
-                <dd>Resolved DOM geometry, text runs, and image payloads gathered on the main thread.</dd>
+                <dd>
+                  Resolved DOM geometry, text runs, and image payloads gathered
+                  on the main thread.
+                </dd>
               </div>
               <div>
                 <dt>Pagination</dt>
-                <dd>WASM-side page assignment that treats each text line as the minimum unsplittable unit.</dd>
+                <dd>
+                  WASM-side page assignment that treats each text line as the
+                  minimum unsplittable unit.
+                </dd>
               </div>
               <div>
                 <dt>Emission</dt>
-                <dd>PDF object generation without third-party PDF libraries.</dd>
+                <dd>
+                  PDF object generation without third-party PDF libraries.
+                </dd>
               </div>
             </dl>
           </section>
@@ -972,21 +1031,30 @@
               <div class="timeline-dot"></div>
               <div>
                 <strong>Week 1</strong>
-                <p>Lock snapshot schema and code layout after the project structure refactor.</p>
+                <p>
+                  Lock snapshot schema and code layout after the project
+                  structure refactor.
+                </p>
               </div>
             </div>
             <div class="timeline-item">
               <div class="timeline-dot"></div>
               <div>
                 <strong>Week 2</strong>
-                <p>Validate build output, worker bundling, and inline wasm distribution.</p>
+                <p>
+                  Validate build output, worker bundling, and inline wasm
+                  distribution.
+                </p>
               </div>
             </div>
             <div class="timeline-item">
               <div class="timeline-dot"></div>
               <div>
                 <strong>Week 3</strong>
-                <p>Audit long content, clipping, opacity, and bilingual text selection.</p>
+                <p>
+                  Audit long content, clipping, opacity, and bilingual text
+                  selection.
+                </p>
               </div>
             </div>
           </div>
@@ -994,14 +1062,14 @@
         <div class="division-box cn-copy" divisionDisable>
           <h3>divisionDisable 测试块</h3>
           <p>
-            这个容器带有 <code>divisionDisable</code> 属性。跨页时它会被整体移动到下一页，
+            这个容器带有
+            <code>divisionDisable</code> 属性。跨页时它会被整体移动到下一页，
             不应在中间被拆开。这里放入更长的说明文字、边框和背景，便于观察整体迁移效果。
           </p>
           <p>
             如果这个卡片在页边界被切开，就说明复杂容器在分页上的边界处理仍存在问题。
           </p>
         </div>
-
 
         <section class="math-block">
           <h3>复杂数学公式样例</h3>
@@ -1010,7 +1078,10 @@
           <p class="equation">e<sup>i&pi;</sup> + 1 = 0</p>
 
           <p>高斯积分将指数函数与 π 联系在一起：</p>
-          <p class="equation">&int;<sub>-&infin;</sub><sup>+&infin;</sup> e<sup>-x&sup2;</sup> dx = &radic;&pi;</p>
+          <p class="equation">
+            &int;<sub>-&infin;</sub><sup>+&infin;</sup> e<sup>-x&sup2;</sup> dx
+            = &radic;&pi;
+          </p>
 
           <p>二次方程的求根公式：</p>
           <p class="equation">x = (-b &plusmn; &radic;(b&sup2; - 4ac)) / 2a</p>
@@ -1019,27 +1090,39 @@
           <p class="equation">P(A | B) = P(B | A) &middot; P(A) / P(B)</p>
 
           <p>矩阵乘法 C = A &times; B 的元素定义如下：</p>
-          <p class="equation">C<sub>ij</sub> = &sum;<sub>k=1</sub><sup>n</sup> A<sub>ik</sub> &middot; B<sub>kj</sub></p>
+          <p class="equation">
+            C<sub>ij</sub> = &sum;<sub>k=1</sub><sup>n</sup> A<sub>ik</sub>
+            &middot; B<sub>kj</sub>
+          </p>
 
           <p>傅里叶变换把时域信号转换到频域：</p>
-          <p class="equation">&#x1D54F;(&omega;) = &int;<sub>-&infin;</sub><sup>+&infin;</sup> f(t) &middot; e<sup>-i&omega;t</sup> dt</p>
+          <p class="equation">
+            &#x1D54F;(&omega;) = &int;<sub>-&infin;</sub
+            ><sup>+&infin;</sup> f(t) &middot; e<sup>-i&omega;t</sup> dt
+          </p>
 
           <p>麦克斯韦方程组的微分形式概括了经典电磁学：</p>
           <p class="equation">
-            &nabla; &middot; <b>E</b> = &rho; / &epsilon;<sub>0</sub><br/>
-            &nabla; &times; <b>E</b> = -&part;<sub>t</sub><b>B</b><br/>
-            &nabla; &middot; <b>B</b> = 0<br/>
-            &nabla; &times; <b>B</b> = &mu;<sub>0</sub><b>J</b> + &mu;<sub>0</sub>&epsilon;<sub>0</sub>&part;<sub>t</sub><b>E</b>
+            &nabla; &middot; <b>E</b> = &rho; / &epsilon;<sub>0</sub><br />
+            &nabla; &times; <b>E</b> = -&part;<sub>t</sub><b>B</b><br />
+            &nabla; &middot; <b>B</b> = 0<br />
+            &nabla; &times; <b>B</b> = &mu;<sub>0</sub><b>J</b> +
+            &mu;<sub>0</sub>&epsilon;<sub>0</sub>&part;<sub>t</sub><b>E</b>
           </p>
 
           <p>相对论的质能等价：</p>
           <p class="equation">E = mc&sup2;</p>
 
           <p>薛定谔方程描述了非相对论性粒子的波函数演化：</p>
-          <p class="equation">i&#8463; &part;<sub>t</sub> &Psi;(r, t) = [ -(&#8463;&sup2;/2m)&nabla;&sup2; + V(r, t) ] &Psi;(r, t)</p>
+          <p class="equation">
+            i&#8463; &part;<sub>t</sub> &Psi;(r, t) = [
+            -(&#8463;&sup2;/2m)&nabla;&sup2; + V(r, t) ] &Psi;(r, t)
+          </p>
 
           <p>自然对数的换底公式：</p>
-          <p class="equation">log<sub>a</sub> b = log<sub>c</sub> b / log<sub>c</sub> a</p>
+          <p class="equation">
+            log<sub>a</sub> b = log<sub>c</sub> b / log<sub>c</sub> a
+          </p>
 
           <p>一个分段函数示例：</p>
           <p class="equation">
@@ -1104,7 +1187,9 @@
             marginPt: 0,
             backgroundColor: "#ffffff",
             useCORS: true,
-            fontConfig: symbolFontConfig ? [sharedFontConfig, symbolFontConfig] : sharedFontConfig,
+            fontConfig: symbolFontConfig
+              ? [sharedFontConfig, symbolFontConfig]
+              : sharedFontConfig,
             pageConfig: {
               header: {
                 content: "dompdf · Single HTML Demo",
@@ -1131,12 +1216,24 @@
           var merged = Object.assign({}, base, override);
           var basePageConfig = base.pageConfig || {};
           var overridePageConfig = override.pageConfig || {};
-          merged.pageConfig = Object.assign({}, basePageConfig, overridePageConfig);
+          merged.pageConfig = Object.assign(
+            {},
+            basePageConfig,
+            overridePageConfig,
+          );
           if (basePageConfig.header || overridePageConfig.header) {
-            merged.pageConfig.header = Object.assign({}, basePageConfig.header || {}, overridePageConfig.header || {});
+            merged.pageConfig.header = Object.assign(
+              {},
+              basePageConfig.header || {},
+              overridePageConfig.header || {},
+            );
           }
           if (basePageConfig.footer || overridePageConfig.footer) {
-            merged.pageConfig.footer = Object.assign({}, basePageConfig.footer || {}, overridePageConfig.footer || {});
+            merged.pageConfig.footer = Object.assign(
+              {},
+              basePageConfig.footer || {},
+              overridePageConfig.footer || {},
+            );
           }
           return merged;
         }
@@ -1145,14 +1242,20 @@
           var binary = "";
           var chunkSize = 32768;
           for (var i = 0; i < uint8.length; i += chunkSize) {
-            var chunk = uint8.subarray(i, Math.min(i + chunkSize, uint8.length));
+            var chunk = uint8.subarray(
+              i,
+              Math.min(i + chunkSize, uint8.length),
+            );
             binary += String.fromCharCode.apply(null, chunk);
           }
           return btoa(binary);
         }
 
         function summarizeOptions(options) {
-          var pageConfig = options.pageConfig && typeof options.pageConfig === "object" ? options.pageConfig : null;
+          var pageConfig =
+            options.pageConfig && typeof options.pageConfig === "object"
+              ? options.pageConfig
+              : null;
           return {
             format: options.format,
             pagination: !!options.pagination,
@@ -1232,19 +1335,28 @@
         function buildLongList() {
           var list = document.getElementById("long-list");
           var items = [
-            "Define the snapshot contract before touching PDF bytes.",
-            "Collect rects in document space instead of viewport space.",
-            "Slice text nodes into line boxes with UTF-8 offsets.",
-            "Push heavy work into a Web Worker to keep the main thread responsive.",
-            "Treat each line as the minimum unsplittable pagination unit.",
-            "Clip overflow:hidden subtrees so decorative layers do not bleed out.",
-            "Embed CID fonts for Chinese copy and mixed-language paragraphs.",
-            "Keep the emitted PDF structure inspectable without third-party PDF libraries.",
-            "Compare output in Chrome, Acrobat, and Preview for stability checks.",
+            "Define the snapshot contract before touching Push heavy work Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.into a Web Worker to keep the main thread responsive.，PDF bytes.Collect rects in document space instead of viewport space.Collect rects in document space instead of viewport space.",
+            "Define the snapshot contract before touching Push heavy work Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.into a Web Worker to keep the main thread responsive.，PDF bytes.Collect rects in document space instead of viewport space.Collect rects in document space instead of viewport space.",
+            "Define the snapshot contract before touching Push heavy work Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.into a Web Worker to keep the main thread responsive.，PDF bytes.Collect rects in document space instead of viewport space.Collect rects in document space instead of viewport space.",
+            "Define the snapshot contract before touching Push heavy work Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.into a Web Worker to keep the main thread responsive.，PDF bytes.Collect rects in document space instead of viewport space.Collect rects in document space instead of viewport space.",
+            "Define the snapshot contract before touching Push heavy work Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.into a Web Worker to keep the main thread responsive.，PDF bytes.Collect rects in document space instead of viewport space.Collect rects in document space instead of viewport space.",
+            "Define the snapshot contract before touching Push heavy work Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.into a Web Worker to keep the main thread responsive.，PDF bytes.Collect rects in document space instead of viewport space.Collect rects in document space instead of viewport space.",
+            "Define the snapshot contract before touching Push heavy work Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.into a Web Worker to keep the main thread responsive.，PDF bytes.Collect rects in document space instead of viewport space.Collect rects in document space instead of viewport space.",
+            "Define the snapshot contract before touching Push heavy work Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.into a Web Worker to keep the main thread responsive.，PDF bytes.Collect rects in document space instead of viewport space.Collect rects in document space instead of viewport space.",
+            "Define the snapshot contract before touching Push heavy work Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.into a Web Worker to keep the main thread responsive.，PDF bytes.Collect rects in document space instead of viewport space.Collect rects in document space instead of viewport space.",
+            "Define the snapshot contract before touching Push heavy work Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.into a Web Worker to keep the main thread responsive.，PDF bytes.Collect rects in document space instead of viewport space.Collect rects in document space instead of viewport space.",
+            // "Collect rects in document space instead of viewport space.",
+            // "Collect rects in document space instead of viewport space.",
+            // "Push heavy work into a Web Worker to keep the main thread responsive.",
+            // "Treat each line as the minimum unsplittable pagination unit.",
+            // "Clip overflow:hidden subtrees so decorative layers do not bleed out.",
+            // "Embed CID fonts for Chinese copy and mixed-language paragraphs.",
+            // "Keep the emitted PDF structure inspectable without third-party PDF libraries.",
+            // "Compare output in Chrome, Acrobat, and Preview for stability checks.",
           ];
-          for (var i = 0; i < 72; i += 1) {
+          for (var i = 0; i < 32; i += 1) {
             var li = document.createElement("li");
-            li.textContent = (i + 1) + ". " + items[i % items.length];
+            li.textContent = i + 1 + ". " + items[i % items.length];
             list.appendChild(li);
           }
         }
@@ -1339,7 +1451,9 @@
           return fetch("./SourceHanSansSC-Regular.ttf")
             .then(function (res) {
               if (!res.ok) {
-                throw new Error("failed to load Chinese font: HTTP " + res.status);
+                throw new Error(
+                  "failed to load Chinese font: HTTP " + res.status,
+                );
               }
               return res.arrayBuffer();
             })
@@ -1370,65 +1484,77 @@
         }
 
         function wireButtons() {
-          document.getElementById("btn-export").addEventListener("click", function () {
-            var startedAt = performance.now();
-            withBusy(function () {
-              return api(doc, currentOptions()).then(function (blob) {
-                var url = URL.createObjectURL(blob);
-                var a = document.createElement("a");
-                a.href = url;
-                a.download = "dompdf-single-file-demo.pdf";
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                setTimeout(function () {
-                  URL.revokeObjectURL(url);
-                }, 2000);
-              });
-            })
-              .then(function () {
-                setStatus("PDF downloaded in " + formatDuration(performance.now() - startedAt) + ".");
+          document
+            .getElementById("btn-export")
+            .addEventListener("click", function () {
+              var startedAt = performance.now();
+              withBusy(function () {
+                return api(doc, currentOptions()).then(function (blob) {
+                  var url = URL.createObjectURL(blob);
+                  var a = document.createElement("a");
+                  a.href = url;
+                  a.download = "dompdf-single-file-demo.pdf";
+                  document.body.appendChild(a);
+                  a.click();
+                  a.remove();
+                  setTimeout(function () {
+                    URL.revokeObjectURL(url);
+                  }, 2000);
+                });
               })
-              .catch(function (err) {
+                .then(function () {
+                  setStatus(
+                    "PDF downloaded in " +
+                      formatDuration(performance.now() - startedAt) +
+                      ".",
+                  );
+                })
+                .catch(function (err) {
+                  setStatus("error: " + err.message);
+                  console.error(err);
+                });
+            });
+
+          document
+            .getElementById("btn-inspect")
+            .addEventListener("click", function () {
+              withBusy(function () {
+                return api.inspect(doc, currentOptions());
+              })
+                .then(function (summary) {
+                  setStatus(summary.split("\n")[0]);
+                  console.log(summary);
+                })
+                .catch(function (err) {
+                  setStatus("error: " + err.message);
+                  console.error(err);
+                });
+            });
+
+          document
+            .getElementById("btn-overlay")
+            .addEventListener("click", function () {
+              if (overlayOn) {
+                clearOverlay();
+                setStatus("overlay removed.");
+                return;
+              }
+              try {
+                drawOverlay();
+              } catch (err) {
                 setStatus("error: " + err.message);
                 console.error(err);
-              });
-          });
-
-          document.getElementById("btn-inspect").addEventListener("click", function () {
-            withBusy(function () {
-              return api.inspect(doc, currentOptions());
-            })
-              .then(function (summary) {
-                setStatus(summary.split("\n")[0]);
-                console.log(summary);
-              })
-              .catch(function (err) {
-                setStatus("error: " + err.message);
-                console.error(err);
-              });
-          });
-
-          document.getElementById("btn-overlay").addEventListener("click", function () {
-            if (overlayOn) {
-              clearOverlay();
-              setStatus("overlay removed.");
-              return;
-            }
-            try {
-              drawOverlay();
-            } catch (err) {
-              setStatus("error: " + err.message);
-              console.error(err);
-            }
-          });
+              }
+            });
         }
 
         buildLongList();
         document.getElementById("sample-img").src = createChartDataUrl();
         Promise.all([loadFont(), loadSymbolFont()])
           .then(function () {
-            setStatus(symbolFontConfig ? "ready (symbol font loaded)" : "ready");
+            setStatus(
+              symbolFontConfig ? "ready (symbol font loaded)" : "ready",
+            );
           })
           .catch(function (err) {
             setStatus("font load warning: " + err.message);
