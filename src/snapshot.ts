@@ -548,7 +548,10 @@ function hasVisibleBorder(cs: CSSStyleDeclaration): boolean {
 }
 
 function pseudoHasVisual(cs: CSSStyleDeclaration): boolean {
-  const hasContent = !!cssQuotedContentToText(cs.content);
+  const pseudoText = cssQuotedContentToText(cs.content);
+  // Ignore clearfix-style pseudo elements like `content: " "` that only exist
+  // for layout; treating them as visual forces large containers into full-raster.
+  const hasContent = !!pseudoText && pseudoText.trim().length > 0;
   const bg = parseColor(cs.backgroundColor);
   const hasBg = bg[3] > 0.001;
   const hasBox = pxNumber(cs.width) > 0 && pxNumber(cs.height) > 0;
@@ -1723,6 +1726,7 @@ export async function collectSnapshotData(
     text: string,
     lines: LineBox[],
     opacity?: number,
+    renderMode = 0,
   ) {
     if (!text || lines.length === 0) return;
     nodes.push({
@@ -1737,7 +1741,7 @@ export async function collectSnapshotData(
       font,
       overflowHidden: false,
       opacity,
-      renderMode: 0,
+      renderMode,
       divisionDisable: false,
       pageBreak: false,
       text,
@@ -2019,7 +2023,9 @@ export async function collectSnapshotData(
           // invisible text node at the same geometry. Visual output still comes
           // from the rasterized image nodes above.
           const hiddenLines = linesFromFragments(run.text, run.start16, fragments);
-          pushTextNode(id, font, run.text, hiddenLines, 0);
+          // Emit an invisible text object instead of alpha=0. Many PDF text
+          // extractors keep `Tr 3` text but ignore fully transparent glyphs.
+          pushTextNode(id, font, run.text, hiddenLines, undefined, 3);
         }
       }
     }
@@ -2257,9 +2263,62 @@ export function computePageBreaks(root: HTMLElement, options: ExportOptions = {}
   const contentHpx = (contentHpt > 0 ? contentHpt : pageHeightPt - mTop - mBottom) / PX_TO_PT;
   const layoutScale = computeLayoutScale(root.getBoundingClientRect().width, pageWidthPt, mLeft, mRight);
   const rootH = root.getBoundingClientRect().height;
-  const breaks: number[] = [];
   const breakStep = contentHpx / layoutScale;
-  for (let y = breakStep; y < rootH; y += breakStep) breaks.push(y);
+  if (!(breakStep > 0) || !(rootH > 0)) return [];
+
+  const rootRect = root.getBoundingClientRect();
+  const epsilon = 0.5;
+  const breaks: number[] = [];
+  let pageStart = 0;
+  let pageEnd = breakStep;
+
+  const pushBreak = (y: number) => {
+    const next = Math.max(0, Math.min(rootH, y));
+    const prev = breaks.length > 0 ? breaks[breaks.length - 1] : 0;
+    if (next <= prev + epsilon || next >= rootH - epsilon) return false;
+    breaks.push(next);
+    pageStart = next;
+    pageEnd = next + breakStep;
+    return true;
+  };
+
+  const advanceImplicitPages = (y: number) => {
+    while (y >= pageEnd - epsilon && pageEnd < rootH - epsilon) {
+      if (!pushBreak(pageEnd)) break;
+    }
+  };
+
+  const directives = Array.from(root.querySelectorAll<HTMLElement>('[pageBreak], [divisionDisable]'))
+    .map((el, order) => {
+      const rect = el.getBoundingClientRect();
+      const top = rect.top - rootRect.top;
+      const bottom = rect.bottom - rootRect.top;
+      return {
+        bottom: Math.max(0, Math.min(rootH, bottom)),
+        divisionDisable: el.hasAttribute('divisionDisable'),
+        order,
+        pageBreak: el.hasAttribute('pageBreak'),
+        top: Math.max(0, Math.min(rootH, top)),
+      };
+    })
+    .filter((item) => item.bottom > item.top + epsilon)
+    .sort((a, b) => (a.top - b.top) || (a.order - b.order));
+
+  for (const item of directives) {
+    advanceImplicitPages(item.top);
+    if (item.pageBreak) {
+      if (item.top > pageStart + epsilon) {
+        pushBreak(item.top);
+      }
+      continue;
+    }
+    const height = item.bottom - item.top;
+    if (height < breakStep - epsilon && item.bottom > pageEnd + epsilon && item.top > pageStart + epsilon) {
+      pushBreak(item.top);
+    }
+  }
+
+  advanceImplicitPages(rootH);
   return breaks;
 }
 
