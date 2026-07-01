@@ -561,10 +561,12 @@ export async function normalizeTargetFonts(page, selector, defaultFontConfig) {
     if (!(target instanceof HTMLElement)) {
       return { family: null, loadedCount: 0 };
     }
-    const family = fontConfigs[0]?.fontFamily || null;
-    if (!family) {
+    const families = Array.from(new Set(fontConfigs.map((cfg) => cfg?.fontFamily).filter(Boolean)));
+    const family = families[0] || null;
+    if (!family || families.length === 0) {
       return { family: null, loadedCount: 0 };
     }
+    const familyCss = families.map((name) => `"${String(name).replace(/"/g, '\\"')}"`).join(', ');
 
     const normalizedTagId = '__dompdf_font_normalize_style__';
     let loadedCount = 0;
@@ -599,7 +601,7 @@ export async function normalizeTargetFonts(page, selector, defaultFontConfig) {
     styleTag.textContent = `
 ${targetSelector},
 ${targetSelector} * {
-  font-family: "${family}" !important;
+  font-family: ${familyCss} !important;
   font-synthesis: none !important;
 }
 `;
@@ -607,6 +609,6 @@ ${targetSelector} * {
     if (document.fonts?.ready) {
       await document.fonts.ready;
     }
-    return { family, loadedCount };
+    return { family: familyCss, loadedCount };
   }, { targetSelector: selector, fontConfigs: configs });
 }

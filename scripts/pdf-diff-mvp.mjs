@@ -13,6 +13,8 @@ const rootDir = resolve(__dirname, '..');
 const defaultOutDir = resolve(rootDir, 'tmp', 'pdf-diff-mvp', new Date().toISOString().replace(/[:.]/g, '-'));
 const defaultChineseFontPath = resolve(rootDir, 'examples', 'SourceHanSansSC-Regular.ttf');
 const injectedCjkFontFamily = 'DompdfAutoCJK';
+const symbolFallbackFontPath = resolve(rootDir, 'assets', 'symbol-fallback.ttf');
+const injectedSymbolFontFamily = 'DompdfAutoSymbols';
 const PX_TO_PT = 0.75;
 const PT_TO_PX = 1 / PX_TO_PT;
 const MIME_TYPES = {
@@ -990,10 +992,12 @@ async function normalizeTargetFonts(page, selector, defaultFontConfig) {
     if (!(target instanceof HTMLElement)) {
       return { family: null, loadedCount: 0 };
     }
-    const family = fontConfigs[0]?.fontFamily || null;
-    if (!family) {
+    const families = Array.from(new Set(fontConfigs.map((cfg) => cfg?.fontFamily).filter(Boolean)));
+    const family = families[0] || null;
+    if (!family || families.length === 0) {
       return { family: null, loadedCount: 0 };
     }
+    const familyCss = families.map((name) => `"${String(name).replace(/"/g, '\\"')}"`).join(', ');
 
     const normalizedTagId = '__dompdf_font_normalize_style__';
     let loadedCount = 0;
@@ -1028,7 +1032,7 @@ async function normalizeTargetFonts(page, selector, defaultFontConfig) {
     styleTag.textContent = `
 ${targetSelector},
 ${targetSelector} * {
-  font-family: "${family}" !important;
+  font-family: ${familyCss} !important;
   font-synthesis: none !important;
 }
 `;
@@ -1036,7 +1040,7 @@ ${targetSelector} * {
     if (document.fonts?.ready) {
       await document.fonts.ready;
     }
-    return { family, loadedCount };
+    return { family: familyCss, loadedCount };
   }, { targetSelector: selector, fontConfigs: configs });
 }
 
@@ -1050,20 +1054,31 @@ async function main() {
   }
   const distBundleSource = readFileSync(distEntry, 'utf8');
   const defaultFontConfig = existsSync(defaultChineseFontPath)
-    ? [
-        {
-          fontBase64: bufferToBase64(readFileSync(defaultChineseFontPath)),
-          fontFamily: injectedCjkFontFamily,
-          fontStyle: 'normal',
-          fontWeight: 400,
-        },
-        {
-          fontBase64: bufferToBase64(readFileSync(defaultChineseFontPath)),
-          fontFamily: injectedCjkFontFamily,
-          fontStyle: 'normal',
-          fontWeight: 700,
-        },
-      ]
+    ? (() => {
+        const configs = [
+          {
+            fontBase64: bufferToBase64(readFileSync(defaultChineseFontPath)),
+            fontFamily: injectedCjkFontFamily,
+            fontStyle: 'normal',
+            fontWeight: 400,
+          },
+          {
+            fontBase64: bufferToBase64(readFileSync(defaultChineseFontPath)),
+            fontFamily: injectedCjkFontFamily,
+            fontStyle: 'normal',
+            fontWeight: 700,
+          },
+        ];
+        if (existsSync(symbolFallbackFontPath)) {
+          configs.push({
+            fontBase64: bufferToBase64(readFileSync(symbolFallbackFontPath)),
+            fontFamily: injectedSymbolFontFamily,
+            fontStyle: 'normal',
+            fontWeight: 400,
+          });
+        }
+        return configs;
+      })()
     : null;
 
   let server = null;
