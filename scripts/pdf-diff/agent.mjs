@@ -14,9 +14,7 @@
 
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
-import { spawnSync } from 'node:child_process';
 import { dispatchTool, capabilities } from './lib/agent-core.mjs';
-import { rootDir } from './lib/server.mjs';
 
 function out(value) {
   process.stdout.write(JSON.stringify(value, null, 2) + '\n');
@@ -57,17 +55,8 @@ async function main() {
     process.exit(1);
   }
 
-  if (args.rebuild) {
-    console.error('[agent] npm run build ...');
-    const r = spawnSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['run', 'build'], {
-      cwd: rootDir, stdio: 'inherit',
-    });
-    if (r.status !== 0) {
-      out({ error: 'build-failed', message: `npm run build 失败 (exit ${r.status})` });
-      process.exit(1);
-    }
-  }
-
+  // --rebuild 由 agent-core 在各工具内处理（run/all/suggest 均支持），
+  // 这里不再自行构建，避免与工具实现重复执行两次 npm run build。
   try {
     const result = await dispatchTool(tool, args);
     out(result);

@@ -11,6 +11,7 @@ import { runAll } from '../run-all.mjs';
 import { parseCorpusArgs, buildCorpus } from '../corpus.mjs';
 import { emitSuggestions, snapshotAggregate, RUNS_DIR } from '../fix-loop.mjs';
 import { rootDir } from './server.mjs';
+import { runBuild } from './build.mjs';
 
 // Describe the agent's tool surface — AI tools can call `capabilities` to
 // self-discover. Mirrors the MCP tools/list response.
@@ -32,6 +33,7 @@ export function capabilities() {
             skipInspect: { type: 'boolean', default: false },
             threshold: { type: 'number', default: 0.1 },
             pageLimit: { type: 'number', default: 0 },
+            rebuild: { type: 'boolean', default: false, description: '先 npm run build 再跑' },
           },
         },
         returns: 'report 对象（summary + tier1 + tier2 + tier3 + output 路径）',
@@ -39,7 +41,14 @@ export function capabilities() {
       {
         name: 'pdf_diff_all',
         description: '对整个语料库跑 Tier 0–3，返回 aggregate-report（每条 mismatch/discrepancy + 跨语料类别计数）。',
-        inputSchema: { type: 'object', properties: { url: { type: 'string' }, selector: { type: 'string' } } },
+        inputSchema: {
+          type: 'object',
+          properties: {
+            url: { type: 'string' },
+            selector: { type: 'string' },
+            rebuild: { type: 'boolean', default: false, description: '先 npm run build 再跑' },
+          },
+        },
         returns: 'aggregate 对象 + outRoot',
       },
       {
@@ -106,6 +115,7 @@ function mergeOptions(input = {}) {
 
 export async function pdfDiffRun(input = {}) {
   const options = mergeOptions(input);
+  if (input.rebuild) runBuild();
   return withStderrLogsAsync(async () => {
     const { aggregate, outRoot } = await runAll(options);
     const entry = aggregate.entries[0];
@@ -122,6 +132,7 @@ export async function pdfDiffRun(input = {}) {
 
 export async function pdfDiffAll(input = {}) {
   const options = mergeOptions(input);
+  if (input.rebuild) runBuild();
   return withStderrLogsAsync(async () => {
     const { aggregate, outRoot } = await runAll(options);
     return { aggregate, outRoot };
@@ -130,6 +141,7 @@ export async function pdfDiffAll(input = {}) {
 
 export async function pdfDiffSuggest(input = {}) {
   const options = mergeOptions(input);
+  if (input.rebuild) runBuild();
   return withStderrLogsAsync(async () => {
     const { aggregate, outRoot } = await runAll(options);
     const suggestions = emitSuggestions(outRoot, aggregate);

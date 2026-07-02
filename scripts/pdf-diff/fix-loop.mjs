@@ -1,9 +1,9 @@
 import { existsSync, readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
 import { ensureDir, writeJson } from './lib/fs-util.mjs';
 import { rootDir } from './lib/server.mjs';
+import { runBuild } from './lib/build.mjs';
 import { runAll } from './run-all.mjs';
 import { parseCorpusArgs } from './corpus.mjs';
 
@@ -16,17 +16,6 @@ import { parseCorpusArgs } from './corpus.mjs';
 
 export const RUNS_DIR = resolve(rootDir, 'tmp', 'pdf-diff-runs');
 const LAST_RUN = resolve(RUNS_DIR, 'last.json');
-
-function runBuild() {
-  console.log('[fix-loop] 执行 npm run build ...');
-  const result = spawnSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['run', 'build'], {
-    cwd: rootDir,
-    stdio: 'inherit',
-  });
-  if (result.status !== 0) {
-    throw new Error(`npm run build 失败 (exit ${result.status})`);
-  }
-}
 
 export function snapshotAggregate(aggregate) {
   const entries = {};
