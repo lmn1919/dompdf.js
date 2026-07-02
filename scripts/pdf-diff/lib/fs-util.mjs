@@ -18,14 +18,17 @@ export function bufferToBase64(buffer) {
 }
 
 export function withTimeout(promise, timeoutMs, label) {
+  // Clear the timer once the race settles — a leftover timeout keeps the Node
+  // event loop alive, stalling process exit for up to timeoutMs after success.
+  let timer;
   return Promise.race([
     promise,
     new Promise((_, reject) => {
-      setTimeout(() => {
+      timer = setTimeout(() => {
         reject(new Error(`${label} timed out after ${timeoutMs}ms`));
       }, timeoutMs);
     }),
-  ]);
+  ]).finally(() => clearTimeout(timer));
 }
 
 export function resolvePath(input) {
