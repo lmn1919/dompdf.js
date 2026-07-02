@@ -87,20 +87,19 @@ fn opacity_resource_name(key: u16) -> String {
 
 fn collapse_html_whitespace(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
-    let mut in_ws = false;
+    let mut pending_space = false;
     for ch in text.chars() {
         if ch.is_ascii_whitespace() {
-            in_ws = true;
+            // HTML collapses leading/trailing whitespace away and keeps at most
+            // one inter-word space between visible runs.
+            pending_space = !out.is_empty();
             continue;
         }
-        if in_ws {
+        if pending_space {
             out.push(' ');
-            in_ws = false;
+            pending_space = false;
         }
         out.push(ch);
-    }
-    if in_ws {
-        out.push(' ');
     }
     out
 }
