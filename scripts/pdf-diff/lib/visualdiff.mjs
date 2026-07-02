@@ -19,6 +19,9 @@ import { PNG } from 'pngjs';
 
 // Thresholds (tuned to suppress antialiasing / JPEG noise, surface real gaps).
 const BG_DELTA_E = 6; // CIE76 ΔE; <2.3 is imperceptible
+const BG_DECLARED_VISIBILITY_E = 10; // browser interior this far from declared bg => background is mostly covered by descendants
+const BG_Y_SEARCH_PX = 48; // tolerate small post-pagination y remaps when locating a box on the page raster
+const PAGE_CROSS_SEARCH_PX = 64; // boxes straddling a page break can legitimately land on an adjacent page after pagination
 const BORDER_MATCH_E = 20; // an edge pixel within this ΔE of the wanted color "is" the border
 const BORDER_MIN_PRESENCE = 0.1; // <10% of the edge strip showing the border color → missing/wrong
 const BORDER_REGION_MISMATCH = 0.12; // if expected/actual edge rasters already match, do not flag color-presence noise
@@ -91,6 +94,41 @@ function sampleColor(png, rx, ry, rw, rh) {
   }
   if (rs.length === 0) return null;
   return { r: med(rs), g: med(gs), b: med(bs), n: rs.length };
+}
+
+function bestVerticalColorSample(png, truth, rx, ry, rw, rh, searchPx) {
+  const offsets = [0];
+  for (let delta = 2; delta <= searchPx; delta += 2) {
+    offsets.push(delta, -delta);
+  }
+  let best = null;
+  for (const offset of offsets) {
+    const got = sampleColor(png, rx, ry + offset, rw, rh);
+    if (!got) continue;
+    const de = deltaE(truth, got);
+    if (!best || de < best.de) {
+      best = { de, got, offset };
+      if (de <= BG_DELTA_E) break;
+    }
+  }
+  return best;
+}
+
+function bestVerticalEdgeMatchFraction(png, want, sx, sy, sw, sh, searchPx) {
+  const offsets = [0];
+  for (let delta = 2; delta <= searchPx; delta += 2) {
+    offsets.push(delta, -delta);
+  }
+  let best = null;
+  for (const offset of offsets) {
+    const frac = colorMatchFraction(png, sx, sy + offset, sw, sh, want, BORDER_MATCH_E);
+    if (frac == null) continue;
+    if (!best || frac > best.frac) {
+      best = { frac, offset };
+      if (frac >= BORDER_MIN_PRESENCE) break;
+    }
+  }
+  return best;
 }
 
 // Fraction of opaque pixels in a rect whose color is within `matchE` ΔE of `want`.
@@ -193,6 +231,31 @@ function pageForY(y, meta) {
   return { index: breaks.length, sliceStart: breaks.length ? breaks[breaks.length - 1] : 0 };
 }
 
+function sliceStartForPage(index, meta) {
+  const breaks = Array.isArray(meta?.pageBreaks) ? meta.pageBreaks : [];
+  if (index <= 0) return 0;
+  if (index - 1 < breaks.length) return breaks[index - 1] || 0;
+  return breaks.length ? breaks[breaks.length - 1] : 0;
+}
+
+function pageCandidateIndices(y, h, meta, pageCount) {
+  const breaks = Array.isArray(meta?.pageBreaks) ? meta.pageBreaks : [];
+  const primary = pageForY(y, meta).index;
+  const out = [];
+  const push = (idx) => {
+    if (idx < 0 || idx >= pageCount || out.includes(idx)) return;
+    out.push(idx);
+  };
+  push(primary);
+  if (primary < breaks.length && y + h >= (breaks[primary] - PAGE_CROSS_SEARCH_PX)) {
+    push(primary + 1);
+  }
+  if (primary > 0 && y <= (breaks[primary - 1] + PAGE_CROSS_SEARCH_PX)) {
+    push(primary - 1);
+  }
+  return out;
+}
+
 export function diffVisuals({ elements, pixelPages, meta, metrics }) {
   const els = Array.isArray(elements) ? elements : [];
   const pages = Array.isArray(pixelPages) ? pixelPages : [];
@@ -232,7 +295,7 @@ export function diffVisuals({ elements, pixelPages, meta, metrics }) {
       const ry = iy + ih * inset;
       const rw = iw * (1 - 2 * inset);
       const rh = ih * (1 - 2 * inset);
-      const got = sampleColor(actual, rx, ry, rw, rh);
+      let got = sampleColor(actual, rx, ry, rw, rh);
       // Ground truth is the BROWSER raster, not the declared CSS color. A child box,
       // a gradient/image layer, or an ancestor's overflow:hidden legitimately changes
       // the rendered interior — and the browser shows the very same thing the PDF does.
@@ -241,9 +304,17 @@ export function diffVisuals({ elements, pixelPages, meta, metrics }) {
       // Only flag when the PDF interior actually diverges from the browser interior.
       // (Fall back to the declared color only when no browser raster is available.)
       const ref = expected ? sampleColor(expected, rx, ry, rw, rh) : null;
+      if (ref && deltaE(ref, bg) > BG_DECLARED_VISIBILITY_E) continue;
       const truth = ref || bg;
       if (got) {
-        const de = deltaE(truth, got);
+        let de = deltaE(truth, got);
+        if (de > BG_DELTA_E && Array.isArray(meta?.pageBreaks) && meta.pageBreaks.length > 0) {
+          const best = bestVerticalColorSample(actual, truth, rx, ry, rw, rh, BG_Y_SEARCH_PX);
+          if (best && best.de < de) {
+            got = best.got;
+            de = best.de;
+          }
+        }
         if (de > BG_DELTA_E) {
           counts['bg-color'] += 1;
           deltaEs.push(de);
@@ -263,42 +334,54 @@ export function diffVisuals({ elements, pixelPages, meta, metrics }) {
     if (el.border) {
       let worst = null;
       const radii = borderRadiiPx(el, scale, iw, ih);
+      const candidatePages = pageCandidateIndices(el.y, el.h, meta, decoded.length);
       for (const [side, spec] of Object.entries(el.border)) {
         const want = parseCssColor(spec.color);
         if (!want) continue;
         const t = Math.max(2, Math.min(8, Math.round((spec.width || 1) * scale) + 2));
-        let sx = ix; let sy = iy; let sw = iw; let sh = ih;
-        if (side === 'top') { sh = t; }
-        else if (side === 'bottom') { sy = iy + ih - t; sh = t; }
-        else if (side === 'left') { sw = t; }
-        else if (side === 'right') { sx = ix + iw - t; sw = t; }
-        ({ sx, sy, sw, sh } = trimBorderSampleRect(side, { sx, sy, sw, sh }, radii));
-        // Tiny circular markers (e.g. 12x12 timeline dots) and heavily rounded
-        // corners do not have a meaningful straight-edge strip to sample; their
-        // top edge is mostly antialiasing, so treat them as non-actionable here.
-        if (sw < Math.max(3, t) || sh < Math.max(3, t)) continue;
-        const frac = colorMatchFraction(actual, sx, sy, sw, sh, want, BORDER_MATCH_E);
-        if (frac == null || frac >= BORDER_MIN_PRESENCE) continue;
-        // Cross-check against the browser: only a real defect when the browser renders
-        // this border color along the edge but the PDF does not. A translucent
-        // (rgba alpha) or thin/antialiased border the browser itself shows faintly
-        // also yields a low presence on the browser side, so the PDF matching that is
-        // a match, not a miss. (Skip the cross-check only if no browser raster exists.)
-        if (expected) {
-          const fracExp = colorMatchFraction(expected, sx, sy, sw, sh, want, BORDER_MATCH_E);
-          if (fracExp == null || fracExp < BORDER_MIN_PRESENCE) continue;
-          const edgeMismatch = regionMismatch(expected, actual, sx, sy, sw, sh);
-          const mismatchThreshold = borderRegionMismatchThreshold(radii, spec);
-          if (edgeMismatch != null && edgeMismatch <= mismatchThreshold) continue;
+        let bestHit = null;
+        for (const candidateIndex of candidatePages) {
+          const cand = decoded[candidateIndex];
+          if (!cand?.actual) continue;
+          const candidateSliceStart = sliceStartForPage(candidateIndex, meta);
+          const candidateIy = (el.y - candidateSliceStart) * scale;
+          let sx = ix; let sy = candidateIy; let sw = iw; let sh = ih;
+          if (side === 'top') { sh = t; }
+          else if (side === 'bottom') { sy = candidateIy + ih - t; sh = t; }
+          else if (side === 'left') { sw = t; }
+          else if (side === 'right') { sx = ix + iw - t; sw = t; }
+          ({ sx, sy, sw, sh } = trimBorderSampleRect(side, { sx, sy, sw, sh }, radii));
+          // Tiny circular markers (e.g. 12x12 timeline dots) and heavily rounded
+          // corners do not have a meaningful straight-edge strip to sample; their
+          // top edge is mostly antialiasing, so treat them as non-actionable here.
+          if (sw < Math.max(3, t) || sh < Math.max(3, t)) continue;
+          let frac = colorMatchFraction(cand.actual, sx, sy, sw, sh, want, BORDER_MATCH_E);
+          if (frac != null && frac < BORDER_MIN_PRESENCE && Array.isArray(meta?.pageBreaks) && meta.pageBreaks.length > 0) {
+            const best = bestVerticalEdgeMatchFraction(cand.actual, want, sx, sy, sw, sh, BG_Y_SEARCH_PX);
+            if (best && best.frac > frac) frac = best.frac;
+          }
+          if (frac == null) continue;
+          if (cand.expected) {
+            const fracExp = colorMatchFraction(cand.expected, sx, sy, sw, sh, want, BORDER_MATCH_E);
+            if (fracExp == null || fracExp < BORDER_MIN_PRESENCE) continue;
+            const edgeMismatch = regionMismatch(cand.expected, cand.actual, sx, sy, sw, sh);
+            const mismatchThreshold = borderRegionMismatchThreshold(radii, spec);
+            if (edgeMismatch != null && edgeMismatch <= mismatchThreshold) continue;
+          }
+          if (!bestHit || frac > bestHit.frac) {
+            bestHit = { frac, page: candidateIndex + 1 };
+          }
         }
-        if (!worst || frac < worst.frac) {
-          worst = { frac, side, want };
+        if (!bestHit || bestHit.frac >= BORDER_MIN_PRESENCE) continue;
+        if (!worst || bestHit.frac < worst.frac) {
+          worst = { frac: bestHit.frac, side, want, page: bestHit.page };
         }
       }
       if (worst) {
         counts.border += 1;
         discrepancies.push({
           ...base,
+          page: worst.page || base.page,
           kind: 'border',
           side: worst.side,
           expected: rgbHex(worst.want),
