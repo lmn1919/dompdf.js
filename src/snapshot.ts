@@ -352,6 +352,14 @@ function borderStyleNum(style: string): number {
   return style === 'dashed' ? BORDER_DASHED : BORDER_SOLID;
 }
 
+function clipsOverflow(cs: CSSStyleDeclaration): boolean {
+  const values = [cs.overflow, cs.overflowX, cs.overflowY]
+    .flatMap((value) => (value || '').split(/\s+/))
+    .map((value) => value.trim())
+    .filter(Boolean);
+  return values.some((value) => value === 'hidden' || value === 'clip' || value === 'scroll' || value === 'auto');
+}
+
 function utf8LenCP(cp: number): number {
   if (cp < 0x80) return 1;
   if (cp < 0x800) return 2;
@@ -1840,7 +1848,7 @@ export async function collectSnapshotData(
       (parseFloat(cs.borderBottomLeftRadius) || 0) * layoutScale,
     ];
     const hasRadius = (radius[0] + radius[1] + radius[2] + radius[3]) > 0;
-    const overflowHidden = cs.overflow === 'hidden' || cs.overflow === 'clip';
+    const overflowHidden = clipsOverflow(cs);
     const opacity = parseFloat(cs.opacity);
     const hasOpacity = opacity < 1;
 
