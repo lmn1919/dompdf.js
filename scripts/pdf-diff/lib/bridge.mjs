@@ -197,133 +197,18 @@ export async function captureLocatorScreenshot(page, selector) {
   return canvas.toBuffer('image/png');
 }
 
-// Inject the local dist bundle + automation bridge into the page. Mirrors
-// scripts/pdf-diff-mvp.mjs ensureAutomationBridge so remote demo pages diff
-// against the local build, not a deployed one.
+// Inject the local dist bundle + automation bridge into the page.
+//
+// Demo pages (e.g. examples/index.html) ship their own __DOMPDF_AUTOMATION__
+// bound to the page's copy of dompdf; reusing it would diff whatever build the
+// page loaded instead of the locally injected bundle. So any page-provided
+// bridge is deliberately discarded and rebuilt below on top of window.dompdf
+// from the injected dist bundle.
 export async function ensureAutomationBridge(page, preferredSelector, distBundleSource, defaultFontConfig) {
   await page.addScriptTag({ content: distBundleSource });
   await page.evaluate(() => {
     window.__DOMPDF_AUTOMATION__ = undefined;
   });
-  const hasBridge = await page.evaluate(() => typeof window.__DOMPDF_AUTOMATION__ === 'object');
-  if (hasBridge) {
-    await page.evaluate(({ selector, strictSelector, injectedFontConfig }) => {
-      const bridge = window.__DOMPDF_AUTOMATION__;
-      if (!bridge) return;
-
-      function mergeDebugExportOverride(override) {
-        const next = override ? Object.assign({}, override) : {};
-        if (next.pagination == null) {
-          next.pagination = true;
-        }
-        if (next.pageConfig == null) {
-          next.pageConfig = {};
-        }
-        if (injectedFontConfig && !next.fontConfig) {
-          next.fontConfig = Array.isArray(injectedFontConfig)
-            ? injectedFontConfig.map((item) => ({
-                fontBase64: item.fontBase64,
-                fontFamily: item.fontFamily,
-                fontStyle: item.fontStyle,
-                fontWeight: item.fontWeight,
-              }))
-            : {
-                fontBase64: injectedFontConfig.fontBase64,
-                fontFamily: injectedFontConfig.fontFamily,
-                fontStyle: injectedFontConfig.fontStyle,
-                fontWeight: injectedFontConfig.fontWeight,
-              };
-        }
-        return next;
-      }
-
-      if (!bridge.__dompdfPatchedForDebugExport) {
-        if (typeof bridge.getMeta === 'function') {
-          const rawGetMeta = bridge.getMeta.bind(bridge);
-          bridge.getMeta = function patchedGetMeta(override) {
-            return rawGetMeta(mergeDebugExportOverride(override));
-          };
-        }
-        if (typeof bridge.inspect === 'function') {
-          const rawInspect = bridge.inspect.bind(bridge);
-          bridge.inspect = function patchedInspect(override) {
-            return rawInspect(mergeDebugExportOverride(override));
-          };
-        }
-        if (typeof bridge.exportPdf === 'function') {
-          const rawExportPdf = bridge.exportPdf.bind(bridge);
-          bridge.exportPdf = function patchedExportPdf(override) {
-            return rawExportPdf(mergeDebugExportOverride(override));
-          };
-        }
-        bridge.__dompdfPatchedForDebugExport = true;
-      }
-
-      if (typeof bridge.prepare === 'function') return;
-
-      function isVisible(node) {
-        if (!(node instanceof Element)) return false;
-        const style = getComputedStyle(node);
-        const rect = node.getBoundingClientRect();
-        return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
-      }
-
-      function resolveTargetForCleanup() {
-        const preferred = [];
-        if (selector) {
-          preferred.push(selector);
-        } else if (typeof bridge.getMeta === 'function') {
-          const meta = bridge.getMeta();
-          if (meta?.selector) preferred.push(meta.selector);
-        }
-        preferred.push('#document', 'article', 'main', 'body');
-        for (const candidate of preferred) {
-          const found = document.querySelector(candidate);
-          if (found && isVisible(found)) return { element: found, selector: candidate };
-        }
-        if (strictSelector && selector) {
-          throw new Error(`Target selector not found or not visible: ${selector}`);
-        }
-        throw new Error(`No visible target found for selectors: ${preferred.join(', ')}`);
-      }
-
-      bridge.prepare = function prepare(config) {
-        const { element } = resolveTargetForCleanup();
-        const selectors = Array.isArray(config?.removeSelectors) ? config.removeSelectors.filter(Boolean) : [];
-        const removed = [];
-        const skipped = [];
-        for (const selectorItem of selectors) {
-          let matched;
-          try {
-            matched = Array.from(element.querySelectorAll(selectorItem));
-          } catch (error) {
-            skipped.push({ selector: selectorItem, reason: `invalid-selector: ${error.message}` });
-            continue;
-          }
-          let removedCount = 0;
-          for (const node of matched) {
-            if (node === element) {
-              skipped.push({ selector: selectorItem, reason: 'matched-target-root' });
-              continue;
-            }
-            node.remove();
-            removedCount += 1;
-          }
-          removed.push({ selector: selectorItem, count: removedCount });
-        }
-        return {
-          cleanup: { removed, skipped },
-          meta: typeof bridge.getMeta === 'function' ? bridge.getMeta() : null,
-        };
-      };
-    }, { selector: preferredSelector, strictSelector: Boolean(preferredSelector), injectedFontConfig: defaultFontConfig });
-    return;
-  }
-
-  const hasApi = await page.evaluate(() => typeof window.dompdf === 'function');
-  if (!hasApi) {
-    await page.addScriptTag({ content: distBundleSource });
-  }
 
   await page.evaluate(({ selector, strictSelector, injectedFontConfig }) => {
     const api = window.dompdf;
@@ -347,9 +232,39 @@ export async function ensureAutomationBridge(page, preferredSelector, distBundle
       fallbackSelectors.push('#document', 'article', 'main', 'body');
     }
 
+    function mergeFontConfigs(baseFontConfig, overrideFontConfig) {
+      const baseList = baseFontConfig
+        ? (Array.isArray(baseFontConfig) ? baseFontConfig : [baseFontConfig]).filter(Boolean)
+        : [];
+      const overrideList = overrideFontConfig
+        ? (Array.isArray(overrideFontConfig) ? overrideFontConfig : [overrideFontConfig]).filter(Boolean)
+        : [];
+      if (baseList.length === 0) return overrideFontConfig;
+      if (overrideList.length === 0) return baseFontConfig;
+      const merged = [];
+      const seen = new Set();
+      const pushUnique = (cfg) => {
+        const key = [
+          cfg.fontFamily || '',
+          cfg.fontWeight ?? '',
+          cfg.fontStyle || '',
+          cfg.fontUrl || '',
+          cfg.fontBase64 ? 'base64' : '',
+          cfg.fontBytes ? `bytes:${cfg.fontBytes.length || 0}` : '',
+        ].join('|');
+        if (seen.has(key)) return;
+        seen.add(key);
+        merged.push(cfg);
+      };
+      for (const cfg of baseList) pushUnique(cfg);
+      for (const cfg of overrideList) pushUnique(cfg);
+      return merged;
+    }
+
     function mergeExportOptions(base, override) {
       if (!override) return base;
       const merged = Object.assign({}, base, override);
+      merged.fontConfig = mergeFontConfigs(base.fontConfig, override.fontConfig);
       const basePageConfig = base.pageConfig || {};
       const overridePageConfig = override.pageConfig || {};
       if (base.pageConfig || override.pageConfig) {
