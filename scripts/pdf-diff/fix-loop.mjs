@@ -177,8 +177,8 @@ function collectSourceMtimes() {
   const mtimes = {};
   for (const dir of dirs) {
     if (!existsSync(dir)) continue;
-    for (const f of readdirSync(dir)) {
-      const p = join(dir, f);
+    for (const f of readdirSync(dir, { recursive: true })) {
+      const p = join(dir, String(f));
       try {
         const st = statSync(p);
         if (st.isFile()) mtimes[p] = st.mtimeMs;
