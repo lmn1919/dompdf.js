@@ -626,12 +626,29 @@ pub fn paginate(
     }
 
     // Single-page MediaBox height = content + bands + margins.
+    // When the selected root itself clips overflow (e.g. a scroll viewport),
+    // descendants may extend far beyond the visible region but must not enlarge
+    // the PDF page; use the clipped root bounds in that case.
     let single_media_h = if snap.config.single_page {
-        let max_bottom = snap
-            .nodes
+        let clipped_root_bottom = roots
             .iter()
-            .map(|n| n.y + n.h)
+            .filter_map(|&idx| {
+                let node = &snap.nodes[idx];
+                if node.overflow_hidden {
+                    Some(node.y + node.h)
+                } else {
+                    None
+                }
+            })
             .fold(0.0_f32, f32::max);
+        let max_bottom = if clipped_root_bottom > 0.0 {
+            clipped_root_bottom
+        } else {
+            snap.nodes
+                .iter()
+                .map(|n| n.y + n.h)
+                .fold(0.0_f32, f32::max)
+        };
         Some(
             snap.margin_top + geo.header_h_pt + max_bottom * PX_TO_PT + geo.footer_h_pt
                 + snap.margin_bottom,
