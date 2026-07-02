@@ -29,6 +29,13 @@ export function defaultOutRoot(options, baseDir = resolve(rootDir, 'tmp', 'pdf-d
   return resolve(baseDir, `${domain}-${date}`);
 }
 
+// `Number(next) || fallback` swallows legal zero values (e.g. --threshold 0 is
+// a valid pixelmatch setting); only fall back when the input is not a number.
+function numArg(value, fallback) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 export function parseCorpusArgs(argv) {
   const options = {
     url: '',
@@ -52,12 +59,12 @@ export function parseCorpusArgs(argv) {
       options.removeSelectors = next.split(',').map((p) => p.trim()).filter(Boolean); i += 1;
     }
     else if (arg === '--out-dir' && next) { options.outDir = resolve(next); i += 1; }
-    else if (arg === '--port' && next) { options.port = Number(next) || options.port; i += 1; }
-    else if (arg === '--page-limit' && next) { options.pageLimit = Number(next) || 0; i += 1; }
-    else if (arg === '--threshold' && next) { options.threshold = Number(next) || options.threshold; i += 1; }
+    else if (arg === '--port' && next) { options.port = numArg(next, options.port); i += 1; }
+    else if (arg === '--page-limit' && next) { options.pageLimit = numArg(next, 0); i += 1; }
+    else if (arg === '--threshold' && next) { options.threshold = numArg(next, options.threshold); i += 1; }
     else if (arg === '--name' && next) { options.corpusName = next; i += 1; }
-    else if (arg === '--inspect-timeout-ms' && next) { options.inspectTimeoutMs = Math.max(1, Number(next) || options.inspectTimeoutMs); i += 1; }
-    else if (arg === '--export-timeout-ms' && next) { options.exportTimeoutMs = Math.max(1, Number(next) || options.exportTimeoutMs); i += 1; }
+    else if (arg === '--inspect-timeout-ms' && next) { options.inspectTimeoutMs = Math.max(1, numArg(next, options.inspectTimeoutMs)); i += 1; }
+    else if (arg === '--export-timeout-ms' && next) { options.exportTimeoutMs = Math.max(1, numArg(next, options.exportTimeoutMs)); i += 1; }
     else if (arg === '--skip-inspect') { options.skipInspect = true; }
   }
   return options;
