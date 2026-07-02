@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { rootDir } from './lib/server.mjs';
@@ -105,13 +105,31 @@ function main() {
   }
 }
 
+// Walk tmp/pdf-diff/*/aggregate-report.json (each run writes into its own
+// timestamped subdirectory) and pick the most recently written one.
 function findLatestAggregate() {
-  // Walk tmp/pdf-diff/*/aggregate-report.json — caller should pass explicitly;
-  // fall back to a sensible default if present.
-  const fallback = resolve(rootDir, 'tmp', 'pdf-diff', 'aggregate-report.json');
-  return fallback;
+  const baseDir = resolve(rootDir, 'tmp', 'pdf-diff');
+  let latest = null;
+  if (existsSync(baseDir)) {
+    for (const name of readdirSync(baseDir)) {
+      const candidate = resolve(baseDir, name, 'aggregate-report.json');
+      if (!existsSync(candidate)) continue;
+      const mtimeMs = statSync(candidate).mtimeMs;
+      if (!latest || mtimeMs > latest.mtimeMs) latest = { path: candidate, mtimeMs };
+    }
+  }
+  if (!latest) {
+    throw new Error(`未在 ${baseDir} 下找到任何 aggregate-report.json，请先运行 pdf-diff:all 或显式传入报告路径。`);
+  }
+  console.log(`使用最新汇总报告: ${latest.path}`);
+  return latest.path;
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  main();
+  try {
+    main();
+  } catch (error) {
+    console.error('[pdf-diff baseline] 失败:', error.message);
+    process.exit(1);
+  }
 }
