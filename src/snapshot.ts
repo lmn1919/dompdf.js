@@ -452,19 +452,41 @@ async function convertImage(
   useCORS: boolean,
 ): Promise<{ bytes: Uint8Array; width: number; height: number; format: number } | null> {
   try {
-    if (useCORS) img.crossOrigin = 'anonymous';
-    if (!img.complete || img.naturalWidth === 0) {
-      await img.decode().catch(() => null);
+    const src = img.currentSrc || img.src;
+    let sourceImg = img;
+    if (src) {
+      try {
+        const protocol = new URL(src, document.baseURI).protocol;
+        if (useCORS && /^https?:$/i.test(protocol)) {
+          sourceImg = await loadImageFromUrl(src, 'anonymous');
+        }
+      } catch {
+        // Ignore URL parse failures and fall back to the live element.
+      }
     }
-    const w = img.naturalWidth || img.width;
-    const h = img.naturalHeight || img.height;
+    if (!sourceImg.complete || sourceImg.naturalWidth === 0) {
+      await sourceImg.decode().catch(() => null);
+    }
+    const rect = img.getBoundingClientRect();
+    const cssW = Math.max(1, Math.round(rect.width || img.width || sourceImg.naturalWidth || img.naturalWidth || 0));
+    const cssH = Math.max(1, Math.round(rect.height || img.height || sourceImg.naturalHeight || img.naturalHeight || 0));
+    const ss = superSampleFactor(cssW, cssH);
+    const w = Math.max(1, Math.round(cssW * ss));
+    const h = Math.max(1, Math.round(cssH * ss));
     if (!w || !h) return null;
     const canvas = document.createElement('canvas');
     canvas.width = w;
     canvas.height = h;
     const ctx = canvas.getContext('2d')!;
-    ctx.drawImage(img, 0, 0, w, h);
-    const rgba = ctx.getImageData(0, 0, w, h).data;
+    ctx.drawImage(sourceImg, 0, 0, w, h);
+    let rgba: Uint8ClampedArray;
+    try {
+      rgba = ctx.getImageData(0, 0, w, h).data;
+    } catch {
+      const raster = await rasterizeElement(img, img.getBoundingClientRect(), quality, getComputedStyle(img));
+      if (!raster) return null;
+      return { bytes: raster.bytes, width: raster.width, height: raster.height, format: raster.format };
+    }
     if (rgbaHasTransparency(rgba)) {
       const bytes = new Uint8Array(rgba.length);
       bytes.set(rgba);
@@ -680,6 +702,17 @@ function cloneElementForRaster(src: HTMLElement): HTMLElement {
     copyComputedStyles(img, computed);
     return img;
   }
+  if (src instanceof HTMLImageElement) {
+    const img = document.createElement('img');
+    // Use the resolved currentSrc so file:// and srcset-backed images keep working
+    // after being serialized into a data: SVG foreignObject wrapper.
+    img.src = src.currentSrc || src.src;
+    img.width = src.width;
+    img.height = src.height;
+    const computed = getComputedStyle(src);
+    copyComputedStyles(img, computed);
+    return img;
+  }
 
   const clone = src.cloneNode(false) as HTMLElement;
   const computed = getComputedStyle(src);
@@ -716,10 +749,11 @@ function cloneElementBackgroundOnly(src: HTMLElement): HTMLElement {
   return clone;
 }
 
-function loadImageFromUrl(url: string): Promise<HTMLImageElement> {
+function loadImageFromUrl(url: string, crossOrigin?: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.decoding = 'async';
+    if (crossOrigin) img.crossOrigin = crossOrigin;
     img.onload = () => resolve(img);
     img.onerror = () => reject(new Error('failed to load rasterized element image'));
     img.src = url;
