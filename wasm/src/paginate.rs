@@ -894,6 +894,7 @@ fn draw_box_bg(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h_px:
     let radii = rounded_rect_radii_pt(node, w, h);
     if let Some(bg) = node.bg {
         if bg[3] > 0.001 {
+            out.push_str("q\n");
             out.push_str(&format!("{} {} {} rg\n", f(bg[0]), f(bg[1]), f(bg[2])));
             if let Some(radii) = radii {
                 push_rounded_rect_path(out, x0, bottom, w, h, radii);
@@ -901,6 +902,7 @@ fn draw_box_bg(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h_px:
             } else {
                 out.push_str(&format!("{} {} {} {} re f\n", f(x0), f(bottom), f(w), f(h)));
             }
+            out.push_str("Q\n");
         }
     }
 }
@@ -1257,11 +1259,7 @@ fn draw_text_lines(
     };
     let fs_pt = font.size_px * PX_TO_PT;
     let color = font.color;
-    let color_op = if color[0] == 0.0 && color[1] == 0.0 && color[2] == 0.0 {
-        String::new()
-    } else {
-        format!("{} {} {} rg\n", f(color[0]), f(color[1]), f(color[2]))
-    };
+    let color_op = format!("{} {} {} rg\n", f(color[0]), f(color[1]), f(color[2]));
 
     for (line_idx, line) in node.lines.iter().enumerate() {
         if line.page != page {
@@ -1301,8 +1299,14 @@ fn draw_text_lines(
             out.push_str(&format!("/Span << /ActualText <{}> >> BDC\n", actual_text));
         }
         out.push_str("BT\n");
+        // Tr (text render mode) is a persistent graphics-state parameter: it is
+        // NOT reset by BT/ET, only by q/Q. Always emit it explicitly so an
+        // earlier invisible-text run (e.g. an icon's ActualText companion) can
+        // never leak render mode 3 into later, normally-visible text.
         if node.render_mode == 3 {
             out.push_str("3 Tr\n");
+        } else {
+            out.push_str("0 Tr\n");
         }
 
         if let Some(cf) = cid {

@@ -1514,10 +1514,27 @@ export async function collectSnapshotData(
   const imgElements = Array.from(root.querySelectorAll('img'));
   const images: CollectedImage[] = [];
   const imgToId = new Map<HTMLElement, number>();
+  // convertImage rasterizes pixels from a detached, independently-loaded clone
+  // (needed for CORS reload), so its success says nothing about this *live*
+  // element's own layout state. The tree walk below reads each image node's
+  // box from a *separate*, later getBoundingClientRect() call — on a page
+  // with lazy/virtualized images (src added/removed as they scroll in and
+  // out of range), that box can legitimately shrink to 0x0 in the gap
+  // between the two reads, even though it was non-zero right here. Freeze
+  // the box now, at the same instant the pixels are captured, and hand it to
+  // the tree walk instead of re-measuring later.
+  const imgRectAtConvert = new Map<HTMLElement, DOMRect>();
   await Promise.all(
     imgElements.map(async (img) => {
+      // Capture synchronously, before the async pixel conversion below —
+      // not after — so a virtualization/lazy-unload that happens *during*
+      // that await can't shrink the box out from under us.
+      imgRectAtConvert.set(img, img.getBoundingClientRect());
       const conv = await convertImage(img, quality, useCORS);
-      if (!conv) return;
+      if (!conv) {
+        imgRectAtConvert.delete(img);
+        return;
+      }
       const id = images.length + 1;
       images.push({ id, ...conv });
       imgToId.set(img, id);
@@ -1794,10 +1811,12 @@ export async function collectSnapshotData(
   async function visit(el: HTMLElement, parentId: number): Promise<void> {
     const id = nodes.length;
     const cs = getComputedStyle(el);
-    const rawRect = el.getBoundingClientRect();
+    const isImg = el.tagName === 'IMG' && imgToId.has(el);
+    // For images, reuse the box frozen at conversion time instead of
+    // re-measuring now — see the comment by imgRectAtConvert above.
+    const rawRect = (isImg && imgRectAtConvert.get(el)) || el.getBoundingClientRect();
     const r = docRect(rawRect);
 
-    const isImg = el.tagName === 'IMG' && imgToId.has(el);
     const kind = isImg ? 2 : 0;
     const strategy: RenderStrategy = isImg ? 'vector' : classifyRenderStrategy(el, cs);
 
