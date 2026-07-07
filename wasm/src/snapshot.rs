@@ -123,7 +123,7 @@ pub struct Node {
     pub flags: u16,
     pub bg: Option<[f32; 4]>,
     pub border: Option<Border>,
-    pub shadow: Option<BoxShadow>,
+    pub shadow: Vec<BoxShadow>,
     pub radius: Option<[f32; 4]>,
     pub overflow_hidden: bool,
     pub opacity: Option<f32>,
@@ -428,15 +428,20 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
             None
         };
         let shadow = if flags & F_SHADOW != 0 {
-            Some(BoxShadow {
-                x: c.f32()?,
-                y: c.f32()?,
-                blur: c.f32()?,
-                spread: c.f32()?,
-                color: [c.f32()?, c.f32()?, c.f32()?, c.f32()?],
-            })
+            let count = c.u8()? as usize;
+            let mut layers = Vec::with_capacity(count);
+            for _ in 0..count {
+                layers.push(BoxShadow {
+                    x: c.f32()?,
+                    y: c.f32()?,
+                    blur: c.f32()?,
+                    spread: c.f32()?,
+                    color: [c.f32()?, c.f32()?, c.f32()?, c.f32()?],
+                });
+            }
+            layers
         } else {
-            None
+            Vec::new()
         };
         let radius = if flags & F_RADIUS != 0 {
             Some([c.f32()?, c.f32()?, c.f32()?, c.f32()?])

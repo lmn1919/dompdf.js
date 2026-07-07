@@ -14,17 +14,38 @@ use crate::font::{
     encode_cid_with_fallback, encode_winansi, text_width_units, CidFont, EncodedFontKind, FontCtx,
 };
 use crate::pdf::PdfWriter;
-use crate::snapshot::{HFSpec, Image, Node, Snapshot};
+use crate::snapshot::{BoxShadow, HFSpec, Image, Node, Snapshot};
 
 pub const PX_TO_PT: f32 = 0.75;
 const ASCENT: f32 = 0.8; // approx Helvetica ascent / em, for baseline placement
 const BORDER_SOLID: u8 = 0;
-const SHADOW_LAYERS: [(f32, f32); 5] = [
-    (0.18, 0.16),
-    (0.36, 0.12),
-    (0.58, 0.08),
-    (0.82, 0.05),
-    (1.10, 0.03),
+// Concentric-ring approximation of a Gaussian box-shadow. Each entry is
+// (blur_fraction, alpha_multiplier): a ring expanded by blur*fraction beyond the
+// box, filled at base_alpha*multiplier, painted outermost-to-innermost so the
+// overlaps build up toward the box edge.
+//
+// The multipliers are derived from the Gaussian CDF, not hand-tuned. A blurred
+// edge is a step function convolved with a Gaussian of σ = blur/2 (the CSS blur
+// radius ≈ 2σ), so the target opacity at distance d outside the box edge is
+// O(d) = base * 0.5 * erfc(d / (σ√2)). Solving ring i's alpha from the ratio of
+// successive CDF samples — a_i = (o_i - o_{i+1}) / (1 - o_{i+1}) where o_k is
+// O at ring k's radius — makes the overlapping fills reproduce that curve: ~0.4
+// at the edge, fading smoothly to ~0 at blur*1.5 (Chrome's visible extent). 12
+// rings remove the banding the old 5-ring table showed. Alpha depends only on
+// base alpha, not blur, keeping the ExtGState key enumeration in sync.
+const SHADOW_LAYERS: [(f32, f32); 12] = [
+    (0.125, 0.134),
+    (0.250, 0.106),
+    (0.375, 0.080),
+    (0.500, 0.059),
+    (0.625, 0.042),
+    (0.750, 0.028),
+    (0.875, 0.017),
+    (1.000, 0.011),
+    (1.125, 0.006),
+    (1.250, 0.003),
+    (1.375, 0.003),
+    (1.500, 0.0015),
 ];
 
 thread_local! {
@@ -908,12 +929,30 @@ fn draw_box_bg(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h_px:
 }
 
 fn draw_box_shadow(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h_px: f32, page_h_pt: f32, out: &mut String) {
-    let shadow = match &node.shadow {
-        Some(shadow) if shadow.color[3] > 0.001 => shadow,
-        _ => return,
-    };
+    if node.shadow.is_empty() {
+        return;
+    }
     let (x0, bottom, w, h) = rect_pt(snap, geo, node, page, content_h_px, page_h_pt);
     let base_radii = rounded_rect_radii_pt(node, w, h);
+    // CSS paints shadow layers first-to-last with earlier layers on top, so draw
+    // in reverse order to stack them correctly.
+    for shadow in node.shadow.iter().rev() {
+        if shadow.color[3] <= 0.001 {
+            continue;
+        }
+        draw_one_shadow(shadow, x0, bottom, w, h, base_radii, out);
+    }
+}
+
+fn draw_one_shadow(
+    shadow: &BoxShadow,
+    x0: f32,
+    bottom: f32,
+    w: f32,
+    h: f32,
+    base_radii: Option<[f32; 4]>,
+    out: &mut String,
+) {
     let dx = shadow.x * PX_TO_PT;
     let dy = -shadow.y * PX_TO_PT;
     let spread = shadow.spread.max(0.0) * PX_TO_PT;
@@ -1665,11 +1704,19 @@ pub fn build_pdf(snap: &Snapshot, pages: &[PagePlan], fontctx: &FontCtx) -> Vec<
                     keys.push(key);
                 }
             }
-            if let Some(shadow) = &n.shadow {
-                for (_, alpha_mul) in SHADOW_LAYERS {
-                    let key = opacity_key(shadow.color[3] * alpha_mul);
+            for shadow in &n.shadow {
+                if shadow.blur.max(0.0) <= 0.01 {
+                    // Solid (blur-free) shadow uses the base alpha directly.
+                    let key = opacity_key(shadow.color[3]);
                     if key < 1000 && key > 0 {
                         keys.push(key);
+                    }
+                } else {
+                    for (_, alpha_mul) in SHADOW_LAYERS {
+                        let key = opacity_key(shadow.color[3] * alpha_mul);
+                        if key < 1000 && key > 0 {
+                            keys.push(key);
+                        }
                     }
                 }
             }

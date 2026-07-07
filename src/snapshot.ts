@@ -241,7 +241,7 @@ interface NodeRec {
     blur: number;
     spread: number;
     color: [number, number, number, number];
-  };
+  }[];
   radius?: [number, number, number, number];
   overflowHidden: boolean;
   opacity?: number;
@@ -627,7 +627,8 @@ function computeBoxShadowPadding(boxShadow: string): EdgePadding {
   return pad;
 }
 
-function parseBoxShadow(boxShadow: string): BoxShadowSpec | null {
+function parseBoxShadow(boxShadow: string): BoxShadowSpec[] {
+  const out: BoxShadowSpec[] = [];
   const layers = splitTopLevelComma(boxShadow || '');
   for (const layer of layers) {
     const trimmed = layer.trim();
@@ -641,9 +642,9 @@ function parseBoxShadow(boxShadow: string): BoxShadowSpec | null {
     const colorMatch = trimmed.match(/(rgba?\([^)]+\)|hsla?\([^)]+\)|#[0-9a-fA-F]+|transparent)/);
     const color = parseColor(colorMatch ? colorMatch[1] : 'rgba(0,0,0,0.25)');
     if (color[3] <= 0.001) continue;
-    return { x, y, blur, spread, color };
+    out.push({ x, y, blur, spread, color });
   }
-  return null;
+  return out;
 }
 
 function findOpaqueBackdropColor(el: HTMLElement): string {
@@ -1913,7 +1914,7 @@ export async function collectSnapshotData(
       || sidePaints(1, cs.borderRightStyle)
       || sidePaints(2, cs.borderBottomStyle)
       || sidePaints(3, cs.borderLeftStyle);
-    const shadow = kind === 0 ? parseBoxShadow(cs.boxShadow) : null;
+    const shadow = kind === 0 ? parseBoxShadow(cs.boxShadow) : [];
     const radius: [number, number, number, number] = [
       (parseFloat(cs.borderTopLeftRadius) || 0) * layoutScale,
       (parseFloat(cs.borderTopRightRadius) || 0) * layoutScale,
@@ -1934,7 +1935,7 @@ export async function collectSnapshotData(
     let flags = 0;
     if (hasBg) flags |= F_BG;
     if (visibleBorder) flags |= F_BORDER;
-    if (shadow) flags |= F_SHADOW;
+    if (shadow.length > 0) flags |= F_SHADOW;
     if (hasRadius) flags |= F_RADIUS;
     if (overflowHidden) flags |= F_OVERFLOW;
     if (hasOpacity) flags |= F_OPACITY;
@@ -1951,13 +1952,13 @@ export async function collectSnapshotData(
       flags,
       bg: hasBg ? bg : undefined,
       border: visibleBorder ? { w: bw, c: bc, s: bs } : undefined,
-      shadow: shadow ? {
-        x: shadow.x * layoutScale,
-        y: shadow.y * layoutScale,
-        blur: shadow.blur * layoutScale,
-        spread: shadow.spread * layoutScale,
-        color: shadow.color,
-      } : undefined,
+      shadow: shadow.length > 0 ? shadow.map((s) => ({
+        x: s.x * layoutScale,
+        y: s.y * layoutScale,
+        blur: s.blur * layoutScale,
+        spread: s.spread * layoutScale,
+        color: s.color,
+      })) : undefined,
       radius: hasRadius ? radius : undefined,
       overflowHidden,
       opacity: hasOpacity ? opacity : undefined,
@@ -2250,7 +2251,7 @@ function encode(a: EncodeArgs): Uint8Array {
     let flags = n.flags;
     if (n.bg) flags |= F_BG;
     if (n.border) flags |= F_BORDER;
-    if (n.shadow) flags |= F_SHADOW;
+    if (n.shadow && n.shadow.length > 0) flags |= F_SHADOW;
     if (n.radius) flags |= F_RADIUS;
     if (n.overflowHidden) flags |= F_OVERFLOW;
     if (n.opacity !== undefined) flags |= F_OPACITY;
@@ -2270,9 +2271,12 @@ function encode(a: EncodeArgs): Uint8Array {
       }
       w.u8(n.border.s[0]); w.u8(n.border.s[1]); w.u8(n.border.s[2]); w.u8(n.border.s[3]);
     }
-    if (n.shadow) {
-      w.f32(n.shadow.x); w.f32(n.shadow.y); w.f32(n.shadow.blur); w.f32(n.shadow.spread);
-      w.f32(n.shadow.color[0]); w.f32(n.shadow.color[1]); w.f32(n.shadow.color[2]); w.f32(n.shadow.color[3]);
+    if (n.shadow && n.shadow.length > 0) {
+      w.u8(n.shadow.length);
+      for (const s of n.shadow) {
+        w.f32(s.x); w.f32(s.y); w.f32(s.blur); w.f32(s.spread);
+        w.f32(s.color[0]); w.f32(s.color[1]); w.f32(s.color[2]); w.f32(s.color[3]);
+      }
     }
     if (n.radius) {
       w.f32(n.radius[0]); w.f32(n.radius[1]); w.f32(n.radius[2]); w.f32(n.radius[3]);
