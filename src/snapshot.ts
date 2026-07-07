@@ -1857,8 +1857,28 @@ export async function collectSnapshotData(
       }
     }
 
-    const bg = parseColor(cs.backgroundColor);
-    const hasBg = bg[3] > 0.001;
+    let bg = parseColor(cs.backgroundColor);
+    // Semi-transparent backgrounds (e.g. rgba(27,31,35,0.05) used by CODE tags on
+    // juejin.cn) cannot be faithfully reproduced in PDF — the Rust backend ignores
+    // the alpha channel and paints an opaque rect. Pre-multiply with the nearest
+    // opaque ancestor background so the blended colour matches the browser.
+    if (bg[3] > 0.001 && bg[3] < 1) {
+      const backdrop = findOpaqueBackdropColor(el);
+      const bd = parseColor(backdrop);
+      const a = bg[3];
+      const invA = 1 - a;
+      bg = [
+        bg[0] * a + bd[0] * invA,
+        bg[1] * a + bd[1] * invA,
+        bg[2] * a + bd[2] * invA,
+        1,
+      ];
+    }
+    // background-raster elements bake their whole background (incl. gradients and
+    // ::before) into a backdrop image via foreignObject below. The vector box must
+    // NOT carry a separate bg fill, or the PDF side will paint a second opaque rect
+    // on top, doubling up on the already-rasterized background.
+    const hasBg = bg[3] > 0.001 && strategy !== 'background-raster';
     // background-raster elements bake their whole background (incl. gradients) via
     // foreignObject below, so skip the gradient→image path to avoid a double backdrop.
     const gradientImage = !isImg && kind === 0 && r.w > 0 && r.h > 0 && strategy !== 'background-raster'
