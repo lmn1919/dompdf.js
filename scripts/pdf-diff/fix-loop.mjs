@@ -43,6 +43,7 @@ function readEntryReports(outRoot) {
 }
 
 export function emitSuggestions(outRoot, aggregate) {
+  ensureDir(RUNS_DIR);
   const entryReports = readEntryReports(outRoot);
   const merged = {};
   for (const { name, report } of entryReports) {
