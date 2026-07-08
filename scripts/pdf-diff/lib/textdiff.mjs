@@ -21,9 +21,18 @@ const X_OFFSET_STABLE_STD_PX = 0.2;
 const X_OFFSET_MIN_COUNT = 3;
 const X_OFFSET_APPLY_TOL_PX = 0.35;
 const SINGLE_SYMBOL_DX_TOL_PX = 3.75;
+// Matches any CJK / full-width Unicode block character.
+const CJK_RE_TRAILING = /([\u3000-\u303f\u2e80-\u2eff\u3400-\u4dbf\u4e00-\u9faf\uac00-\ud7af\uff00-\uffef]) /gu;
+const CJK_RE_LEADING  = / ([\u3000-\u303f\u2e80-\u2eff\u3400-\u4dbf\u4e00-\u9faf\uac00-\ud7af\uff00-\uffef])/gu;
 
 function norm(s) {
-  return String(s).trim().toLowerCase().replace(/\s+/g, ' ');
+  // Collapse whitespace, then strip spaces at CJK↔non-CJK boundaries so oracle
+  // (browser HTML, preserves explicit spaces) and actual (dompdf PDF, no boundary
+  // spaces in shaped runs) normalise to the same string.
+  return String(s).trim().toLowerCase()
+    .replace(/\s+/g, ' ')
+    .replace(CJK_RE_TRAILING, '$1')
+    .replace(CJK_RE_LEADING, '$1');
 }
 
 function fontSizeBucket(px) {
@@ -292,8 +301,32 @@ export function buildOracleSequence(oracle) {
   return lines;
 }
 
+function joinWordsIntelligently(words) {
+  let result = '';
+  const isAlphaNum = (c) => /[a-zA-Z0-9]/i.test(c);
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i];
+    if (i === 0) {
+      result = w;
+    } else {
+      const lastChar = result.slice(-1);
+      const firstChar = w.charAt(0);
+      if (!lastChar || !firstChar) {
+        result += w;
+      } else if (/\s/.test(lastChar) || /\s/.test(firstChar)) {
+        result += w;
+      } else if (isAlphaNum(lastChar) && isAlphaNum(firstChar)) {
+        result += ' ' + w;
+      } else {
+        result += w;
+      }
+    }
+  }
+  return result;
+}
+
 function finishLine(line) {
-  const text = line.words.join(' ').replace(/\s+([.,;:!?])/g, '$1');
+  const text = joinWordsIntelligently(line.words).replace(/\s+([.,;:!?])/g, '$1');
   const singleNode = new Set(line.nodeIds).size === 1;
   return {
     norm: norm(text),
@@ -313,21 +346,63 @@ function finishLine(line) {
 
 export function buildActualSequence(pdfTextItems, metrics, meta) {
   const layoutScale = metrics.layoutScale || 1;
-  return pdfTextItems
+  const items = pdfTextItems
     .filter((it) => it.str && it.str.trim())
     .map((it) => {
       const c = actualItemToRootPx(it, metrics, meta);
       return {
-        norm: norm(it.str),
         text: it.str,
         x: c.xRootPx,
+        right: c.xRootPx + (it.w * PT_TO_PX) / layoutScale,
+        width: (it.w * PT_TO_PX) / layoutScale,
         yBaseline: c.yRootPx,
         fontSize: c.fontSizePx,
-        width: (it.w * PT_TO_PX) / layoutScale,
         fontName: c.fontName,
         page: c.page,
+        hasTrailingWhitespace: /\s+$/u.test(it.str),
       };
     });
+
+  const lines = [];
+  let current = null;
+  for (const b of items) {
+    if (!current || b.page !== current.page || Math.abs(b.yBaseline - current.yBaseline) > LINE_Y_TOL_PX) {
+      if (current) lines.push(finishActualLine(current));
+      current = {
+        words: [b.text],
+        x: b.x,
+        right: b.right,
+        width: b.width,
+        yBaseline: b.yBaseline,
+        fontSize: b.fontSize,
+        fontName: b.fontName,
+        page: b.page,
+        hasTrailingWhitespace: b.hasTrailingWhitespace,
+      };
+    } else {
+      current.words.push(b.text);
+      current.right = Math.max(current.right, b.right);
+      current.width += b.width;
+      if (b.fontSize > current.fontSize) current.fontSize = b.fontSize;
+      current.hasTrailingWhitespace = current.hasTrailingWhitespace || b.hasTrailingWhitespace;
+    }
+  }
+  if (current) lines.push(finishActualLine(current));
+  return lines;
+}
+
+function finishActualLine(line) {
+  const text = joinWordsIntelligently(line.words).replace(/\s+([.,;:!?])/g, '$1');
+  return {
+    norm: norm(text),
+    text,
+    x: line.x,
+    yBaseline: line.yBaseline,
+    fontSize: line.fontSize,
+    width: line.right - line.x,
+    fontName: line.fontName,
+    page: line.page,
+  };
 }
 
 export function diffTexts(oracle, pdfTextItems, metrics, meta) {

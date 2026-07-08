@@ -119,6 +119,82 @@ export async function collectOracle({
     });
 
     const range = document.createRange();
+
+    const charTop = (node, i) => {
+      if (i >= node.nodeValue.length) return Infinity;
+      try {
+        range.setStart(node, i);
+        range.setEnd(node, Math.min(i + 1, node.nodeValue.length));
+        const r = range.getBoundingClientRect();
+        return r.top || 0;
+      } catch (e) {
+        return Infinity;
+      }
+    };
+
+    const lowerBoundTop = (node, target, lo, hi) => {
+      let l = lo;
+      let r = hi;
+      while (l < r) {
+        const mid = (l + r) >> 1;
+        if (charTop(node, mid) < target) l = mid + 1;
+        else r = mid;
+      }
+      return l;
+    };
+
+    const collectTextFragments = (node) => {
+      const text = node.nodeValue;
+      if (!text) return [];
+      try {
+        range.setStart(node, 0);
+        range.setEnd(node, text.length);
+        const rects = Array.from(range.getClientRects()).filter((r) => r.width > 0 && r.height > 0);
+        if (rects.length === 0) return [];
+        rects.sort((a, b) => a.top - b.top || a.left - b.left);
+        const groups = [];
+        for (let i = 0; i < rects.length; i++) {
+          const r = rects[i];
+          if (groups.length === 0 || Math.abs(r.top - groups[groups.length - 1].top) >= 1) {
+            groups.push({ left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height });
+          } else {
+            const g = groups[groups.length - 1];
+            g.left = Math.min(g.left, r.left);
+            g.top = Math.min(g.top, r.top);
+            g.right = Math.max(g.right, r.right);
+            g.bottom = Math.max(g.bottom, r.bottom);
+            g.width = g.right - g.left;
+            g.height = g.bottom - g.top;
+          }
+        }
+        if (groups.length === 1) {
+          return [{
+            rect: groups[0],
+            start16: 0,
+            end16: text.length,
+          }];
+        }
+        const lines = [];
+        let prev = 0;
+        for (let li = 0; li < groups.length; li++) {
+          const raw = groups[li];
+          const lineStart16 = lowerBoundTop(node, raw.top - 1, prev, text.length);
+          const nextTop = li + 1 < groups.length ? groups[li + 1].top : Infinity;
+          const lineEnd16 = lowerBoundTop(node, nextTop - 1, lineStart16, text.length);
+          prev = lineEnd16;
+          if (lineEnd16 <= lineStart16) continue;
+          lines.push({
+            rect: raw,
+            start16: lineStart16,
+            end16: Math.min(lineEnd16, text.length),
+          });
+        }
+        return lines;
+      } catch (e) {
+        return [];
+      }
+    };
+
     let nodeIdSeq = 0;
     let textNode;
     while ((textNode = walker.nextNode())) {
@@ -131,45 +207,49 @@ export async function collectOracle({
       const nodeId = `t${nodeIdSeq += 1}`;
 
       const text = textNode.nodeValue;
-      // Walk word by word so each box is a meaningful text run the PDF can be aligned to.
-      const tokens = text.match(/\S+\s*/g) || [];
-      let offset = 0;
-      for (const token of tokens) {
-        const start = text.indexOf(token, offset);
-        if (start < 0) break;
-        const end = start + token.length;
-        offset = end;
-        try {
-          range.setStart(textNode, start);
-          range.setEnd(textNode, end);
-        } catch (e) {
-          continue;
-        }
-        const rects = range.getClientRects();
-        for (const rect of rects) {
-          if (rect.width <= 0 || rect.height <= 0) continue;
-          const measuredWidth = measureTokenWidth(style, token);
-          const visibleText = token.replace(/\s+$/u, '');
-          const visibleWidth = measureTokenWidth(style, visibleText || token);
-          boxes.push({
-            nodeId,
-            text: token,
-            // Document-space absolute coords...
-            absX: rect.left + window.scrollX,
-            absY: rect.top + window.scrollY,
-            // ...and coords relative to the target root (aligns with PDF content space).
-            x: rect.left + window.scrollX - rootLeft,
-            y: rect.top + window.scrollY - rootTop,
-            // Range widths can over-report when letter-spacing is applied; use
-            // browser glyph advance widths so oracle text metrics align with PDF text extraction.
-            w: measuredWidth || rect.width,
-            visibleW: visibleWidth || measuredWidth || rect.width,
-            h: rect.height,
-            fontSize,
-            fontFamily,
-            fontWeight,
-            color,
-          });
+      const fragments = collectTextFragments(textNode);
+
+      for (const frag of fragments) {
+        const fragText = text.slice(frag.start16, frag.end16);
+        if (!fragText) continue;
+        const tokens = fragText.match(/\S+\s*/g) || [];
+        let offset = 0;
+        for (const token of tokens) {
+          const tokenStart = fragText.indexOf(token, offset);
+          if (tokenStart < 0) break;
+          const tokenEnd = tokenStart + token.length;
+          offset = tokenEnd;
+
+          const absStart = frag.start16 + tokenStart;
+          const absEnd = frag.start16 + tokenEnd;
+          try {
+            range.setStart(textNode, absStart);
+            range.setEnd(textNode, absEnd);
+          } catch (e) {
+            continue;
+          }
+          const rects = range.getClientRects();
+          for (const rect of rects) {
+            if (rect.width <= 0 || rect.height <= 0) continue;
+            const measuredWidth = measureTokenWidth(style, token);
+            const visibleText = token.replace(/\s+$/u, '');
+            const visibleWidth = measureTokenWidth(style, visibleText || token);
+            boxes.push({
+              nodeId,
+              text: token,
+              absX: rect.left + window.scrollX,
+              absY: rect.top + window.scrollY,
+              x: rect.left + window.scrollX - rootLeft,
+              y: rect.top + window.scrollY - rootTop,
+              w: measuredWidth || rect.width,
+              visibleW: visibleWidth || measuredWidth || rect.width,
+              h: rect.height,
+              fontSize,
+              fontFamily,
+              fontWeight,
+              color,
+            });
+          }
         }
       }
     }
