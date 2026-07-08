@@ -1679,6 +1679,7 @@ pub fn build_pdf(snap: &Snapshot, pages: &[PagePlan], fontctx: &FontCtx) -> Vec<
     });
     let mut w = PdfWriter::new();
     w.header();
+    let compress = snap.config.compress;
 
     let catalog_id = w.alloc(1);
     let pages_id = w.alloc(1);
@@ -1755,27 +1756,52 @@ pub fn build_pdf(snap: &Snapshot, pages: &[PagePlan], fontctx: &FontCtx) -> Vec<
                 alpha.push(px[3]);
             }
             let alpha_dict = format!(
-                " /Type /XObject /Subtype /Image /Width {} /Height {} /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /FlateDecode",
+                " /Type /XObject /Subtype /Image /Width {} /Height {} /ColorSpace /DeviceGray /BitsPerComponent 8",
                 img.width, img.height
             );
-            let alpha_compressed = crate::pdf::zlib_store(&alpha);
-            w.stream(alpha_oid, &alpha_dict, &alpha_compressed);
+            let alpha_data = if compress {
+                crate::deflate::zlib_deflate(&alpha)
+            } else {
+                crate::pdf::zlib_store(&alpha)
+            };
+            if compress {
+                w.stream_compressed(alpha_oid, &alpha_dict, &alpha_data);
+            } else {
+                w.stream(alpha_oid, &format!("{} /Filter /FlateDecode", alpha_dict), &alpha_data);
+            }
             let dict = format!(
-                " /Type /XObject /Subtype /Image /Width {} /Height {} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /SMask {} 0 R",
+                " /Type /XObject /Subtype /Image /Width {} /Height {} /ColorSpace /DeviceRGB /BitsPerComponent 8 /SMask {} 0 R",
                 img.width, img.height, alpha_oid
             );
-            let compressed = crate::pdf::zlib_store(&rgb);
-            w.stream(oid, &dict, &compressed);
+            let rgb_data = if compress {
+                crate::deflate::zlib_deflate(&rgb)
+            } else {
+                crate::pdf::zlib_store(&rgb)
+            };
+            if compress {
+                w.stream_compressed(oid, &dict, &rgb_data);
+            } else {
+                w.stream(oid, &format!("{} /Filter /FlateDecode", dict), &rgb_data);
+            }
         } else if img.format == 1 {
-            // Raw RGB888, lossless. Embed FlateDecode (stored zlib) to avoid the
-            // JPEG color/chroma loss that flat fills and line-art icons suffer.
+            // Raw RGB888, lossless. Embed FlateDecode to avoid the JPEG
+            // color/chroma loss that flat fills and line-art icons suffer.
             let dict = format!(
-                " /Type /XObject /Subtype /Image /Width {} /Height {} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode",
+                " /Type /XObject /Subtype /Image /Width {} /Height {} /ColorSpace /DeviceRGB /BitsPerComponent 8",
                 img.width, img.height
             );
-            let compressed = crate::pdf::zlib_store(&img.bytes);
-            w.stream(oid, &dict, &compressed);
+            let data = if compress {
+                crate::deflate::zlib_deflate(&img.bytes)
+            } else {
+                crate::pdf::zlib_store(&img.bytes)
+            };
+            if compress {
+                w.stream_compressed(oid, &dict, &data);
+            } else {
+                w.stream(oid, &format!("{} /Filter /FlateDecode", dict), &data);
+            }
         } else {
+            // JPEG (DCTDecode) - already compressed, embed as-is.
             let dict = format!(
                 " /Type /XObject /Subtype /Image /Width {} /Height {} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode",
                 img.width, img.height
@@ -1815,13 +1841,25 @@ pub fn build_pdf(snap: &Snapshot, pages: &[PagePlan], fontctx: &FontCtx) -> Vec<
 
         // ToUnicode
         let tu = build_tounicode(cf);
-        w.stream(tounicode_id, " /Type /CMap /N 1", &tu);
+        if compress {
+            let tu_comp = crate::deflate::zlib_deflate(&tu);
+            w.stream_compressed(tounicode_id, " /Type /CMap /N 1", &tu_comp);
+        } else {
+            w.stream(tounicode_id, " /Type /CMap /N 1", &tu);
+        }
 
         // FontFile2
         let used = cf.used_gids.borrow();
         let embed = cf.ttf.embed_bytes(&used);
-        let ff2_extra = format!(" /Length1 {}", embed.len());
-        w.stream(fontfile_id, &ff2_extra, &embed);
+        if compress {
+            let ff2_comp = crate::deflate::zlib_deflate(&embed);
+            // Length1 is the original (uncompressed) TTF length per PDF spec.
+            let ff2_extra = format!(" /Length1 {}", embed.len());
+            w.stream_compressed(fontfile_id, &ff2_extra, &ff2_comp);
+        } else {
+            let ff2_extra = format!(" /Length1 {}", embed.len());
+            w.stream(fontfile_id, &ff2_extra, &embed);
+        }
 
         let bbox = cf.ttf.bbox_1000();
         let ascent = cf.ttf.ascent_1000();
@@ -1878,7 +1916,12 @@ pub fn build_pdf(snap: &Snapshot, pages: &[PagePlan], fontctx: &FontCtx) -> Vec<
     // Content streams.
     for (i, p) in pages.iter().enumerate() {
         let cid = content_ids_first + i as u32;
-        w.stream(cid, "", p.content.as_bytes());
+        if compress {
+            let comp = crate::deflate::zlib_deflate(p.content.as_bytes());
+            w.stream_compressed(cid, "", &comp);
+        } else {
+            w.stream(cid, "", p.content.as_bytes());
+        }
     }
 
     // Page objects.

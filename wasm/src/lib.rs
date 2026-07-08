@@ -18,6 +18,7 @@ mod paginate;
 mod pdf;
 mod snapshot;
 mod ttf;
+mod deflate;
 
 static OUT_LEN: AtomicUsize = AtomicUsize::new(0);
 static INSPECT_LEN: AtomicUsize = AtomicUsize::new(0);

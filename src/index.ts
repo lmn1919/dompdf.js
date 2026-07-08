@@ -180,13 +180,13 @@ export async function inspect(
 }
 
 /**
- * Default export — dompdf.js-compatible entry point.
+ * Default export - dompdf.js-compatible entry point.
  *
  *   dompdf(root, options) -> Promise<Blob>
  *
- * `onJspdfReady` / `onJspdfFinish` / `compress` / `encryption` are accepted for
- * API compatibility but are no-ops (this engine has no jsPDF instance and emits
- * uncompressed, unencrypted PDFs).
+ * `onJspdfReady` / `onJspdfFinish` are accepted for API compatibility but are
+ * no-ops (this engine has no jsPDF instance). `compress` enables real DEFLATE
+ * compression of PDF streams (content streams, fonts, raw-RGB images).
  */
 const dompdfFn = (root: HTMLElement, options?: ExportOptions) => exportPDF(root, options);
 

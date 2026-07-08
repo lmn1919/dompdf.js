@@ -70,6 +70,21 @@ impl PdfWriter {
         self.end_obj();
     }
 
+    /// Write a stream object compressed with FlateDecode. The caller supplies
+    /// the compressed bytes and must ensure `dict_extra` does NOT contain
+    /// /Filter or /Length (this method adds /Filter /FlateDecode and /Length).
+    pub fn stream_compressed(&mut self, id: u32, dict_extra: &str, compressed: &[u8]) {
+        self.begin_obj(id);
+        self.put(&format!(
+            "<< /Length {} /Filter /FlateDecode{} >>\nstream\n",
+            compressed.len(),
+            dict_extra
+        ));
+        self.put_bytes(compressed);
+        self.put("\nendstream");
+        self.end_obj();
+    }
+
     /// Finalize: write xref table + trailer. Returns startxref offset.
     pub fn finish(&mut self, root_id: u32) -> usize {
         let xref_offset = self.out.len();

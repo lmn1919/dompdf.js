@@ -93,7 +93,7 @@ export interface ExportOptions {
   encryption?: object;
   /** Coordinate precision (decimal places). Default 2. */
   precision?: number;
-  /** Compress PDF (accepted, not yet implemented — no-op). */
+  /** Compress PDF streams with DEFLATE (FlateDecode). Default false. */
   compress?: boolean;
   /** Only embed actually-used fonts. Default false. */
   putOnlyUsedFonts?: boolean;
@@ -111,7 +111,7 @@ export interface ExportOptions {
   // ---- advanced pt-level overrides (take precedence over format/margins) ----
   pageWidthPt?: number;
   pageHeightPt?: number;
-  /** Margins in pt: number (all sides) or [top, right, bottom, left]. Default 36. */
+  /** Margins in pt: number (all sides) or [top, right, bottom, left]. Default 0. */
   marginPt?: number | [number, number, number, number];
   jpegQuality?: number;
 }
@@ -648,12 +648,26 @@ function parseBoxShadow(boxShadow: string): BoxShadowSpec[] {
 }
 
 function findOpaqueBackdropColor(el: HTMLElement): string {
+  let rAcc = 0, gAcc = 0, bAcc = 0;
+  let alphaRem = 1.0;
   for (let cur: HTMLElement | null = el.parentElement; cur; cur = cur.parentElement) {
     const bg = getComputedStyle(cur).backgroundColor;
     const parsed = parseColor(bg);
-    if (parsed[3] > 0.001) return bg;
+    const a = parsed[3];
+    if (a > 0.001) {
+      rAcc += parsed[0] * a * alphaRem;
+      gAcc += parsed[1] * a * alphaRem;
+      bAcc += parsed[2] * a * alphaRem;
+      alphaRem *= (1 - a);
+      if (1 - alphaRem >= 0.99) break;
+    }
   }
-  return '#ffffff';
+  if (alphaRem > 0.001) {
+    rAcc += 255 * alphaRem;
+    gAcc += 255 * alphaRem;
+    bAcc += 255 * alphaRem;
+  }
+  return `rgb(${Math.round(rAcc)}, ${Math.round(gAcc)}, ${Math.round(bAcc)})`;
 }
 
 function copyComputedStyles(
@@ -1470,9 +1484,6 @@ export async function collectSnapshotData(
   if (options.onJspdfFinish) {
     console.warn('dom2pdf: onJspdfFinish is accepted but not implemented (no jsPDF engine).');
   }
-  if (options.compress) {
-    console.warn('dom2pdf: compress is accepted but not yet implemented (PDF emitted uncompressed).');
-  }
   if (options.encryption) {
     console.warn('dom2pdf: encryption is accepted but not yet implemented.');
   }
@@ -1480,12 +1491,13 @@ export async function collectSnapshotData(
   const [fmtW, fmtH] = resolvePageSize(options.format);
   const pageWidthPt = options.pageWidthPt ?? fmtW;
   const pageHeightPt = options.pageHeightPt ?? fmtH;
-  const m = options.marginPt ?? 36;
+  const m = options.marginPt ?? 0;
   const [mTop, mRight, mBottom, mLeft] = Array.isArray(m) ? m : [m, m, m, m];
   const quality = options.jpegQuality ?? 0.85;
   const useCORS = options.useCORS ?? false;
   const pagination = options.pagination ?? false;
   const precision = (options.precision ?? 2) | 0;
+  const compress = options.compress ?? false;
 
   // Fonts
   const fontConfigs = options.fontConfig
@@ -1910,11 +1922,12 @@ export async function collectSnapshotData(
     ];
     const sidePaints = (i: number, style: string): boolean =>
       bw[i] > 0 && style !== 'none' && style !== 'hidden' && bc[i][3] > 0.001;
-    const visibleBorder = sidePaints(0, cs.borderTopStyle)
+    const isRoot = parentId === -1;
+    const visibleBorder = !isRoot && (sidePaints(0, cs.borderTopStyle)
       || sidePaints(1, cs.borderRightStyle)
       || sidePaints(2, cs.borderBottomStyle)
-      || sidePaints(3, cs.borderLeftStyle);
-    const shadow = kind === 0 ? parseBoxShadow(cs.boxShadow) : [];
+      || sidePaints(3, cs.borderLeftStyle));
+    const shadow = kind === 0 && !isRoot ? parseBoxShadow(cs.boxShadow) : [];
     const radius: [number, number, number, number] = [
       (parseFloat(cs.borderTopLeftRadius) || 0) * layoutScale,
       (parseFloat(cs.borderTopRightRadius) || 0) * layoutScale,
@@ -2135,7 +2148,7 @@ export async function collectSnapshotData(
 
   return {
     pageWidthPt, pageHeightPt, mTop, mRight, mBottom, mLeft,
-    precision, pagination, backgroundColor: options.backgroundColor ?? null,
+    precision, pagination, compress, backgroundColor: options.backgroundColor ?? null,
     headerHPx, footerHPx,
     staticHeader, staticFooter,
     perPageHF: [],
@@ -2159,6 +2172,7 @@ export interface EncodeArgs {
   mTop: number; mRight: number; mBottom: number; mLeft: number;
   precision: number;
   pagination: boolean;
+  compress: boolean;
   backgroundColor: string | null;
   headerHPx: number;
   footerHPx: number;
@@ -2196,7 +2210,7 @@ function writeOptHF(w: BinWriter, hf: ResolvedHF | null) {
 function encode(a: EncodeArgs): Uint8Array {
   const w = new BinWriter();
   w.bytes(new Uint8Array([0x44, 0x32, 0x50, 0x31])); // "D2P1"
-  w.u32(7); // version 7 (font whitespace mode)
+  w.u32(8); // version 8 (adds compress flag in config block)
   w.f32(a.pageWidthPt);
   w.f32(a.pageHeightPt);
   w.f32(a.mTop);
@@ -2220,6 +2234,7 @@ function encode(a: EncodeArgs): Uint8Array {
     writeOptHF(w, a.staticHeader);
     writeOptHF(w, a.staticFooter);
   }
+  w.u8(a.compress ? 1 : 0);
 
   // Fonts block
   w.u32(a.fonts.length);

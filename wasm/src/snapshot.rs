@@ -4,7 +4,7 @@
 //!
 //! Header:
 //!   magic: 4 bytes = "D2P1"
-//!   version: u32 = 7
+//!   version: u32 = 8
 //!   pageWidthPt, pageHeightPt, marginTop, marginRight, marginBottom, marginLeft: f32
 //!
 //! Config block:
@@ -18,6 +18,7 @@
 //!   if hasStaticHF:
 //!     header: Option<HFSpec> (u8 present + fields)
 //!     footer: Option<HFSpec>
+//!   compress: u8             (v8: 0 = no compression, 1 = deflate streams)
 //!
 //! Fonts block:
 //!   fontCount: u32
@@ -80,6 +81,8 @@ pub struct Config {
     pub header_h_px: f32,
     pub footer_h_px: f32,
     pub static_hf: Option<(Option<HFSpec>, Option<HFSpec>)>,
+    /// v8: enable real DEFLATE compression for PDF streams.
+    pub compress: bool,
 }
 
 #[derive(Clone)]
@@ -323,8 +326,8 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
         return Err(format!("bad magic: {:?}", magic));
     }
     let version = c.u32()?;
-    if version != 7 {
-        return Err(format!("unsupported version {} (expected 7)", version));
+    if version != 7 && version != 8 {
+        return Err(format!("unsupported version {} (expected 7 or 8)", version));
     }
     let page_width_pt = c.f32()?;
     let page_height_pt = c.f32()?;
@@ -353,6 +356,8 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
     } else {
         None
     };
+    // v8: compress flag. v7 has no such field; default to false.
+    let compress = if version >= 8 { c.u8()? != 0 } else { false };
 
     // Fonts block
     let font_count = c.u32()?;
@@ -391,6 +396,7 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
         header_h_px,
         footer_h_px,
         static_hf,
+        compress,
     };
 
     // Nodes
