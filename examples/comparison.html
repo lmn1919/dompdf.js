@@ -1,0 +1,2621 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF Engine Benchmark: dompdf.js vs html2pdf.js</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
+    rel="stylesheet">
+
+  <!-- Stylesheets -->
+  <style>
+    /* ==========================================================================
+       Dashboard Core Design System (Premium Light Editorial)
+       ========================================================================== */
+    :root {
+      --bg-base: #fcfbfa;
+      /* Soft warm alabaster */
+      --bg-surface: #ffffff;
+      --bg-card: #ffffff;
+      --border-color: #e7e5e4;
+      /* Soft stone border */
+
+      --accent-dompdf: #1d40af;
+      /* Classic Slate Blue */
+      --accent-html2pdf: #b45309;
+      /* Deep Ochre Amber */
+
+      --text-primary: #1c1917;
+      /* Slate charcoal */
+      --text-secondary: #57534e;
+      /* Soft graphite */
+      --text-tertiary: #878681;
+
+      --success: #15803d;
+      --error: #b91c1c;
+
+      --font-serif: 'Lora', Georgia, serif;
+      --font-ui: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-primary);
+      font-family: var(--font-ui);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--bg-base);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 3px;
+    }
+
+    /* Container */
+    .container {
+      max-width: 1300px;
+      margin: 0 auto;
+      padding: 3rem 2rem;
+    }
+
+    /* Header & Brand */
+    header {
+      margin-bottom: 3rem;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 2rem;
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .brand-title {
+      font-family: var(--font-serif);
+      font-size: 2.25rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+    }
+
+    .brand-subtitle {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+      font-weight: 400;
+    }
+
+    .badge-row {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    /* Badge indicators */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .badge-dompdf {
+      background: #eff6ff;
+      color: #1e40af;
+      border: 1px solid #bfdbfe;
+    }
+
+    .badge-html2pdf {
+      background: #fefbeb;
+      color: #b45309;
+      border: 1px solid #fde68a;
+    }
+
+    /* Controls Panel */
+    .control-header-panel {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 2rem;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .control-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+    }
+
+    .select-custom {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      padding: 0.4rem 2rem 0.4rem 0.75rem;
+      border-radius: 4px;
+      font-family: var(--font-ui);
+      font-size: 0.85rem;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2357534e'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.5rem center;
+      background-size: 0.85rem;
+      min-width: 220px;
+      transition: border-color 0.2s ease;
+    }
+
+    .select-custom:hover {
+      border-color: var(--text-secondary);
+    }
+
+    /* Switch Style Toggle */
+    .switch-container {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .switch-input {
+      display: none;
+    }
+
+    .switch-track {
+      width: 2rem;
+      height: 1.1rem;
+      background: #e7e5e4;
+      border-radius: 999px;
+      position: relative;
+      transition: background 0.2s ease;
+    }
+
+    .switch-thumb {
+      width: 0.8rem;
+      height: 0.8rem;
+      background: white;
+      border-radius: 50%;
+      position: absolute;
+      top: 0.15rem;
+      left: 0.15rem;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .switch-input:checked+.switch-track {
+      background: var(--text-primary);
+    }
+
+    .switch-input:checked+.switch-track .switch-thumb {
+      left: 1.05rem;
+    }
+
+    .font-loader-status {
+      margin-left: auto;
+      font-size: 0.8rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--text-secondary);
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--text-tertiary);
+      display: inline-block;
+    }
+
+    .status-dot.loading {
+      background: var(--accent-html2pdf);
+      animation: pulse 1.5s infinite;
+    }
+
+    .status-dot.success {
+      background: var(--success);
+    }
+
+    .status-dot.error {
+      background: var(--error);
+    }
+
+    /* Actions Panel Grid */
+    .action-panel {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .action-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 1.25rem;
+    }
+
+    .card-title {
+      font-family: var(--font-serif);
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .card-desc {
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      margin-top: 0.35rem;
+      line-height: 1.5;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 0.6rem 1rem;
+      border-radius: 4px;
+      font-family: var(--font-ui);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: all 0.2s ease;
+    }
+
+    .btn-dompdf {
+      background: var(--text-primary);
+      color: white;
+      border: 1px solid var(--text-primary);
+    }
+
+    .btn-dompdf:hover {
+      background: #3f3f46;
+      border-color: #3f3f46;
+    }
+
+    .btn-html2pdf {
+      background: transparent;
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+    }
+
+    .btn-html2pdf:hover {
+      background: #faf9f6;
+      border-color: var(--text-secondary);
+    }
+
+    .btn-benchmark {
+      background: transparent;
+      border: 1px solid var(--accent-dompdf);
+      color: var(--accent-dompdf);
+    }
+
+    .btn-benchmark:hover {
+      background: #f0f4ff;
+    }
+
+    /* Minimalist Metrics Panel */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 2rem;
+      border-top: 1px solid var(--border-color);
+      border-bottom: 1px solid var(--border-color);
+      padding: 2rem 0;
+      margin-bottom: 3rem;
+    }
+
+    .stat-card {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      padding: 0 0.5rem;
+    }
+
+    .stat-card:not(:first-child) {
+      border-left: 1px solid var(--border-color);
+    }
+
+    .stat-header {
+      color: var(--text-tertiary);
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .stat-values {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .stat-val-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .val-engine {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .val-number {
+      font-family: var(--font-serif);
+      font-size: 1.35rem;
+      font-weight: 600;
+    }
+
+    .val-number.dompdf-color {
+      color: var(--accent-dompdf);
+    }
+
+    .val-number.html2pdf-color {
+      color: var(--accent-html2pdf);
+    }
+
+    /* Simple Progress Bars */
+    .compare-bar-wrapper {
+      height: 4px;
+      width: 100%;
+      background: #f5f5f4;
+      border-radius: 2px;
+      overflow: hidden;
+      display: flex;
+    }
+
+    .compare-bar {
+      height: 100%;
+      transition: width 0.4s ease;
+    }
+
+    .compare-bar.dompdf-bar {
+      background: var(--accent-dompdf);
+    }
+
+    .compare-bar.html2pdf-bar {
+      background: var(--accent-html2pdf);
+    }
+
+    .stat-delta-badge {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .delta-positive {
+      color: var(--success);
+    }
+
+    /* Sandbox Grid */
+    .playground-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 3rem;
+    }
+
+    @media (min-width: 1024px) {
+      .playground-grid {
+        grid-template-columns: 1.15fr 0.85fr;
+      }
+    }
+
+    .playground-card {
+      display: flex;
+      flex-direction: column;
+      min-height: 750px;
+      width: 600px;
+    }
+
+    .playground-title {
+      font-family: var(--font-serif);
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 0.75rem;
+    }
+
+    .playground-title-desc {
+      font-family: var(--font-ui);
+      font-size: 0.8rem;
+      color: var(--text-tertiary);
+      font-weight: 500;
+    }
+
+    /* Source HTML Viewer/Wrapper */
+    .source-wrapper {
+      flex: 1;
+      background: #f5f5f4;
+      /* Realistic gray draft surface */
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 2.5rem 1.5rem;
+      overflow-y: auto;
+      max-height: 700px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    /* Target PDF Iframe Preview */
+    .pdf-preview-container {
+      flex: 1;
+      position: relative;
+      background: #f5f5f4;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .pdf-iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      flex: 1;
+      background: white;
+    }
+
+    .pdf-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+      gap: 1rem;
+      text-align: center;
+      padding: 2rem;
+      position: absolute;
+    }
+
+    .pdf-placeholder svg {
+      width: 3rem;
+      height: 3rem;
+      stroke: var(--text-tertiary);
+      opacity: 0.5;
+    }
+
+    /* Tabs styled with underline style instead of pills */
+    .preview-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border-color);
+      gap: 2rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      padding: 0.5rem 0;
+      font-size: 0.85rem;
+      font-weight: 600;
+      font-family: var(--font-ui);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-primary);
+    }
+
+    .tab-btn.active {
+      color: var(--text-primary);
+      border-bottom: 2px solid var(--text-primary);
+    }
+
+    /* Specifications Panel */
+    .info-container {
+      display: none;
+      flex: 1;
+      width: 100%;
+      overflow-y: auto;
+      max-height: 700px;
+    }
+
+    .info-container.active {
+      display: block;
+    }
+
+    .specs-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      text-align: left;
+    }
+
+    .specs-table th,
+    .specs-table td {
+      padding: 0.85rem 0.5rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .specs-table th {
+      color: var(--text-secondary);
+      font-weight: 700;
+    }
+
+    .specs-table td {
+      color: var(--text-primary);
+    }
+
+    .specs-table tr:hover td {
+      background: #fafaf9;
+    }
+
+    .feature-yes {
+      color: var(--success);
+      font-weight: 600;
+    }
+
+    .feature-no {
+      color: var(--text-tertiary);
+    }
+
+    /* Code Snippets (GitHub Light inspired) */
+    .code-wrapper {
+      background: #f8fafc;
+      padding: 1.25rem;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      border: 1px solid var(--border-color);
+      margin-bottom: 1.5rem;
+      color: #24292e;
+      line-height: 1.6;
+    }
+
+    #code-dompdf {
+      border-left: 3px solid var(--accent-dompdf);
+    }
+
+    #code-html2pdf {
+      border-left: 3px solid var(--accent-html2pdf);
+    }
+
+    /* Syntax Highlighting CSS Tokens */
+    .token-keyword {
+      color: #cf222e;
+      font-weight: 600;
+    }
+
+    .token-string {
+      color: #0a3069;
+    }
+
+    .token-number {
+      color: #0550ae;
+    }
+
+    .token-function {
+      color: #8250df;
+      font-weight: 500;
+    }
+
+    .token-comment {
+      color: #6e7781;
+      font-style: italic;
+    }
+
+    /* Copy Button (Clean Text style) */
+    .copy-btn {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      background: white;
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      border-radius: 4px;
+      padding: 0.2rem 0.5rem;
+      font-size: 0.7rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .copy-btn:hover {
+      border-color: var(--text-secondary);
+      color: var(--text-primary);
+    }
+
+    /* Document Container inside drafting desk */
+    .scaled-container-helper {
+      transform: scale(0.7);
+      transform-origin: top center;
+      margin-bottom: -340px;
+    }
+
+    .print-box-shadow {
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    }
+
+    /* ==========================================================================
+       Print Templates Styling (Clean Editorial Layouts)
+       ========================================================================== */
+    .template-page {
+      background: white;
+      color: #1c1917;
+      font-family: var(--font-ui);
+      width: 794px;
+      min-height: 1123px;
+      padding: 60px 70px;
+      box-sizing: border-box;
+      position: relative;
+      display: none;
+    }
+
+    .template-page.active {
+      display: block;
+    }
+
+    /* Page Break & Avoid-Split attributes mapped to standard CSS print properties */
+    [pageBreak] {
+      page-break-before: always;
+      break-before: page;
+    }
+
+    [divisionDisable] {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
+    /* Standardized template page elements */
+    .page-separator {
+      height: 1px;
+      border-bottom: 1px dashed #d6d3d1;
+      width: 794px;
+      margin: 2rem 0;
+      position: relative;
+    }
+
+    .page-separator::before {
+      content: 'PAGE BREAK';
+      position: absolute;
+      left: 5%;
+      top: 50%;
+      transform: translateY(-50%);
+      background: #f5f5f4;
+      padding: 0 0.5rem;
+      font-size: 0.65rem;
+      color: var(--text-tertiary);
+      font-weight: 700;
+      letter-spacing: 0.1em;
+    }
+
+    /* Template A: Corporate Report Styles */
+    .report-title-section {
+      border-bottom: 2px solid #1c1917;
+      padding-bottom: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .report-category {
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .report-title {
+      font-family: var(--font-serif);
+      font-size: 2.2rem;
+      font-weight: 600;
+      color: #1c1917;
+      margin-top: 0.25rem;
+      line-height: 1.2;
+    }
+
+    .report-metadata {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-top: 1.25rem;
+    }
+
+    .report-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .report-stat-card {
+      border-bottom: 1px solid #d6d3d1;
+      padding: 0.75rem 0;
+    }
+
+    .report-stat-label {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .report-stat-value {
+      font-family: var(--font-serif);
+      font-size: 1.8rem;
+      font-weight: 600;
+      color: #1c1917;
+      margin-top: 0.15rem;
+    }
+
+    .report-stat-trend {
+      font-size: 0.75rem;
+      color: var(--success);
+      font-weight: 600;
+      margin-top: 0.15rem;
+    }
+
+    .report-section-title {
+      font-family: var(--font-serif);
+      font-size: 1.35rem;
+      font-weight: 600;
+      color: #1c1917;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid #e7e5e4;
+      padding-bottom: 0.35rem;
+      margin-top: 1.5rem;
+    }
+
+    /* Vector SVG Chart styling */
+    .report-chart-container {
+      border: 1px solid #e7e5e4;
+      padding: 1rem;
+      margin-bottom: 2rem;
+      background: #fff;
+    }
+
+    .report-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+      margin-top: 0.5rem;
+    }
+
+    .report-table th,
+    .report-table td {
+      padding: 0.65rem 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid #e7e5e4;
+    }
+
+    .report-table th {
+      background: #fafaf9;
+      color: var(--text-secondary);
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.03em;
+    }
+
+    .report-table td {
+      color: #1c1917;
+    }
+
+    /* Template B: Chinese Invoice Styles */
+    .invoice-header {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 2px solid #1c1917;
+      padding-bottom: 1.5rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .invoice-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 800;
+      font-size: 1.25rem;
+      color: #1c1917;
+    }
+
+    .invoice-logo svg {
+      width: 1.75rem;
+      height: 1.75rem;
+      fill: #1c1917;
+    }
+
+    .invoice-title-block {
+      text-align: right;
+    }
+
+    .invoice-title {
+      font-family: var(--font-serif);
+      font-size: 1.75rem;
+      font-weight: 600;
+      color: #1c1917;
+    }
+
+    .invoice-num {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-top: 0.25rem;
+      font-family: var(--font-mono);
+    }
+
+    .invoice-details-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      margin-bottom: 2.5rem;
+      font-size: 0.85rem;
+    }
+
+    .invoice-party-title {
+      font-weight: 700;
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid #e7e5e4;
+      padding-bottom: 0.25rem;
+    }
+
+    .invoice-party-info {
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    .invoice-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .invoice-table th,
+    .invoice-table td {
+      padding: 0.75rem 0.5rem;
+      border-bottom: 1px solid #e7e5e4;
+    }
+
+    .invoice-table th {
+      font-weight: 700;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+      text-align: left;
+    }
+
+    .invoice-table td {
+      color: #1c1917;
+    }
+
+    .invoice-table .num-col {
+      text-align: right;
+      font-family: var(--font-mono);
+    }
+
+    .invoice-total-block {
+      margin-left: auto;
+      width: 280px;
+      margin-bottom: 3rem;
+    }
+
+    .invoice-total-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.4rem 0.5rem;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+
+    .invoice-total-row.grand {
+      border-top: 1px solid #1c1917;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #1c1917;
+      padding-top: 0.5rem;
+    }
+
+    .invoice-footer {
+      border-top: 1px solid #e7e5e4;
+      padding-top: 1.5rem;
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+      line-height: 1.6;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+
+    .invoice-stamp {
+      width: 90px;
+      height: 90px;
+      border: 1.5px solid #b91c1c;
+      border-radius: 50%;
+      color: #b91c1c;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      transform: rotate(-10deg);
+      opacity: 0.7;
+      user-select: none;
+      line-height: 1.3;
+      text-align: center;
+    }
+  </style>
+
+  <!-- Library Scripts (dompdf.js is loaded locally, html2pdf.js via CDN) -->
+  <script src="../dist/dompdf.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+
+<body>
+
+  <div class="container">
+
+    <!-- Header -->
+    <header>
+      <div class="brand">
+        <h1 class="brand-title">PDF Rendering Engine Benchmark</h1>
+        <p class="brand-subtitle">对比矢量渲染引擎与传统的 HTML-Canvas-to-Image 拼接输出</p>
+        <div class="badge-row">
+          <span class="badge badge-dompdf">WASM + Worker (矢量)</span>
+          <span class="badge badge-html2pdf">v0.10.1 (图片拼接)</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Global Control Center -->
+    <div class="control-header-panel">
+      <!-- Template Selector -->
+      <div class="control-group">
+        <span class="control-label">测试文档:</span>
+        <select class="select-custom" id="template-select" onchange="switchTemplate(this.value)">
+          <option value="report">英文财务年度报告 (2页/多矢量元素)</option>
+          <option value="invoice">中英文混合电子发票 (1页/多字体排版)</option>
+        </select>
+      </div>
+
+      <!-- dompdf Option Toggle (Compress) -->
+      <div class="control-group" style="margin-left: 0.5rem;">
+        <label class="switch-container">
+          <input type="checkbox" id="dompdf-compress" class="switch-input" checked onchange="updateOptionsTip()">
+          <span class="switch-track"><span class="switch-thumb"></span></span>
+          <span class="control-label">PDF 压缩</span>
+        </label>
+      </div>
+
+      <!-- dompdf Option Toggle (Subset Fonts) -->
+      <div class="control-group">
+        <label class="switch-container">
+          <input type="checkbox" id="dompdf-subset" class="switch-input" checked onchange="updateOptionsTip()">
+          <span class="switch-track"><span class="switch-thumb"></span></span>
+          <span class="control-label">字形子集化 (Subset)</span>
+        </label>
+      </div>
+
+      <!-- Font status -->
+      <div class="font-loader-status" id="font-status-container">
+        <span class="status-dot" id="font-status-dot"></span>
+        <span id="font-status-text">检测字体文件中...</span>
+      </div>
+    </div>
+
+    <!-- Actions Panel -->
+    <div class="action-panel">
+      <!-- dompdf Action -->
+      <div class="action-card">
+        <div>
+          <h3 class="card-title">dompdf.js (WASM)</h3>
+          <p class="card-desc">调用主线程收集轻量级 DOM 状态，通过 Worker 传给后台的 Rust-WASM 模块直接渲染出底层的矢量图元 PDF 流。</p>
+        </div>
+        <button class="btn btn-dompdf" onclick="generatePDF('dompdf')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="16" y1="13" x2="8" y2="13" />
+            <line x1="16" y1="17" x2="8" y2="17" />
+            <polyline points="10 9 9 9 8 9" />
+          </svg>
+          运行 dompdf.js
+        </button>
+      </div>
+
+      <!-- html2pdf Action -->
+      <div class="action-card">
+        <div>
+          <h3 class="card-title">html2pdf.js</h3>
+          <p class="card-desc">基于 html2canvas 对当前 DOM 进行像素级截图并返回 Canvas，再通过 jsPDF 把 Canvas 图片嵌入写入 PDF 文档。</p>
+        </div>
+        <button class="btn btn-html2pdf" onclick="generatePDF('html2pdf')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <polyline points="21 15 16 10 5 21" />
+          </svg>
+          运行 html2pdf.js
+        </button>
+      </div>
+
+      <!-- Benchmark Action -->
+      <div class="action-card">
+        <div>
+          <h3 class="card-title">一键性能基准测试</h3>
+          <p class="card-desc">在当前运行环境中先后串行执行两种引擎的 PDF 转换流程，以对比耗时和最终生成的 PDF 文件字节大小。</p>
+        </div>
+        <button class="btn btn-benchmark" onclick="runBenchmark()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+          </svg>
+          启动基准测试 (Benchmark)
+        </button>
+      </div>
+    </div>
+
+    <!-- Metrics Dashboard -->
+    <div class="dashboard-grid">
+      <!-- Speed Card -->
+      <div class="stat-card">
+        <div class="stat-header">生成速度 (生成耗时)</div>
+        <div class="stat-values">
+          <div class="stat-val-row">
+            <span class="val-engine">dompdf.js (WASM)</span>
+            <span class="val-number dompdf-color" id="speed-dompdf">--</span>
+          </div>
+          <div class="stat-val-row">
+            <span class="val-engine">html2pdf.js</span>
+            <span class="val-number html2pdf-color" id="speed-html2pdf">--</span>
+          </div>
+        </div>
+        <div class="compare-bar-wrapper">
+          <div class="compare-bar dompdf-bar" id="speed-bar-dompdf" style="width: 0%"></div>
+          <div class="compare-bar html2pdf-bar" id="speed-bar-html2pdf" style="width: 0%"></div>
+        </div>
+        <div class="stat-delta-badge" id="speed-delta">等待测试数据</div>
+      </div>
+
+      <!-- File Size Card -->
+      <div class="stat-card">
+        <div class="stat-header">输出文件体积 (PDF 大小)</div>
+        <div class="stat-values">
+          <div class="stat-val-row">
+            <span class="val-engine">dompdf.js (WASM)</span>
+            <span class="val-number dompdf-color" id="size-dompdf">--</span>
+          </div>
+          <div class="stat-val-row">
+            <span class="val-engine">html2pdf.js</span>
+            <span class="val-number html2pdf-color" id="size-html2pdf">--</span>
+          </div>
+        </div>
+        <div class="compare-bar-wrapper">
+          <div class="compare-bar dompdf-bar" id="size-bar-dompdf" style="width: 0%"></div>
+          <div class="compare-bar html2pdf-bar" id="size-bar-html2pdf" style="width: 0%"></div>
+        </div>
+        <div class="stat-delta-badge" id="size-delta">等待测试数据</div>
+      </div>
+
+      <!-- Fidelity Card -->
+      <div class="stat-card">
+        <div class="stat-header">PDF 输出属性 (渲染技术)</div>
+        <div class="stat-values">
+          <div class="stat-val-row">
+            <span class="val-engine">dompdf.js (WASM)</span>
+            <span class="val-number dompdf-color" id="quality-dompdf"
+              style="font-size: 1rem; font-family: var(--font-ui);">--</span>
+          </div>
+          <div class="stat-val-row">
+            <span class="val-engine">html2pdf.js</span>
+            <span class="val-number html2pdf-color" id="quality-html2pdf"
+              style="font-size: 1rem; font-family: var(--font-ui);">--</span>
+          </div>
+        </div>
+        <div
+          style="font-size: 0.75rem; color: var(--text-secondary); border-top: 1px solid var(--border-color); padding-top: 0.5rem; line-height: 1.4;">
+          矢量引擎下文本支持任意放大而不模糊，内容可自由选择并复制；而截图嵌入的 PDF 会随缩放产生栅格马赛克。
+        </div>
+      </div>
+    </div>
+
+    <!-- Playground Sandbox -->
+    <div class="playground-grid">
+
+      <!-- Left Panel: DOM Source -->
+      <div class="playground-card">
+        <div class="playground-title">
+          <span>HTML 源文档</span>
+          <span class="playground-title-desc">标准 A4 页面渲染 (794px × 1123px)</span>
+        </div>
+
+        <!-- Dynamic Content Controller (Only visible when activeTemplate === 'report') -->
+        <div id="report-controls-panel"
+          style="display: flex; flex-wrap: wrap; gap: 6px 10px; margin-bottom: 12px; background: #f5f5f4; padding: 8px; border-radius: 8px; align-items: center; border: 1px solid var(--border-color);">
+          <span
+            style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); white-space: nowrap;">内容编辑</span>
+          <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+            <button class="copy-btn"
+              style="position: static; padding: 4px 8px; font-size: 0.7rem; cursor: pointer; border-radius: 6px;"
+              onclick="addSampleText()">+ 文本</button>
+            <button class="copy-btn"
+              style="position: static; padding: 4px 8px; font-size: 0.7rem; cursor: pointer; border-radius: 6px;"
+              onclick="addSampleTable()">+ 表格</button>
+            <button class="copy-btn"
+              style="position: static; padding: 4px 8px; font-size: 0.7rem; cursor: pointer; border-radius: 6px;"
+              onclick="addSampleChart()">+ 进度条</button>
+          </div>
+          <span style="width: 1px; height: 20px; background: var(--border-color);"></span>
+          <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+            <select id="batch-content-type"
+              style="padding: 3px 6px; font-size: 0.7rem; border-radius: 6px; border: 1px solid var(--border-color); background: #fff; cursor: pointer;">
+              <option value="mixed">混合内容</option>
+              <option value="text">仅文本</option>
+              <option value="table">仅表格</option>
+              <option value="chart">仅进度条</option>
+            </select>
+            <input id="batch-count" type="number" min="1" max="500" value="10"
+              style="width: 60px; padding: 3px 6px; font-size: 0.7rem; border-radius: 6px; border: 1px solid var(--border-color); text-align: center;" />
+            <span style="font-size: 0.65rem; color: var(--text-secondary);">条</span>
+            <button class="copy-btn"
+              style="position: static; padding: 4px 12px; font-size: 0.7rem; cursor: pointer; border-radius: 6px; background: var(--text-primary); border-color: var(--text-primary); color: #fff; font-weight: 600;"
+              onclick="addBatchContent()">批量插入</button>
+          </div>
+          <span style="width: 1px; height: 20px; background: var(--border-color);"></span>
+          <button class="copy-btn"
+            style="position: static; padding: 4px 8px; font-size: 0.7rem; cursor: pointer; border-radius: 6px; background: #fff; border-color: var(--border-color); color: var(--error); font-weight: 600;"
+            onmouseover="this.style.borderColor='var(--error)';this.style.background='#fef2f2';"
+            onmouseout="this.style.borderColor='var(--border-color)';this.style.background='#fff';"
+            onclick="clearAddedSampleContent()">重置</button>
+          <!-- <span id="page-counter-badge"
+            style="margin-left: auto; font-size: 0.7rem; font-weight: 700; color: var(--accent-dompdf); background: #eff6ff; padding: 2px 8px; border-radius: 12px; border: 1px solid #bfdbfe; white-space: nowrap;">当前：约
+            2.0 页 A4</span> -->
+        </div>
+
+        <div class="source-wrapper" id="source-wrapper">
+          <div class="scaled-container-helper">
+
+            <!-- Template 1: Financial Report (A4, 2 Pages) -->
+            <div class="template-page print-box-shadow" id="template-report">
+              <!-- Page 1 content -->
+              <div class="report-title-section">
+                <span class="report-category">Annual Operations Briefing</span>
+                <h1 class="report-title">Fiscal Year 2026 Operations Report</h1>
+                <div class="report-metadata">
+                  <span>Department: Executive Finance</span>
+                  <span>Date: July 2026</span>
+                  <span>Doc ID: #FY26-REP-827</span>
+                </div>
+              </div>
+
+              <div class="report-grid">
+                <div class="report-stat-card">
+                  <span class="report-stat-label">Total Revenue</span>
+                  <div class="report-stat-value">$48.2M</div>
+                  <span class="report-stat-trend">▲ +14.2% YoY</span>
+                </div>
+                <div class="report-stat-card">
+                  <span class="report-stat-label">Operating Margin</span>
+                  <div class="report-stat-value">32.4%</div>
+                  <span class="report-stat-trend">▲ +2.1% YoY</span>
+                </div>
+                <div class="report-stat-card">
+                  <span class="report-stat-label">Active Users</span>
+                  <div class="report-stat-value">1.82M</div>
+                  <span class="report-stat-trend">▲ +28.5% YoY</span>
+                </div>
+              </div>
+
+              <h2 class="report-section-title">Growth & Vector Performance Graph</h2>
+              <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem; line-height: 1.6;">
+                The chart below is structured as pure vector SVG lines and fills. Under a vector-backed engine like
+                <strong>dompdf.js</strong>, this graph retains mathematically infinite clarity when zooming into the
+                PDF, rendering natively. Under <strong>html2pdf.js</strong>, the graphic undergoes rasterization.
+              </p>
+
+              <div class="report-chart-container">
+                <!-- Inline SVG chart to test vector paths -->
+                <svg viewBox="0 0 600 180" width="100%" height="150px" style="font-family: inherit;">
+                  <!-- Background grid -->
+                  <line x1="50" y1="20" x2="560" y2="20" stroke="#f1f5f9" stroke-width="1.5" />
+                  <line x1="50" y1="60" x2="560" y2="60" stroke="#f1f5f9" stroke-width="1.5" />
+                  <line x1="50" y1="100" x2="560" y2="100" stroke="#f1f5f9" stroke-width="1.5" />
+                  <line x1="50" y1="140" x2="560" y2="140" stroke="#cbd5e1" stroke-width="1.5" />
+
+                  <!-- Axes labels -->
+                  <text x="20" y="25" fill="#94a3b8" font-size="10" font-weight="600">$50M</text>
+                  <text x="20" y="65" fill="#94a3b8" font-size="10" font-weight="600">$30M</text>
+                  <text x="20" y="105" fill="#94a3b8" font-size="10" font-weight="600">$10M</text>
+                  <text x="20" y="145" fill="#94a3b8" font-size="10" font-weight="600">$0</text>
+
+                  <!-- X Axis months -->
+                  <text x="80" y="165" fill="#64748b" font-size="10" font-weight="600">Jan</text>
+                  <text x="176" y="165" fill="#64748b" font-size="10" font-weight="600">Mar</text>
+                  <text x="272" y="165" fill="#64748b" font-size="10" font-weight="600">May</text>
+                  <text x="368" y="165" fill="#64748b" font-size="10" font-weight="600">Jul</text>
+                  <text x="464" y="165" fill="#64748b" font-size="10" font-weight="600">Sep</text>
+
+                  <!-- Gradient area under curve -->
+                  <defs>
+                    <linearGradient id="chart-glow" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#6366f1" stop-opacity="0.3" />
+                      <stop offset="100%" stop-color="#6366f1" stop-opacity="0.0" />
+                    </linearGradient>
+                  </defs>
+                  <path d="M 80 140 L 80 110 Q 128 75 176 90 T 272 50 T 368 40 T 464 25 L 464 140 Z"
+                    fill="url(#chart-glow)" />
+
+                  <!-- Curved trendline -->
+                  <path d="M 80 110 Q 128 75 176 90 T 272 50 T 368 40 T 464 25" fill="none" stroke="#2563eb"
+                    stroke-width="2" stroke-linecap="round" />
+
+                  <!-- Data Dots -->
+                  <circle cx="80" cy="110" r="4" fill="#fff" stroke="#2563eb" stroke-width="2" />
+                  <circle cx="176" cy="90" r="4" fill="#fff" stroke="#2563eb" stroke-width="2" />
+                  <circle cx="272" cy="50" r="4" fill="#fff" stroke="#2563eb" stroke-width="2" />
+                  <circle cx="368" cy="40" r="4" fill="#fff" stroke="#2563eb" stroke-width="2" />
+                  <circle cx="464" cy="25" r="4" fill="#fff" stroke="#2563eb" stroke-width="2" />
+                </svg>
+              </div>
+
+              <!-- Page 2 separator marker (only shown in DOM viewer, not in actual print layout) -->
+              <div class="page-separator" id="sep-report"></div>
+
+              <!-- Page 2 content with forcing attribute pageBreak -->
+              <div pageBreak style="padding-top: 15px;">
+                <h2 class="report-section-title">Product Division Breakdown</h2>
+                <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1.25rem; line-height: 1.6;">
+                  This second page details the operations across the divisions. In print view, the
+                  <code>pageBreak</code> attribute enforces a clean page break, ensuring this section begins exactly on
+                  Page 2.
+                </p>
+
+                <table class="report-table">
+                  <thead>
+                    <tr>
+                      <th>Division</th>
+                      <th>Main Sector</th>
+                      <th>Revenue (M)</th>
+                      <th>Operating Margin</th>
+                      <th>Performance</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style="font-weight: 600;">Infrastructure Cloud</td>
+                      <td>Server Operations & SaaS</td>
+                      <td>$18.4M</td>
+                      <td style="font-family: var(--font-mono);">34.2%</td>
+                      <td style="color: var(--success); font-weight: 600;">Optimal</td>
+                    </tr>
+                    <tr>
+                      <td style="font-weight: 600;">Neural Analytics</td>
+                      <td>Deep Models & Inference</td>
+                      <td>$14.1M</td>
+                      <td style="font-family: var(--font-mono);">29.6%</td>
+                      <td style="color: var(--success); font-weight: 600;">Optimal</td>
+                    </tr>
+                    <tr>
+                      <td style="font-weight: 600;">Hardware Security</td>
+                      <td>Edge Hardware Keys</td>
+                      <td>$9.8M</td>
+                      <td style="font-family: var(--font-mono);">25.1%</td>
+                      <td style="color: #2563eb; font-weight: 600;">Stable</td>
+                    </tr>
+                    <tr>
+                      <td style="font-weight: 600;">Consumer Platforms</td>
+                      <td>Mobile Apps & Ads</td>
+                      <td>$5.9M</td>
+                      <td style="font-family: var(--font-mono);">12.4%</td>
+                      <td style="color: #d97706; font-weight: 600;">Monitor</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <div
+                  style="margin-top: 2rem; border-top: 1px solid #e7e5e4; padding-top: 1.5rem; font-size: 0.75rem; color: var(--text-secondary); line-height: 1.6;">
+                  <strong>Review Notes:</strong> Revenue growth is driven by core cloud service subscriptions.
+                  Operational margins on hardware sales remained compressed due to supply disruptions. Forecast for next
+                  quarter indicates stabilization.
+                </div>
+
+                <!-- Complex Visual Elements Section -->
+                <h2 class="report-section-title" style="margin-top: 2.5rem;">Visual Complexity Stress Test</h2>
+                <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.6;">
+                  This section exercises advanced CSS properties — <strong>gradients</strong>, <strong>rounded
+                    corners</strong>,
+                  <strong>dashed borders</strong>, and <strong>complex SVG charts</strong> — to benchmark rendering
+                  fidelity
+                  across both PDF engines.
+                </p>
+
+                <!-- Gradient + Rounded Corner KPI Cards -->
+                <div divisionDisable
+                  style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 1.5rem;">
+                  <div
+                    style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 18px 16px; color: white;">
+                    <div
+                      style="font-size: 0.65rem; opacity: 0.85; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;">
+                      Customer NPS</div>
+                    <div style="font-size: 1.6rem; font-weight: 700; line-height: 1;">72</div>
+                    <div style="font-size: 0.65rem; opacity: 0.75; margin-top: 4px;">▲ +8 vs last quarter</div>
+                  </div>
+                  <div
+                    style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 12px; padding: 18px 16px; color: white;">
+                    <div
+                      style="font-size: 0.65rem; opacity: 0.85; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;">
+                      Churn Rate</div>
+                    <div style="font-size: 1.6rem; font-weight: 700; line-height: 1;">2.3%</div>
+                    <div style="font-size: 0.65rem; opacity: 0.75; margin-top: 4px;">▼ −0.4% improvement</div>
+                  </div>
+                  <div
+                    style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); border-radius: 12px; padding: 18px 16px; color: white;">
+                    <div
+                      style="font-size: 0.65rem; opacity: 0.85; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;">
+                      Uptime SLA</div>
+                    <div style="font-size: 1.6rem; font-weight: 700; line-height: 1;">99.97%</div>
+                    <div style="font-size: 0.65rem; opacity: 0.75; margin-top: 4px;">Target: 99.95%</div>
+                  </div>
+                </div>
+
+                <!-- Dashed-border Info Box -->
+                <div divisionDisable
+                  style="border: 2px dashed #94a3b8; border-radius: 10px; padding: 16px 20px; margin-bottom: 1.5rem; display: flex; align-items: flex-start; gap: 14px; background: #f8fafc;">
+                  <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#6366f1" stroke-width="2"
+                    style="flex-shrink: 0; margin-top: 2px;">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                  <div>
+                    <div style="font-weight: 700; font-size: 0.8rem; color: #1e293b; margin-bottom: 4px;">Infrastructure
+                      Advisory Notice</div>
+                    <div style="font-size: 0.72rem; color: #64748b; line-height: 1.55;">
+                      All GPU clusters in Zone-B have been migrated to the new NVIDIA H200 architecture. Billing
+                      adjustments
+                      for the transition period (June 15 – June 30) will appear on the August invoice cycle. Monitor the
+                      <span
+                        style="font-family: var(--font-mono); background: #e2e8f0; padding: 1px 5px; border-radius: 3px; font-size: 0.68rem;">/status/gpu-health</span>
+                      endpoint for real-time telemetry.
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Charts Row: Donut + Horizontal Bars + Radar -->
+                <div divisionDisable
+                  style="display: grid; grid-template-columns: 1fr 1.3fr 1fr; gap: 16px; margin-bottom: 1rem;">
+
+                  <!-- Donut Chart -->
+                  <div style="border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; text-align: center;">
+                    <div
+                      style="font-size: 0.7rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px;">
+                      Revenue Mix</div>
+                    <svg viewBox="0 0 120 120" width="110" height="110" style="display: block; margin: 0 auto;">
+                      <defs>
+                        <linearGradient id="donut-g1" x1="0" y1="0" x2="1" y2="1">
+                          <stop offset="0%" stop-color="#6366f1" />
+                          <stop offset="100%" stop-color="#818cf8" />
+                        </linearGradient>
+                        <linearGradient id="donut-g2" x1="0" y1="0" x2="1" y2="1">
+                          <stop offset="0%" stop-color="#f59e0b" />
+                          <stop offset="100%" stop-color="#fbbf24" />
+                        </linearGradient>
+                      </defs>
+                      <!-- Background ring -->
+                      <circle cx="60" cy="60" r="48" fill="none" stroke="#f1f5f9" stroke-width="16" />
+                      <!-- SaaS 38% -->
+                      <circle cx="60" cy="60" r="48" fill="none" stroke="url(#donut-g1)" stroke-width="16"
+                        stroke-dasharray="114.6 187" stroke-dashoffset="0" transform="rotate(-90 60 60)" />
+                      <!-- Hardware 29% -->
+                      <circle cx="60" cy="60" r="48" fill="none" stroke="url(#donut-g2)" stroke-width="16"
+                        stroke-dasharray="87.5 214.1" stroke-dashoffset="-114.6" transform="rotate(-90 60 60)" />
+                      <!-- Services 21% -->
+                      <circle cx="60" cy="60" r="48" fill="none" stroke="#10b981" stroke-width="16"
+                        stroke-dasharray="63.3 238.3" stroke-dashoffset="-202.1" transform="rotate(-90 60 60)" />
+                      <!-- Other 12% -->
+                      <circle cx="60" cy="60" r="48" fill="none" stroke="#e2e8f0" stroke-width="16"
+                        stroke-dasharray="36.2 265.4" stroke-dashoffset="-265.4" transform="rotate(-90 60 60)" />
+                      <!-- Center label -->
+                      <text x="60" y="57" text-anchor="middle" font-size="14" font-weight="700"
+                        fill="#1e293b">$48.2M</text>
+                      <text x="60" y="71" text-anchor="middle" font-size="7" fill="#94a3b8" font-weight="500">TOTAL
+                        REV</text>
+                    </svg>
+                    <div
+                      style="display: flex; justify-content: center; gap: 10px; margin-top: 8px; font-size: 0.6rem; color: #64748b;">
+                      <span><span
+                          style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #6366f1; margin-right: 3px;"></span>SaaS
+                        38%</span>
+                      <span><span
+                          style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #f59e0b; margin-right: 3px;"></span>HW
+                        29%</span>
+                      <span><span
+                          style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #10b981; margin-right: 3px;"></span>Svc
+                        21%</span>
+                    </div>
+                  </div>
+
+                  <!-- Horizontal Bar Chart -->
+                  <div style="border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px;">
+                    <div
+                      style="font-size: 0.7rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px;">
+                      Quarterly Target Attainment</div>
+                    <!-- Q1 -->
+                    <div style="margin-bottom: 10px;">
+                      <div
+                        style="display: flex; justify-content: space-between; font-size: 0.65rem; color: #475569; margin-bottom: 3px;">
+                        <span style="font-weight: 600;">Q1 2026</span><span
+                          style="font-family: var(--font-mono);">92%</span>
+                      </div>
+                      <div style="height: 8px; background: #f1f5f9; border-radius: 4px; overflow: hidden;">
+                        <div
+                          style="width: 92%; height: 100%; background: linear-gradient(90deg, #6366f1, #818cf8); border-radius: 4px;">
+                        </div>
+                      </div>
+                    </div>
+                    <!-- Q2 -->
+                    <div style="margin-bottom: 10px;">
+                      <div
+                        style="display: flex; justify-content: space-between; font-size: 0.65rem; color: #475569; margin-bottom: 3px;">
+                        <span style="font-weight: 600;">Q2 2026</span><span
+                          style="font-family: var(--font-mono);">107%</span>
+                      </div>
+                      <div style="height: 8px; background: #f1f5f9; border-radius: 4px; overflow: hidden;">
+                        <div
+                          style="width: 100%; height: 100%; background: linear-gradient(90deg, #10b981, #34d399); border-radius: 4px;">
+                        </div>
+                      </div>
+                    </div>
+                    <!-- Q3 Projected -->
+                    <div style="margin-bottom: 10px;">
+                      <div
+                        style="display: flex; justify-content: space-between; font-size: 0.65rem; color: #475569; margin-bottom: 3px;">
+                        <span style="font-weight: 600;">Q3 2026 <span
+                            style="color: #94a3b8; font-weight: 400;">(proj.)</span></span><span
+                          style="font-family: var(--font-mono);">85%</span>
+                      </div>
+                      <div style="height: 8px; background: #f1f5f9; border-radius: 4px; overflow: hidden;">
+                        <div
+                          style="width: 85%; height: 100%; background: linear-gradient(90deg, #f59e0b, #fbbf24); border-radius: 4px;">
+                        </div>
+                      </div>
+                    </div>
+                    <!-- Q4 Projected -->
+                    <div>
+                      <div
+                        style="display: flex; justify-content: space-between; font-size: 0.65rem; color: #475569; margin-bottom: 3px;">
+                        <span style="font-weight: 600;">Q4 2026 <span
+                            style="color: #94a3b8; font-weight: 400;">(proj.)</span></span><span
+                          style="font-family: var(--font-mono);">78%</span>
+                      </div>
+                      <div style="height: 8px; background: #f1f5f9; border-radius: 4px; overflow: hidden;">
+                        <div
+                          style="width: 78%; height: 100%; background: linear-gradient(90deg, #ef4444, #f87171); border-radius: 4px;">
+                        </div>
+                      </div>
+                    </div>
+                    <!-- Target line note -->
+                    <div
+                      style="margin-top: 10px; font-size: 0.6rem; color: #94a3b8; border-top: 1px dashed #e2e8f0; padding-top: 6px;">
+                      <span
+                        style="display: inline-block; width: 20px; border-top: 2px dashed #6366f1; margin-right: 4px; vertical-align: middle;"></span>
+                      Annual target baseline = 90%
+                    </div>
+                  </div>
+
+                  <!-- Radar / Spider Chart -->
+                  <div style="border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; text-align: center;">
+                    <div
+                      style="font-size: 0.7rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px;">
+                      Capability Radar</div>
+                    <svg viewBox="0 0 200 200" width="130" height="130" style="display: block; margin: 0 auto;">
+                      <defs>
+                        <linearGradient id="radar-fill" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stop-color="#6366f1" stop-opacity="0.35" />
+                          <stop offset="100%" stop-color="#6366f1" stop-opacity="0.08" />
+                        </linearGradient>
+                      </defs>
+                      <!-- Grid rings -->
+                      <polygon points="100,30 160.6,71.8 137.3,142.2 62.7,142.2 39.4,71.8" fill="none" stroke="#e2e8f0"
+                        stroke-width="1" />
+                      <polygon points="100,51 143.5,80.4 126.8,130.3 73.2,130.3 56.5,80.4" fill="none" stroke="#f1f5f9"
+                        stroke-width="0.8" />
+                      <polygon points="100,72 126.3,89 116.2,118.5 83.8,118.5 73.7,89" fill="none" stroke="#f1f5f9"
+                        stroke-width="0.8" />
+                      <!-- Axes -->
+                      <line x1="100" y1="30" x2="100" y2="100" stroke="#e2e8f0" stroke-width="0.6" />
+                      <line x1="160.6" y1="71.8" x2="100" y2="100" stroke="#e2e8f0" stroke-width="0.6" />
+                      <line x1="137.3" y1="142.2" x2="100" y2="100" stroke="#e2e8f0" stroke-width="0.6" />
+                      <line x1="62.7" y1="142.2" x2="100" y2="100" stroke="#e2e8f0" stroke-width="0.6" />
+                      <line x1="39.4" y1="71.8" x2="100" y2="100" stroke="#e2e8f0" stroke-width="0.6" />
+                      <!-- Data polygon -->
+                      <polygon points="100,38 155.2,76 126,138 68,128 48,78" fill="url(#radar-fill)" stroke="#6366f1"
+                        stroke-width="1.8" />
+                      <!-- Data dots -->
+                      <circle cx="100" cy="38" r="3" fill="#6366f1" />
+                      <circle cx="155.2" cy="76" r="3" fill="#6366f1" />
+                      <circle cx="126" cy="138" r="3" fill="#6366f1" />
+                      <circle cx="68" cy="128" r="3" fill="#6366f1" />
+                      <circle cx="48" cy="78" r="3" fill="#6366f1" />
+                      <!-- Labels -->
+                      <text x="100" y="22" text-anchor="middle" font-size="7.5" fill="#475569"
+                        font-weight="600">Speed</text>
+                      <text x="172" y="72" text-anchor="start" font-size="7.5" fill="#475569"
+                        font-weight="600">Scale</text>
+                      <text x="145" y="155" text-anchor="middle" font-size="7.5" fill="#475569"
+                        font-weight="600">Quality</text>
+                      <text x="55" y="155" text-anchor="middle" font-size="7.5" fill="#475569"
+                        font-weight="600">Cost</text>
+                      <text x="28" y="72" text-anchor="end" font-size="7.5" fill="#475569"
+                        font-weight="600">Agility</text>
+                    </svg>
+                    <div
+                      style="display: flex; justify-content: center; gap: 8px; margin-top: 8px; font-size: 0.6rem; color: #64748b;">
+                      <span><span
+                          style="display: inline-block; width: 7px; height: 7px; border-radius: 2px; background: #6366f1; margin-right: 3px;"></span>FY2026</span>
+                      <span><span
+                          style="display: inline-block; width: 7px; height: 7px; border-radius: 2px; background: #e2e8f0; margin-right: 3px;"></span>Target</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Complex Table Stress Test -->
+                <h3
+                  style="font-size: 0.85rem; font-family: var(--font-serif); font-weight: 600; margin-top: 2rem; margin-bottom: 0.75rem; color: var(--text-primary);">
+                  Regional Financial & Audit Breakdown</h3>
+                <div divisionDisable>
+                  <table
+                    style="width: 100%; border-collapse: collapse; font-size: 0.7rem; color: var(--text-primary); border: 1px solid var(--border-color);">
+                    <thead>
+                      <tr style="background: #f8fafc; border-bottom: 2px solid #cbd5e1;">
+                        <th rowspan="2"
+                          style="padding: 8px 10px; text-align: left; border: 1px solid var(--border-color); font-weight: 700;">
+                          Region / Division</th>
+                        <th colspan="2"
+                          style="padding: 6px 8px; text-align: center; border: 1px solid var(--border-color); font-weight: 700;">
+                          H1 Performance</th>
+                        <th colspan="2"
+                          style="padding: 6px 8px; text-align: center; border: 1px solid var(--border-color); font-weight: 700;">
+                          H2 Forecast</th>
+                        <th rowspan="2"
+                          style="padding: 8px 10px; text-align: center; border: 1px solid var(--border-color); font-weight: 700; width: 90px;">
+                          SLA Status</th>
+                      </tr>
+                      <tr style="background: #f8fafc; border-bottom: 1px solid #cbd5e1;">
+                        <th
+                          style="padding: 6px 8px; text-align: right; border: 1px solid var(--border-color); font-weight: 600;">
+                          Revenue</th>
+                        <th
+                          style="padding: 6px 8px; text-align: right; border: 1px solid var(--border-color); font-weight: 600;">
+                          Margin</th>
+                        <th
+                          style="padding: 6px 8px; text-align: right; border: 1px solid var(--border-color); font-weight: 600;">
+                          Revenue</th>
+                        <th
+                          style="padding: 6px 8px; text-align: right; border: 1px solid var(--border-color); font-weight: 600;">
+                          Margin</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td rowspan="2"
+                          style="padding: 8px 10px; font-weight: 600; border: 1px solid var(--border-color); background: #fcfbfa; vertical-align: middle;">
+                          North America (NA)</td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid var(--border-color);">$12.4M</td>
+                        <td
+                          style="padding: 8px; text-align: right; border: 1px solid var(--border-color); color: var(--success); font-weight: 600;">
+                          36.2%</td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid var(--border-color);">$14.8M</td>
+                        <td
+                          style="padding: 8px; text-align: right; border: 1px solid var(--border-color); color: var(--success); font-weight: 600;">
+                          38.0%</td>
+                        <td rowspan="2"
+                          style="padding: 8px; text-align: center; border: 1px solid var(--border-color); font-weight: 700; background: #f0fdf4; color: var(--success);">
+                          Exceeded</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px; text-align: right; border: 1px solid var(--border-color);">$8.2M</td>
+                        <td
+                          style="padding: 8px; text-align: right; border: 1px solid var(--border-color); color: #15803d; font-weight: 600;">
+                          28.5%</td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid var(--border-color);">$9.5M</td>
+                        <td
+                          style="padding: 8px; text-align: right; border: 1px solid var(--border-color); color: #15803d; font-weight: 600;">
+                          30.2%</td>
+                      </tr>
+                      <tr>
+                        <td rowspan="2"
+                          style="padding: 8px 10px; font-weight: 600; border: 1px solid var(--border-color); background: #fcfbfa; vertical-align: middle;">
+                          Asia-Pacific (APAC)</td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid var(--border-color);">$14.1M</td>
+                        <td
+                          style="padding: 8px; text-align: right; border: 1px solid var(--border-color); color: var(--success); font-weight: 600;">
+                          32.8%</td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid var(--border-color);">$16.5M</td>
+                        <td
+                          style="padding: 8px; text-align: right; border: 1px solid var(--border-color); color: var(--success); font-weight: 600;">
+                          34.5%</td>
+                        <td rowspan="2"
+                          style="padding: 8px; text-align: center; border: 1px solid var(--border-color); font-weight: 700; background: #eff6ff; color: #1d40af;">
+                          On Target</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px; text-align: right; border: 1px solid var(--border-color);">$5.6M</td>
+                        <td
+                          style="padding: 8px; text-align: right; border: 1px solid var(--border-color); color: #b45309; font-weight: 600;">
+                          14.3%</td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid var(--border-color);">$6.2M</td>
+                        <td
+                          style="padding: 8px; text-align: right; border: 1px solid var(--border-color); color: #b45309; font-weight: 600;">
+                          15.1%</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <!-- Dynamic Appended Content Container -->
+                <div id="dynamic-sample-content"></div>
+              </div>
+            </div>
+
+            <!-- Template 2: Chinese/English E-Invoice (A4, 1 Page) -->
+            <div class="template-page print-box-shadow" id="template-invoice">
+              <div class="invoice-header">
+                <div class="invoice-logo">
+                  <!-- Vector Logo -->
+                  <svg viewBox="0 0 24 24">
+                    <rect x="2" y="2" width="20" height="20" rx="2" fill="#1c1917" />
+                    <path d="M7 17V7h4a3 3 0 0 1 3 3v0a3 3 0 0 1-3 3H9v4H7zm2-6h2a1 1 0 0 0 1-1v0a1 1 0 0 0-1-1H9v2z"
+                      fill="#fff" />
+                  </svg>
+                  <span>PARADIGM TECH</span>
+                </div>
+                <div class="invoice-title-block">
+                  <h1 class="invoice-title">电子结算发票</h1>
+                  <p class="invoice-num">INVOICE NO. #INV-2026-9082</p>
+                </div>
+              </div>
+
+              <div class="invoice-details-grid">
+                <div>
+                  <div class="invoice-party-title">服务供应商 (Supplier)</div>
+                  <div class="invoice-party-info"
+                    style="font-family: 'SourceHanSansSC-Regular', var(--font-ui), sans-serif;">
+                    <strong>北京极智科技发展有限公司</strong><br>
+                    北京市海淀区中关村南大街1号院<br>
+                    纳税人识别号：91110108MA01XXXXXX<br>
+                    联系电话：+86-10-8888-8888
+                  </div>
+                </div>
+                <div>
+                  <div class="invoice-party-title">购买方企业 (Client Billing)</div>
+                  <div class="invoice-party-info"
+                    style="font-family: 'SourceHanSansSC-Regular', var(--font-ui), sans-serif;">
+                    <strong>上海云图网络科技有限公司</strong><br>
+                    上海市浦东新区张江高科技园区2号楼<br>
+                    账期时间：2026年7月7日<br>
+                    付款截止：2026年8月7日
+                  </div>
+                </div>
+              </div>
+
+              <!-- Items Table -->
+              <table class="invoice-table" style="font-family: 'SourceHanSansSC-Regular', var(--font-ui), sans-serif;">
+                <thead>
+                  <tr>
+                    <th>项目名称 / Description</th>
+                    <th class="num-col" style="width: 100px;">单价 (Price)</th>
+                    <th class="num-col" style="width: 80px;">数量 (Qty)</th>
+                    <th class="num-col" style="width: 120px;">金额 (Amount)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>
+                      <strong>云端智算实例服务 (WASM Cloud Core)</strong><br>
+                      <span style="font-size: 0.75rem; color: var(--text-tertiary);">GPU v100-80G clusters, July
+                        usage</span>
+                    </td>
+                    <td class="num-col">¥8,500.00</td>
+                    <td class="num-col">4</td>
+                    <td class="num-col">¥34,000.00</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>神经网络编译器定制开发 (Compiler Optimization)</strong><br>
+                      <span style="font-size: 0.75rem; color: var(--text-tertiary);">Technical Consulting & Engineering
+                        hours</span>
+                    </td>
+                    <td class="num-col">¥12,000.00</td>
+                    <td class="num-col">1</td>
+                    <td class="num-col">¥12,000.00</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>存储资源扩展服务 (Persistent Volume Storage)</strong><br>
+                      <span style="font-size: 0.75rem; color: var(--text-tertiary);">10TB High-performance NVMe block
+                        storage</span>
+                    </td>
+                    <td class="num-col">¥1,200.00</td>
+                    <td class="num-col">2</td>
+                    <td class="num-col">¥2,400.00</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <!-- Total values -->
+              <div class="invoice-total-block"
+                style="font-family: 'SourceHanSansSC-Regular', var(--font-ui), sans-serif;">
+                <div class="invoice-total-row">
+                  <span>小计金额 (Subtotal)</span>
+                  <span style="font-family: var(--font-mono);">¥48,400.00</span>
+                </div>
+                <div class="invoice-total-row">
+                  <span>增值税额 (Tax 6%)</span>
+                  <span style="font-family: var(--font-mono);">¥2,904.00</span>
+                </div>
+                <div class="invoice-total-row grand">
+                  <span>应付总计 (Total Due)</span>
+                  <span style="font-family: var(--font-mono); color: #1c1917;">¥51,304.00</span>
+                </div>
+              </div>
+
+              <!-- Footer with stamp -->
+              <div class="invoice-footer" style="font-family: 'SourceHanSansSC-Regular', var(--font-ui), sans-serif;">
+                <div>
+                  <p>收款银行：中国建设银行北京中关村分行</p>
+                  <p>银行账号：6228 4800 1234 5678 901</p>
+                  <p style="margin-top: 0.5rem; color: var(--text-tertiary); font-size: 0.7rem;">
+                    注：付款时请务必备注发票号，以便财务及时对账核销。</p>
+                </div>
+                <div class="invoice-stamp">
+                  极智科技<br>财务专用章
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Panel: PDF Viewer and Details Tabs -->
+      <div class="playground-card">
+        <div class="preview-tabs">
+          <!-- <button class="tab-btn active" id="tab-btn-preview" onclick="switchPreviewTab('preview')">PDF 预览窗口</button> -->
+          <button class="tab-btn active" id="tab-btn-specs" onclick="switchPreviewTab('specs')">引擎架构差异</button>
+          <button class="tab-btn" id="tab-btn-code" onclick="switchPreviewTab('code')">示例代码</button>
+        </div>
+
+        <!-- Tab 1: Live PDF iframe preview (disabled, replaced by local download) -->
+        <!--
+        <div class="pdf-preview-container" id="panel-preview">
+          <div class="pdf-placeholder" id="pdf-placeholder">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+            </svg>
+            <p>等待 PDF 文件生成<br><span style="font-size: 0.8rem; color: var(--text-secondary);">点击上方“运行”或“启动基准测试”按钮</span>
+            </p>
+          </div>
+          <iframe class="pdf-iframe" id="pdf-iframe" style="display: none;"></iframe>
+        </div>
+        -->
+
+        <!-- Tab 2: Feature comparisons specs table -->
+        <div class="info-container active" id="panel-specs">
+          <table class="specs-table">
+            <thead>
+              <tr>
+                <th>技术特征</th>
+                <th>dompdf.js (WASM 版)</th>
+                <th>html2pdf.js</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>技术机制</strong></td>
+                <td>Rust + WASM + Web Worker 后台转换</td>
+                <td>html2canvas 渲染像素 + jsPDF 拼接</td>
+              </tr>
+              <tr>
+                <td><strong>渲染输出</strong></td>
+                <td>原生 PDF 矢量元指令 (纯矢量图文)</td>
+                <td>栅格图片嵌入 (截图合成)</td>
+              </tr>
+              <tr>
+                <td><strong>文本选择与检索</strong></td>
+                <td><span class="feature-yes">原生支持</span> (可拖拽选中、全文复制/搜索)</td>
+                <td><span class="feature-no">不支持</span> (输出为纯图片)</td>
+              </tr>
+              <tr>
+                <td><strong>缩放清晰度</strong></td>
+                <td><span class="feature-yes">无损缩放</span> (任意分辨率打印保持极清)</td>
+                <td><span class="feature-no">放大失真</span> (受截图分辨率限制)</td>
+              </tr>
+              <tr>
+                <td><strong>分页渲染极限</strong></td>
+                <td><span class="feature-yes">不受限制</span> (内存允许可渲染数千页)</td>
+                <td><span class="feature-no">受限</span> (受 Canvas 浏览器像素上限限制)</td>
+              </tr>
+              <tr>
+                <td><strong>UI 线程卡顿</strong></td>
+                <td><span class="feature-yes">无感</span> (在独立 Worker 后台运算)</td>
+                <td><span class="feature-no">严重卡顿</span> (截图与像素读取会阻塞主线程)</td>
+              </tr>
+              <tr>
+                <td><strong>中文字体嵌入</strong></td>
+                <td><span class="feature-yes">支持</span> (支持 TTF 字体子集化打包嵌入)</td>
+                <td><span class="feature-no">无需</span> (但输出实际为文本图像)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Tab 3: Code examples display -->
+        <div class="info-container" id="panel-code">
+          <h4
+            style="margin-bottom: 0.5rem; font-size: 0.85rem; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.05em;">
+            dompdf.js 调用示例 (WASM 模式)</h4>
+          <div style="position: relative;">
+            <button class="copy-btn" onclick="copyCode('code-dompdf')">复制</button>
+            <pre class="code-wrapper" id="code-dompdf">
+<span class="token-keyword">const</span> element = document.<span class="token-function">querySelector</span>(<span class="token-string">'#capture-area'</span>);
+
+<span class="token-comment">// 准备字体配置 (仅在中英文混合电子发票且已加载字体时配置)</span>
+<span class="token-keyword">const</span> fontConfig = window.customFontBytes ? {
+  fontFamily: <span class="token-string">'SourceHanSansSC-Regular'</span>,
+  fontBytes: window.customFontBytes,
+  fontStyle: <span class="token-string">'normal'</span>,
+  fontWeight: <span class="token-number">400</span>
+} : <span class="token-keyword">undefined</span>;
+
+<span class="token-keyword">const</span> options = {
+  pagination: <span class="token-keyword">true</span>,            <span class="token-comment">// 开启自动分页</span>
+  format: <span class="token-string">'a4'</span>,                <span class="token-comment">// A4标准尺寸</span>
+  useCORS: <span class="token-keyword">true</span>,               <span class="token-comment">// 支持跨域图片加载</span>
+  compress: <span id="code-val-compress" class="token-keyword">true</span>,              <span class="token-comment">// 压缩开关</span>
+  putOnlyUsedFonts: <span id="code-val-subset" class="token-keyword">true</span>,      <span class="token-comment">// 仅嵌入所用字形字重</span>
+  fontConfig: fontConfig       <span class="token-comment">// 注入字体</span>
+};
+
+window.<span class="token-function">dompdf</span>(element, options)
+  .<span class="token-function">then</span>(blob => {
+    <span class="token-keyword">const</span> blobUrl = URL.<span class="token-function">createObjectURL</span>(blob);
+    iframe.src = blobUrl;
+  })
+  .<span class="token-function">catch</span>(err => console.<span class="token-function">error</span>(err));</pre>
+          </div>
+
+          <h4
+            style="margin-bottom: 0.5rem; font-size: 0.85rem; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 1.5rem;">
+            html2pdf.js 调用示例</h4>
+          <div style="position: relative;">
+            <button class="copy-btn" onclick="copyCode('code-html2pdf')">复制</button>
+            <pre class="code-wrapper" id="code-html2pdf">
+<span class="token-comment">// 引入 html2pdf.js，通过配置 html2canvas 与 jsPDF 完成生成</span>
+<span class="token-keyword">const</span> element = document.<span class="token-function">querySelector</span>(<span class="token-string">'#capture-area'</span>);
+
+<span class="token-keyword">const</span> opt = {
+  margin: <span class="token-number">0</span>,
+  filename: <span class="token-string">'html2pdf-export.pdf'</span>,
+  image: { type: <span class="token-string">'jpeg'</span>, quality: <span class="token-number">2</span> },
+  html2canvas: { 
+    scale: <span class="token-number">2</span>,           <span class="token-comment">// 决定渲染分辨率</span>
+    useCORS: <span class="token-keyword">true</span>, 
+    logging: <span class="token-keyword">false</span>,
+    scrollY: <span class="token-number">0</span>,         <span class="token-comment">// 解决网页滚动时 HTML 截图向下偏移的问题</span>
+    scrollX: <span class="token-number">0</span>
+  },
+  jsPDF: { 
+    unit: <span class="token-string">'pt'</span>, 
+    format: <span class="token-string">'a4'</span>, 
+    orientation: <span class="token-string">'portrait'</span> 
+  },
+  pagebreak: { 
+    mode: [<span class="token-string">'css'</span>, <span class="token-string">'legacy'</span>],
+    avoid: [<span class="token-string">'tr'</span>, <span class="token-string">'h1'</span>, <span class="token-string">'h2'</span>, <span class="token-string">'h3'</span>, <span class="token-string">'.report-stat-card'</span>, <span class="token-string">'.report-chart-container'</span>, <span class="token-string">'.invoice-details-grid &gt; div'</span>, <span class="token-string">'[divisionDisable]'</span>]
+  }
+};
+
+<span class="token-function">html2pdf</span>()
+  .<span class="token-function">from</span>(element)
+  .<span class="token-function">set</span>(opt)
+  .<span class="token-function">output</span>(<span class="token-string">'blob'</span>)
+  .<span class="token-function">then</span>(blob => {
+    <span class="token-comment">// 渲染生成图片拼贴型 PDF</span>
+    <span class="token-keyword">const</span> blobUrl = URL.<span class="token-function">createObjectURL</span>(blob);
+    iframe.src = blobUrl;
+  });</pre>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Client Script -->
+  <script>
+    // System States
+    let activeTemplate = 'report';
+    let customFontBytes = null;
+    let generatedBlobs = {
+      dompdf: null,
+      html2pdf: null
+    };
+
+    // Initialize Page
+    document.addEventListener("DOMContentLoaded", () => {
+      switchTemplate('report');
+      loadFont();
+    });
+
+    // Switch Template
+    function switchTemplate(type) {
+      activeTemplate = type;
+
+      // Toggle visibility
+      document.getElementById('template-report').classList.remove('active');
+      document.getElementById('template-invoice').classList.remove('active');
+
+      const element = document.getElementById(`template-${type}`);
+      element.classList.add('active');
+
+      // Toggle dynamic controls panel visibility
+      const ctrl = document.getElementById('report-controls-panel');
+      if (ctrl) {
+        ctrl.style.display = (type === 'report') ? 'flex' : 'none';
+      }
+
+      // Clear previous generated PDF states
+      generatedBlobs = { dompdf: null, html2pdf: null };
+
+      // Update UI placeholders
+      document.getElementById('pdf-iframe').style.display = 'none';
+      document.getElementById('pdf-placeholder').style.display = 'flex';
+
+      // Reset metrics display
+      resetMetricTexts();
+      switchPreviewTab('preview');
+      updateOptionsTip();
+      if (type === 'report') {
+        updatePageCounter();
+      }
+    }
+
+    // Reset Metrics Panel UI
+    function resetMetricTexts() {
+      document.getElementById('speed-dompdf').innerText = '--';
+      document.getElementById('speed-html2pdf').innerText = '--';
+      document.getElementById('size-dompdf').innerText = '--';
+      document.getElementById('size-html2pdf').innerText = '--';
+
+      document.getElementById('quality-dompdf').innerText = '--';
+      document.getElementById('quality-html2pdf').innerText = '--';
+
+      document.getElementById('speed-bar-dompdf').style.width = '0%';
+      document.getElementById('speed-bar-html2pdf').style.width = '0%';
+      document.getElementById('size-bar-dompdf').style.width = '0%';
+      document.getElementById('size-bar-html2pdf').style.width = '0%';
+
+      const speedDelta = document.getElementById('speed-delta');
+      speedDelta.className = 'stat-delta-badge delta-neutral';
+      speedDelta.innerText = '等待测试数据';
+
+      const sizeDelta = document.getElementById('size-delta');
+      sizeDelta.className = 'stat-delta-badge delta-neutral';
+      sizeDelta.innerText = '等待测试数据';
+    }
+
+    // Switch Preview Tab inside Right Panel
+    function switchPreviewTab(tab) {
+      // Preview panel has been disabled (PDF now downloads to local disk).
+      // Fall back to specs tab if preview is requested.
+      if (tab === 'preview') tab = 'specs';
+
+      // Toggle Tab Buttons (preview button is commented out, guard with null check)
+      const btnPreview = document.getElementById('tab-btn-preview');
+      if (btnPreview) btnPreview.classList.toggle('active', tab === 'preview');
+      document.getElementById('tab-btn-specs').classList.toggle('active', tab === 'specs');
+      document.getElementById('tab-btn-code').classList.toggle('active', tab === 'code');
+
+      // Toggle Panels (preview panel may be commented out, guard with null check)
+      const panelPreview = document.getElementById('panel-preview');
+      if (panelPreview) panelPreview.style.display = (tab === 'preview') ? 'flex' : 'none';
+      document.getElementById('panel-specs').classList.toggle('active', tab === 'specs');
+      document.getElementById('panel-code').classList.toggle('active', tab === 'code');
+    }
+
+    // Update code output dynamic configuration in visual JS code blocks
+    function updateOptionsTip() {
+      const compress = document.getElementById('dompdf-compress').checked;
+      const subset = document.getElementById('dompdf-subset').checked;
+
+      const compressVal = document.getElementById('code-val-compress');
+      const subsetVal = document.getElementById('code-val-subset');
+
+      if (compressVal) {
+        compressVal.innerText = compress;
+      }
+      if (subsetVal) {
+        subsetVal.innerText = subset;
+      }
+    }
+
+    // Load local font file examples/SourceHanSansSC-Regular.ttf
+    async function loadFont() {
+      const dot = document.getElementById('font-status-dot');
+      const text = document.getElementById('font-status-text');
+
+      dot.className = 'status-dot loading';
+      text.innerText = '载入思源黑体 (4.6MB)...';
+
+      try {
+        // Fetch TTF locally
+        const res = await fetch('SourceHanSansSC-Regular.ttf');
+        if (!res.ok) {
+          throw new Error('Local font not found (HTTP Status ' + res.status + ')');
+        }
+        const ab = await res.arrayBuffer();
+        customFontBytes = new Uint8Array(ab);
+        window.customFontBytes = customFontBytes; // share globally
+
+        dot.className = 'status-dot success';
+        text.innerText = '中文矢量字体载入成功';
+      } catch (err) {
+        console.warn('Could not load custom TTF font:', err);
+        dot.className = 'status-dot error';
+        text.innerText = '字体加载失败 (中文系统将回落)';
+      }
+    }
+
+    // Main PDF Generation Router
+    async function generatePDF(engine) {
+      const sourceElement = document.getElementById(`template-${activeTemplate}`);
+      const startTime = performance.now();
+      let blob = null;
+
+      try {
+        if (engine === 'dompdf') {
+          // We will clone the node to render a clean DOM.
+          const printClone = sourceElement.cloneNode(true);
+
+          // If report template, remove separator line in the print Clone
+          const sep = printClone.querySelector('#sep-report');
+          if (sep) sep.remove();
+
+          // Ensure the cloned node is appended to body invisibly so layouts calculate correctly
+          printClone.style.position = 'absolute';
+          printClone.style.left = '-9999px';
+          printClone.style.top = '-9999px';
+          printClone.style.display = 'block'; // Make it compute layout geometry correctly
+          document.body.appendChild(printClone);
+
+          try {
+            // Prepare Options
+            const options = {
+              pagination: true,
+              format: 'a4',
+              useCORS: true,
+              compress: document.getElementById('dompdf-compress').checked,
+              putOnlyUsedFonts: document.getElementById('dompdf-subset').checked,
+            };
+
+            // Assign Font only if we are using the Chinese/English template
+            if (activeTemplate === 'invoice' && customFontBytes) {
+              options.fontConfig = {
+                fontFamily: 'SourceHanSansSC-Regular',
+                fontBytes: customFontBytes,
+                fontStyle: 'normal',
+                fontWeight: 400
+              };
+            }
+
+            blob = await window.dompdf(printClone, options);
+          } finally {
+            // Clean up cloned node
+            if (printClone.parentNode) {
+              document.body.removeChild(printClone);
+            }
+          }
+        } else if (engine === 'html2pdf') {
+          if (typeof html2pdf === 'undefined') {
+            throw new Error('html2pdf library failed to load from CDN. Check network.');
+          }
+
+          // Temporarily hide the visual page break separator so it doesn't print
+          const sep = sourceElement.querySelector('#sep-report');
+          if (sep) sep.style.display = 'none';
+
+          // Prevent container scrolling offset in html2canvas calculations
+          const wrapper = document.getElementById('source-wrapper');
+          const originalScrollTop = wrapper ? wrapper.scrollTop : 0;
+          if (wrapper) wrapper.scrollTop = 0;
+
+          try {
+            const opt = {
+              margin: 0,
+              filename: 'html2pdf-export.pdf',
+              image: { type: 'jpeg', quality: 2 },
+              html2canvas: {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                scrollY: 0,  // Forces html2canvas to render at scroll coordinate 0
+                scrollX: 0
+              },
+              jsPDF: { unit: 'pt', format: 'a4', orientation: 'portrait' },
+              pagebreak: {
+                mode: ['css', 'legacy'],
+                avoid: ['tr', 'h1', 'h2', 'h3', '.report-stat-card', '.report-chart-container', '.invoice-details-grid > div', '[divisionDisable]']
+              }
+            };
+
+            // Pass sourceElement directly: html2pdf will clone it internally
+            // inside its own correctly positioned sandbox.
+            blob = await html2pdf().from(sourceElement).set(opt).output('blob');
+          } finally {
+            // Restore visual separator on the screen
+            if (sep) sep.style.display = 'block';
+            if (wrapper) wrapper.scrollTop = originalScrollTop;
+          }
+        }
+
+        const endTime = performance.now();
+        const duration = endTime - startTime;
+
+        // Save output blob
+        generatedBlobs[engine] = {
+          blob: blob,
+          time: duration,
+          size: blob.size
+        };
+
+        // Download the generated PDF to local disk with a library-specific filename
+        downloadBlob(blob, engine);
+
+        // Update single engine metrics
+        updateMetricsUI(engine);
+        switchPreviewTab('specs');
+
+      } catch (err) {
+        alert(`渲染失败 (${engine}): ` + err.message);
+        console.error(err);
+      }
+    }
+
+    // Download a Blob as a local file, filename distinguishes the generating engine
+    function downloadBlob(blob, engine) {
+      const filename = engine === 'dompdf'
+        ? `dompdf-${Date.now()}.pdf`
+        : `html2pdf-${Date.now()}.pdf`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      // Revoke on next tick so the download has a chance to start
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    }
+
+    // Update single-engine metrics details in UI
+    function updateMetricsUI(engine) {
+      const data = generatedBlobs[engine];
+      if (!data) return;
+
+      const sizeStr = formatBytes(data.size);
+      const timeStr = formatDuration(data.time);
+
+      if (engine === 'dompdf') {
+        document.getElementById('speed-dompdf').innerText = timeStr;
+        document.getElementById('size-dompdf').innerText = sizeStr;
+        document.getElementById('quality-dompdf').innerText = '矢量文本 (可复制搜索)';
+      } else {
+        document.getElementById('speed-html2pdf').innerText = timeStr;
+        document.getElementById('size-html2pdf').innerText = sizeStr;
+        document.getElementById('quality-html2pdf').innerText = '图片像素 (不可复制)';
+      }
+
+      // If both benchmarks are completed, calculate differences
+      if (generatedBlobs.dompdf && generatedBlobs.html2pdf) {
+        calculateDeltas();
+      }
+    }
+
+    // Run Both back-to-back
+    async function runBenchmark() {
+      resetMetricTexts();
+
+      // Run dompdf.js
+      await new Promise(r => setTimeout(r, 100)); // allow render frame loop
+      await generatePDF('dompdf');
+
+      // Run html2pdf.js
+      await new Promise(r => setTimeout(r, 100));
+      await generatePDF('html2pdf');
+
+      switchPreviewTab('specs');
+    }
+
+    // Calculate delta and draw visual bars
+    function calculateDeltas() {
+      const d = generatedBlobs.dompdf;
+      const h = generatedBlobs.html2pdf;
+
+      // Speed Delta Calculation
+      const speedRatio = h.time / d.time;
+      const speedDelta = document.getElementById('speed-delta');
+      if (speedRatio > 1) {
+        speedDelta.className = 'stat-delta-badge delta-positive';
+        speedDelta.innerText = `⚡️ dompdf.js 快了 ${(speedRatio).toFixed(1)} 倍`;
+      } else {
+        speedDelta.className = 'stat-delta-badge delta-neutral';
+        speedDelta.innerText = `🐌 html2pdf 快了 ${(1 / speedRatio).toFixed(1)} 倍`;
+      }
+
+      // Speed Visualization Bar
+      const totalTime = d.time + h.time;
+      const dSpeedPct = Math.max(10, Math.min(90, (d.time / totalTime) * 100));
+      const hSpeedPct = 100 - dSpeedPct;
+      document.getElementById('speed-bar-dompdf').style.width = `${dSpeedPct}%`;
+      document.getElementById('speed-bar-html2pdf').style.width = `${hSpeedPct}%`;
+
+      // Size Delta Calculation
+      const sizeDiffPct = ((h.size - d.size) / h.size) * 100;
+      const sizeDelta = document.getElementById('size-delta');
+      if (sizeDiffPct > 0) {
+        sizeDelta.className = 'stat-delta-badge delta-positive';
+        sizeDelta.innerText = `📉 dompdf.js 体积缩减 了 ${sizeDiffPct.toFixed(1)}%`;
+      } else {
+        sizeDelta.className = 'stat-delta-badge delta-neutral';
+        sizeDelta.innerText = `📈 dompdf.js 体积增加 了 ${(-sizeDiffPct).toFixed(1)}%`;
+      }
+
+      // Size Visualization Bar
+      const totalSize = d.size + h.size;
+      const dSizePct = Math.max(10, Math.min(90, (d.size / totalSize) * 100));
+      const hSizePct = 100 - dSizePct;
+      document.getElementById('size-bar-dompdf').style.width = `${dSizePct}%`;
+      document.getElementById('size-bar-html2pdf').style.width = `${hSizePct}%`;
+    }
+
+    // Format Byte size to readable string
+    function formatBytes(bytes) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    // Format duration in ms to readable string
+    function formatDuration(ms) {
+      if (ms < 1000) {
+        return ms.toFixed(1) + ' ms';
+      } else {
+        return (ms / 1000).toFixed(2) + ' s';
+      }
+    }
+
+    // Code copier utility
+    function copyCode(elementId) {
+      const codeText = document.getElementById(elementId).innerText;
+      navigator.clipboard.writeText(codeText)
+        .then(() => {
+          const btn = document.querySelector(`#${elementId} ~ .copy-btn`);
+          const originalText = btn.innerText;
+          btn.innerText = '已复制!';
+          btn.style.color = '#34d399';
+          setTimeout(() => {
+            btn.innerText = originalText;
+            btn.style.color = '';
+          }, 1500);
+        })
+        .catch(err => {
+          alert('复制失败，请手动选择复制。');
+        });
+    }
+
+    // Dynamic Sample Content Addition Helper Functions
+    function addSampleText() {
+      const container = document.getElementById('dynamic-sample-content');
+      if (!container) return;
+
+      const count = container.querySelectorAll('.added-section').length + 1;
+      const section = document.createElement('div');
+      section.className = 'added-section';
+      section.setAttribute('divisionDisable', '');
+      section.style.marginTop = '1.5rem';
+
+      section.innerHTML = `
+        <h3 style="font-size: 0.85rem; font-family: var(--font-serif); font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;">Section ${count}: Operational Analysis Briefing</h3>
+        <p style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 0.5rem;">
+          Our continuous optimization framework has yielded additional efficiency gains in cluster scheduling and cache validation overhead. 
+          By deploying standard vector engines across our edge networks, latency variability has been reduced by 18.4% globally.
+        </p>
+        <p style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.6;">
+          Operational capacity planning models forecast steady growth in storage metrics. We recommend increasing infrastructure allocations
+          to offset localized demand anomalies.
+        </p>
+      `;
+      container.appendChild(section);
+      updatePageCounter();
+    }
+
+    function addSampleTable() {
+      const container = document.getElementById('dynamic-sample-content');
+      if (!container) return;
+
+      const count = container.querySelectorAll('.added-table').length + 1;
+      const section = document.createElement('div');
+      section.className = 'added-table';
+      section.setAttribute('divisionDisable', '');
+      section.style.marginTop = '1.5rem';
+
+      section.innerHTML = `
+        <h3 style="font-size: 0.85rem; font-family: var(--font-serif); font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;">Data Table ${count}: Regional Compute SLA Metrics</h3>
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.7rem; color: var(--text-primary); border: 1px solid var(--border-color);">
+          <thead>
+            <tr style="background: #f8fafc; border-bottom: 1px solid var(--border-color);">
+              <th style="padding: 6px; text-align: left; border: 1px solid var(--border-color); font-weight: 700;">Zone</th>
+              <th style="padding: 6px; text-align: right; border: 1px solid var(--border-color); font-weight: 700;">Load factor</th>
+              <th style="padding: 6px; text-align: right; border: 1px solid var(--border-color); font-weight: 700;">Fail Rate</th>
+              <th style="padding: 6px; text-align: center; border: 1px solid var(--border-color); font-weight: 700;">SLA</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="padding: 6px; border: 1px solid var(--border-color); font-weight: 600;">Zone-A North</td>
+              <td style="padding: 6px; text-align: right; border: 1px solid var(--border-color);">84.2%</td>
+              <td style="padding: 6px; text-align: right; border: 1px solid var(--border-color); color: var(--success);">0.01%</td>
+              <td style="padding: 6px; text-align: center; border: 1px solid var(--border-color); font-weight: 700; color: var(--success);">Optimal</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px; border: 1px solid var(--border-color); font-weight: 600;">Zone-C East</td>
+              <td style="padding: 6px; text-align: right; border: 1px solid var(--border-color);">91.5%</td>
+              <td style="padding: 6px; text-align: right; border: 1px solid var(--border-color); color: #b45309;">0.08%</td>
+              <td style="padding: 6px; text-align: center; border: 1px solid var(--border-color); font-weight: 700; color: #b45309;">Warning</td>
+            </tr>
+          </tbody>
+        </table>
+      `;
+      container.appendChild(section);
+      updatePageCounter();
+    }
+
+    function addSampleChart() {
+      const container = document.getElementById('dynamic-sample-content');
+      if (!container) return;
+
+      const count = container.querySelectorAll('.added-chart').length + 1;
+      const section = document.createElement('div');
+      section.className = 'added-chart';
+      section.setAttribute('divisionDisable', '');
+      section.style.marginTop = '1.5rem';
+
+      section.innerHTML = `
+        <h3 style="font-size: 0.85rem; font-family: var(--font-serif); font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;">Visual Indicator ${count}: Load Distribution</h3>
+        <div style="border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; background: #fafaf9;">
+          <div style="margin-bottom: 8px;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: #475569; margin-bottom: 3px;">
+              <span style="font-weight: 600;">Cluster Core load</span><span style="font-family: var(--font-mono);">88%</span>
+            </div>
+            <div style="height: 6px; background: #e7e5e4; border-radius: 3px; overflow: hidden;">
+              <div style="width: 88%; height: 100%; background: linear-gradient(90deg, #6366f1, #818cf8); border-radius: 3px;"></div>
+            </div>
+          </div>
+          <div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: #475569; margin-bottom: 3px;">
+              <span style="font-weight: 600;">Memory consumption</span><span style="font-family: var(--font-mono);">64%</span>
+            </div>
+            <div style="height: 6px; background: #e7e5e4; border-radius: 3px; overflow: hidden;">
+              <div style="width: 64%; height: 100%; background: linear-gradient(90deg, #10b981, #34d399); border-radius: 3px;"></div>
+            </div>
+          </div>
+        </div>
+      `;
+      container.appendChild(section);
+      updatePageCounter();
+    }
+
+    function addBatchContent() {
+      const container = document.getElementById('dynamic-sample-content');
+      if (!container) return;
+
+      const typeSelect = document.getElementById('batch-content-type');
+      const countInput = document.getElementById('batch-count');
+      const type = typeSelect ? typeSelect.value : 'mixed';
+      const count = Math.max(1, Math.min(500, parseInt(countInput ? countInput.value : 10, 10) || 1));
+
+      // Decide the sequence of item types for this batch.
+      const sequence = [];
+      for (let i = 0; i < count; i++) {
+        if (type === 'mixed') {
+          sequence.push(['text', 'table', 'chart'][i % 3]);
+        } else {
+          sequence.push(type);
+        }
+      }
+
+      // Build all nodes into a DocumentFragment first, then append once.
+      const fragment = document.createDocumentFragment();
+      const builders = {
+        text: buildSampleTextNode,
+        table: buildSampleTableNode,
+        chart: buildSampleChartNode
+      };
+
+      sequence.forEach((kind) => {
+        const builder = builders[kind];
+        if (builder) fragment.appendChild(builder());
+      });
+
+      container.appendChild(fragment);
+      updatePageCounter();
+    }
+
+    // Factories used by addBatchContent so nodes can be built without touching the DOM one-by-one.
+    function buildSampleTextNode() {
+      const container = document.getElementById('dynamic-sample-content');
+      const count = container ? container.querySelectorAll('.added-section').length + 1 : 1;
+      const section = document.createElement('div');
+      section.className = 'added-section';
+      section.setAttribute('divisionDisable', '');
+      section.style.marginTop = '1.5rem';
+      section.innerHTML = `
+        <h3 style="font-size: 0.85rem; font-family: var(--font-serif); font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;">Section ${count}: Operational Analysis Briefing</h3>
+        <p style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 0.5rem;">
+          Our continuous optimization framework has yielded additional efficiency gains in cluster scheduling and cache validation overhead. 
+          By deploying standard vector engines across our edge networks, latency variability has been reduced by 18.4% globally.
+        </p>
+        <p style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.6;">
+          Operational capacity planning models forecast steady growth in storage metrics. We recommend increasing infrastructure allocations
+          to offset localized demand anomalies.
+        </p>
+      `;
+      return section;
+    }
+
+    function buildSampleTableNode() {
+      const container = document.getElementById('dynamic-sample-content');
+      const count = container ? container.querySelectorAll('.added-table').length + 1 : 1;
+      const section = document.createElement('div');
+      section.className = 'added-table';
+      section.setAttribute('divisionDisable', '');
+      section.style.marginTop = '1.5rem';
+      section.innerHTML = `
+        <h3 style="font-size: 0.85rem; font-family: var(--font-serif); font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;">Data Table ${count}: Regional Compute SLA Metrics</h3>
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.7rem; color: var(--text-primary); border: 1px solid var(--border-color);">
+          <thead>
+            <tr style="background: #f8fafc; border-bottom: 1px solid var(--border-color);">
+              <th style="padding: 6px; text-align: left; border: 1px solid var(--border-color); font-weight: 700;">Zone</th>
+              <th style="padding: 6px; text-align: right; border: 1px solid var(--border-color); font-weight: 700;">Load factor</th>
+              <th style="padding: 6px; text-align: right; border: 1px solid var(--border-color); font-weight: 700;">Fail Rate</th>
+              <th style="padding: 6px; text-align: center; border: 1px solid var(--border-color); font-weight: 700;">SLA</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="padding: 6px; border: 1px solid var(--border-color); font-weight: 600;">Zone-A North</td>
+              <td style="padding: 6px; text-align: right; border: 1px solid var(--border-color);">84.2%</td>
+              <td style="padding: 6px; text-align: right; border: 1px solid var(--border-color); color: var(--success);">0.01%</td>
+              <td style="padding: 6px; text-align: center; border: 1px solid var(--border-color); font-weight: 700; color: var(--success);">Optimal</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px; border: 1px solid var(--border-color); font-weight: 600;">Zone-C East</td>
+              <td style="padding: 6px; text-align: right; border: 1px solid var(--border-color);">91.5%</td>
+              <td style="padding: 6px; text-align: right; border: 1px solid var(--border-color); color: var(--success);">0.03%</td>
+              <td style="padding: 6px; text-align: center; border: 1px solid var(--border-color); font-weight: 700; color: var(--success);">Optimal</td>
+            </tr>
+          </tbody>
+        </table>
+      `;
+      return section;
+    }
+
+    function buildSampleChartNode() {
+      const container = document.getElementById('dynamic-sample-content');
+      const count = container ? container.querySelectorAll('.added-chart').length + 1 : 1;
+      const section = document.createElement('div');
+      section.className = 'added-chart';
+      section.setAttribute('divisionDisable', '');
+      section.style.marginTop = '1.5rem';
+      section.innerHTML = `
+        <h3 style="font-size: 0.85rem; font-family: var(--font-serif); font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;">Visual Indicator ${count}: Load Distribution</h3>
+        <div style="border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; background: #fafaf9;">
+          <div style="margin-bottom: 8px;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: #475569; margin-bottom: 3px;">
+              <span style="font-weight: 600;">Cluster Core load</span><span style="font-family: var(--font-mono);">88%</span>
+            </div>
+            <div style="height: 6px; background: #e7e5e4; border-radius: 3px; overflow: hidden;">
+              <div style="width: 88%; height: 100%; background: linear-gradient(90deg, #6366f1, #818cf8); border-radius: 3px;"></div>
+            </div>
+          </div>
+          <div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: #475569; margin-bottom: 3px;">
+              <span style="font-weight: 600;">Memory consumption</span><span style="font-family: var(--font-mono);">64%</span>
+            </div>
+            <div style="height: 6px; background: #e7e5e4; border-radius: 3px; overflow: hidden;">
+              <div style="width: 64%; height: 100%; background: linear-gradient(90deg, #10b981, #34d399); border-radius: 3px;"></div>
+            </div>
+          </div>
+        </div>
+      `;
+      return section;
+    }
+
+    function clearAddedSampleContent() {
+      const container = document.getElementById('dynamic-sample-content');
+      if (container) {
+        container.innerHTML = '';
+      }
+      updatePageCounter();
+    }
+
+    function updatePageCounter() {
+      const report = document.getElementById('template-report');
+      const badge = document.getElementById('page-counter-badge');
+      if (report && badge) {
+        const height = report.scrollHeight;
+        const pageCount = (height / 1123).toFixed(1);
+        badge.innerText = `当前：约 ${pageCount} 页 A4`;
+      }
+    }
+  </script>
+</body>
+
+</html>
