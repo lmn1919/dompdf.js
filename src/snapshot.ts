@@ -1837,6 +1837,10 @@ export async function collectSnapshotData(
     });
   }
 
+  // Map from row group elements (THEAD/TBODY/TFOOT) to their deferred rowspan cells.
+  // Used to fix table rowspan rendering order — see the comment in visit().
+  const rowGroupDeferredCells = new Map<HTMLElement, Array<{ cell: HTMLElement }>>();
+
   async function visit(el: HTMLElement, parentId: number): Promise<void> {
     const id = nodes.length;
     const cs = getComputedStyle(el);
@@ -1906,8 +1910,11 @@ export async function collectSnapshotData(
     // background-raster elements bake their whole background (incl. gradients and
     // ::before) into a backdrop image via foreignObject below. The vector box must
     // NOT carry a separate bg fill, or the PDF side will paint a second opaque rect
-    // on top, doubling up on the already-rasterized background.
-    const hasBg = bg[3] > 0.001 && strategy !== 'background-raster';
+    // on top, doubling up on the already-rasterized background. However, a simple
+    // solid color background (no gradient/url) is cheaper and more accurate to
+    // paint as a vector rect; only complex backgrounds need the raster exclusion.
+    const hasBg = bg[3] > 0.001
+      && (strategy !== 'background-raster' || !hasComplexBackground(cs));
     // background-raster elements bake their whole background (incl. gradients) via
     // foreignObject below, so skip the gradient→image path to avoid a double backdrop.
     const gradientImage = !isImg && kind === 0 && r.w > 0 && r.h > 0 && strategy !== 'background-raster'
@@ -2059,9 +2066,37 @@ export async function collectSnapshotData(
       }
     }
 
+    // --- Table rowspan fix ---
+    // In HTML table rendering, cell backgrounds paint on top of row backgrounds.
+    // However, in our flat tree walk, a subsequent <tr>'s background can cover
+    // rowspan cells from a previous <tr>. To fix this, when visiting a table row
+    // group (THEAD/TBODY/TFOOT), we defer <td>/<th> children with rowspan > 1
+    // and visit them AFTER all <tr> siblings, so they paint on top.
+    const isRowGroup = el.tagName === 'THEAD' || el.tagName === 'TBODY' || el.tagName === 'TFOOT' || el.tagName === 'TABLE';
+
     for (let child = el.firstChild; child; child = child.nextSibling) {
       if (child.nodeType === 1) {
-        await visit(child as HTMLElement, id);
+        const childEl = child as HTMLElement;
+        // When visiting a <tr>, skip <td>/<th> with rowspan > 1 and collect them
+        // for deferred painting at the row-group level.
+        if (el.tagName === 'TR' && (childEl.tagName === 'TD' || childEl.tagName === 'TH')) {
+          const rowspan = (childEl as HTMLTableCellElement).rowSpan;
+          if (rowspan > 1) {
+            // Find the ancestor row group to defer this cell to. The cell will
+            // be visited as a direct child of the row group so it paints after
+            // all rows, letting its background cover row backgrounds below it.
+            const rowGroup = el.parentElement;
+            if (rowGroup && (rowGroup.tagName === 'THEAD' || rowGroup.tagName === 'TBODY' || rowGroup.tagName === 'TFOOT' || rowGroup.tagName === 'TABLE')) {
+              // Store a reference; the row group's visit will handle it.
+              if (!rowGroupDeferredCells.has(rowGroup)) {
+                rowGroupDeferredCells.set(rowGroup, []);
+              }
+              rowGroupDeferredCells.get(rowGroup)!.push({ cell: childEl });
+              continue;
+            }
+          }
+        }
+        await visit(childEl, id);
       } else if (child.nodeType === 3) {
         const textNode = child as Text;
         const text = textNode.data;
@@ -2138,6 +2173,18 @@ export async function collectSnapshotData(
           // extractors keep `Tr 3` text but ignore fully transparent glyphs.
           pushTextNode(id, font, run.text, hiddenLines, undefined, 3);
         }
+      }
+    }
+
+    // After visiting all children of a row group (THEAD/TBODY/TFOOT),
+    // visit the deferred rowspan > 1 cells as direct children of the row group.
+    // They are painted last so they render ON TOP of all <tr> backgrounds,
+    // matching browser rendering order.
+    if (isRowGroup && rowGroupDeferredCells.has(el)) {
+      const deferred = rowGroupDeferredCells.get(el)!;
+      rowGroupDeferredCells.delete(el);
+      for (const { cell } of deferred) {
+        await visit(cell, id);
       }
     }
   }
