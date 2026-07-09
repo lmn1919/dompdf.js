@@ -1205,7 +1205,10 @@ fn select_cid_font<'a>(
     fontctx
         .select(family, weight, italic)
         .or_else(|| {
-            if fontctx.prefers_cid_fallback(family) || has_non_latin(text) {
+            // 仅当文本含非拉丁字符时才回退到 CID 字体；纯拉丁文本用
+            // Helvetica 即可，避免思源黑体西文字宽与浏览器系统字体差异
+            // 累积成 per-line 的 x 漂移（text-x-drift）。
+            if has_non_latin(text) {
                 fontctx.fallback_cid(weight, italic)
             } else {
                 None
@@ -1384,12 +1387,13 @@ fn draw_text_lines(
             // Per-glyph advance applied by the PDF viewer inside each Tj.
             let tc_px = font.letter_spacing_px;
             let tw_px = font.word_spacing_px + justify_word_spacing_px;
-            let total_text_w_px = sum_glyph_w_px + tc_px * char_count + tw_px * space_count;
-            let x_left_px = match font.align {
-                1 => line.x + line.w - total_text_w_px,
-                2 => line.x + line.w / 2.0 - total_text_w_px / 2.0,
-                _ => line.x,
-            };
+            // `line.x` is the browser's own getClientRects() bounding box for this
+            // text run (src/snapshot.ts), i.e. text-align has already been applied
+            // by the browser. Re-deriving the aligned x from a WASM-measured width
+            // (as align 1/2 used to) drifts whenever our font metrics don't exactly
+            // match the browser's — e.g. a Latin webfont without a CID resource
+            // falls back to Helvetica here, whose advance widths differ.
+            let x_left_px = line.x;
             let tc_pt = if tc_px != 0.0 { tc_px * PX_TO_PT } else { 0.0 };
             let tw_pt = if tw_px != 0.0 { tw_px * PX_TO_PT } else { 0.0 };
 
@@ -1452,12 +1456,10 @@ fn draw_text_lines(
             } else {
                 0.0
             };
-            let text_w_px = base_text_w_px + justify_extra_px;
-            let x_pt = match font.align {
-                1 => snap.margin_left + (line.x + line.w - text_w_px) * PX_TO_PT,
-                2 => snap.margin_left + (line.x + line.w / 2.0 - text_w_px / 2.0) * PX_TO_PT,
-                _ => snap.margin_left + line.x * PX_TO_PT,
-            };
+            // See the CID branch above: line.x is already the browser-measured,
+            // post-alignment position, so draw there directly instead of
+            // re-deriving it from our own (possibly Helvetica-fallback) width.
+            let x_pt = snap.margin_left + line.x * PX_TO_PT;
             let tc = if font.letter_spacing_px != 0.0 {
                 font.letter_spacing_px * PX_TO_PT
             } else {
