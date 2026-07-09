@@ -655,9 +655,9 @@ function findOpaqueBackdropColor(el: HTMLElement): string {
     const parsed = parseColor(bg);
     const a = parsed[3];
     if (a > 0.001) {
-      rAcc += parsed[0] * a * alphaRem;
-      gAcc += parsed[1] * a * alphaRem;
-      bAcc += parsed[2] * a * alphaRem;
+      rAcc += parsed[0] * 255 * a * alphaRem;
+      gAcc += parsed[1] * 255 * a * alphaRem;
+      bAcc += parsed[2] * 255 * a * alphaRem;
       alphaRem *= (1 - a);
       if (1 - alphaRem >= 0.99) break;
     }
