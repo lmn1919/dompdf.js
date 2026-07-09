@@ -729,6 +729,22 @@ function cloneElementForRaster(src: HTMLElement): HTMLElement {
     return img;
   }
 
+  // Inline <svg> elements live in the SVG namespace. When serialized into an
+  // HTML <div> inside an SVG <foreignObject>, the namespace context can be lost
+  // and the SVG may not render at all (100% blank icon). Convert inline SVG to
+  // an <img> with a data: URL so it renders reliably as a raster image.
+  if (src instanceof SVGSVGElement) {
+    const img = document.createElement('img');
+    const svgString = new XMLSerializer().serializeToString(src);
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgString)}`;
+    const rect = src.getBoundingClientRect();
+    img.width = Math.max(1, Math.round(rect.width));
+    img.height = Math.max(1, Math.round(rect.height));
+    const computed = getComputedStyle(src);
+    copyComputedStyles(img, computed);
+    return img;
+  }
+
   const clone = src.cloneNode(false) as HTMLElement;
   const computed = getComputedStyle(src);
   copyComputedStyles(clone, computed);
