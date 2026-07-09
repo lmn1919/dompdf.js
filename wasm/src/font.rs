@@ -205,32 +205,6 @@ fn score_cid_font(cf: &CidFont, weight: u16, italic: u8) -> i32 {
     score
 }
 
-fn prefers_cid_fallback_family(family: &str) -> bool {
-    let fam_lc = family.trim().trim_matches('"').trim_matches('\'').to_lowercase();
-    matches!(
-        fam_lc.as_str(),
-        "-apple-system"
-            | "blinkmacsystemfont"
-            | "system-ui"
-            | "ui-sans-serif"
-            | "sans-serif"
-            | "segoe ui"
-            | "roboto"
-            | "ubuntu"
-            | "cantarell"
-            | "noto sans"
-            | "helvetica neue"
-            | "pingfang sc"
-            | "hiragino sans gb"
-            | "microsoft yahei"
-            | "microsoft yahei ui"
-            | "wenquanyi micro hei"
-            | "source han sans sc"
-            | "sourcehansanssc-regular"
-            | "arial"
-    )
-}
-
 impl FontCtx {
     pub fn build(resources: &[FontResource]) -> Result<FontCtx, String> {
         let mut cid: Vec<CidFont> = Vec::new();
@@ -358,12 +332,6 @@ impl FontCtx {
             }
         }
         best_idx.map(|idx| &self.cid[idx])
-    }
-
-    /// Prefer a registered CID font for common UI/CJK family stacks so browser and
-    /// PDF text stay on the same embedded font instead of drifting to Helvetica.
-    pub fn prefers_cid_fallback(&self, family: &str) -> bool {
-        !self.cid.is_empty() && prefers_cid_fallback_family(family)
     }
 
     pub fn prepare_subset_maps(&self) {
