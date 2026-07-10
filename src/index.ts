@@ -11,14 +11,19 @@ import {
   collectSnapshotData,
   encodeSnapshot,
   pageConfigNeedsPerPageResolution,
+  watermarkNeedsPerPageResolution,
   resolveRegion,
   resolvePerPageHF,
   resolvePerPageHFText,
+  resolvePerPageWatermark,
+  resolvePerPageWatermarkText,
   resolveStaticPageConfigHF,
+  resolveStaticWatermarkPages,
   computePageBreaks,
   type ExportOptions,
   type PageConfigOptions,
   type ResolvedPageHF,
+  type ResolvedPageWatermark,
 } from './snapshot';
 // `?worker&inline` is resolved by the rollup inlineWorker plugin — the worker
 // module is bundled separately and wrapped in a Blob URL, no extra chunk file.
@@ -31,10 +36,20 @@ export {
   encodeSnapshot,
   computePageBreaks,
   pageConfigNeedsPerPageResolution,
+  watermarkNeedsPerPageResolution,
   resolvePerPageHF,
   resolveStaticPageConfigHF,
+  resolvePerPageWatermark,
+  resolveStaticWatermarkPages,
 } from './snapshot';
-export type { FontConfig, PageConfig, PageConfigOptions, PageRegionConfig } from './snapshot';
+export type {
+  FontConfig,
+  PageConfig,
+  PageConfigOptions,
+  PageRegionConfig,
+  WatermarkConfig,
+  WatermarkOptions,
+} from './snapshot';
 
 type DompdfApi = ((
   root: HTMLElement,
@@ -102,28 +117,49 @@ async function buildSnapshot(
   options: ExportOptions,
 ): Promise<Uint8Array> {
   const data = await collectSnapshotData(root, options);
+  const pagination = options.pagination ?? false;
+  const needsPerPageHF = pageConfigNeedsPerPageResolution(options.pageConfig);
+  const needsPerPageWatermark = watermarkNeedsPerPageResolution(options.watermark);
 
-  if (pageConfigNeedsPerPageResolution(options.pageConfig) && (options.pagination ?? false)) {
+  if (!needsPerPageHF && !needsPerPageWatermark) {
+    return encodeSnapshot(data, []);
+  }
+
+  let totalPages = 1;
+  if (pagination) {
     // Phase 1: count pages with the sampled band heights.
-    const prelim = encodeSnapshot(data, []);
+    const prelim = encodeSnapshot(data, [], []);
     const countRes = await callWorker(prelim, 'countPages');
     if (!countRes.ok || typeof countRes.result !== 'number') {
       throw new Error(countRes.error || 'count_pages failed');
     }
-    const totalPages = countRes.result as number;
-    // Phase 2: resolve per-page HF text (JS resolves placeholders).
-    let perPage: ResolvedPageHF[] = [];
-    if (typeof options.pageConfig === 'function') {
-      perPage = resolvePerPageHF(options.pageConfig as (p: number, t: number) => PageConfigOptions | null, totalPages);
-    } else if (options.pageConfig) {
-      perPage = resolveStaticPageConfigHF(options.pageConfig, totalPages);
-    }
-    const resolved = resolvePerPageHFText(perPage, totalPages);
-    return encodeSnapshot(data, resolved);
+    totalPages = countRes.result as number;
   }
 
-  // Object-form / no pageConfig: placeholders resolved by Rust.
-  return encodeSnapshot(data, []);
+  // Phase 2: resolve per-page HF / watermark text (JS resolves placeholders).
+  let perPageHF: ResolvedPageHF[] = [];
+  if (needsPerPageHF) {
+    if (typeof options.pageConfig === 'function') {
+      perPageHF = resolvePerPageHF(options.pageConfig as (p: number, t: number) => PageConfigOptions | null, totalPages);
+    } else if (options.pageConfig) {
+      perPageHF = resolveStaticPageConfigHF(options.pageConfig, totalPages);
+    }
+    perPageHF = resolvePerPageHFText(perPageHF, totalPages);
+  }
+
+  let perPageWatermark: (import('./snapshot').ResolvedWatermark | null)[] = [];
+  if (needsPerPageWatermark) {
+    let resolved: ResolvedPageWatermark[] = [];
+    const watermarkImageCache = new Map<string, { imageId: number; width: number; height: number }>();
+    if (typeof options.watermark === 'function') {
+      resolved = await resolvePerPageWatermark(options.watermark, totalPages, data.images, watermarkImageCache);
+    } else if (options.watermark) {
+      resolved = await resolveStaticWatermarkPages(options.watermark, totalPages, data.images, watermarkImageCache);
+    }
+    perPageWatermark = resolvePerPageWatermarkText(resolved, totalPages);
+  }
+
+  return encodeSnapshot(data, perPageHF, perPageWatermark);
 }
 
 /** Collect a snapshot and render it to PDF bytes (off main thread). */
@@ -131,7 +167,8 @@ export async function renderToBytes(
   root: HTMLElement,
   options?: ExportOptions,
 ): Promise<Uint8Array> {
-  const snapshot = await buildSnapshot(root, options ?? {});
+  const resolvedOptions = options ?? {};
+  const snapshot = await buildSnapshot(root, resolvedOptions);
   const res = await callWorker(snapshot, 'render');
   if (!res.ok || !res.result || typeof res.result === 'string') {
     throw new Error(res.error || 'render failed');

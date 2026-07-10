@@ -1,10 +1,10 @@
-//! Binary Snapshot v3 parser.
+//! Binary Snapshot parser.
 //!
 //! Contract (all integers little-endian, floats = f32 LE):
 //!
 //! Header:
 //!   magic: 4 bytes = "D2P1"
-//!   version: u32 = 8
+//!   version: u32 = 10
 //!   pageWidthPt, pageHeightPt, marginTop, marginRight, marginBottom, marginLeft: f32
 //!
 //! Config block:
@@ -18,7 +18,8 @@
 //!   if hasStaticHF:
 //!     header: Option<HFSpec> (u8 present + fields)
 //!     footer: Option<HFSpec>
-//!   compress: u8             (v8: 0 = no compression, 1 = deflate streams)
+//!   compress: u8             (v8+: 0 = no compression, 1 = deflate streams)
+//!   staticWatermark: Option<WatermarkSpec> (v9+; image variant added in v10)
 //!
 //! Fonts block:
 //!   fontCount: u32
@@ -29,6 +30,10 @@
 //!   perPageCount: u32
 //!   perPage[perPageCount]: headerPresent u8 ; if present HFSpec ;
 //!                          footerPresent u8 ; if present HFSpec
+//!
+//! Per-page watermark block (function-form watermark or excludePages):
+//!   perPageWatermarkCount: u32
+//!   perPageWatermarks[perPageWatermarkCount]: present u8 ; if present WatermarkSpec
 //!
 //! Nodes:
 //!   nodeCount: u32
@@ -66,6 +71,7 @@ pub struct Snapshot {
     pub config: Config,
     pub fonts: Vec<FontResource>,
     pub per_page_hf: Vec<PageHF>,
+    pub per_page_watermark: Vec<Option<WatermarkSpec>>,
     pub nodes: Vec<Node>,
     pub images: Vec<Image>,
 }
@@ -83,6 +89,7 @@ pub struct Config {
     pub static_hf: Option<(Option<HFSpec>, Option<HFSpec>)>,
     /// v8: enable real DEFLATE compression for PDF streams.
     pub compress: bool,
+    pub static_watermark: Option<WatermarkSpec>,
 }
 
 #[derive(Clone)]
@@ -107,6 +114,25 @@ pub struct HFSpec {
     // 5 leftTop,6 leftBottom,7 rightTop,8 rightBottom,9 custom
     pub custom: Option<(f32, f32)>, // px, when position==9
     pub padding: [f32; 4],          // top,right,bottom,left px
+}
+
+#[derive(Clone)]
+pub struct WatermarkSpec {
+    pub kind: u8, // 0 text, 1 image
+    pub text: String,
+    pub color: [f32; 4],
+    pub family: String,
+    pub font_size_px: f32,
+    pub weight: u16,
+    pub italic: u8,
+    pub image_id: u32,
+    pub image_width_px: f32,
+    pub image_height_px: f32,
+    pub opacity: f32,
+    pub angle_deg: f32,
+    pub spacing: [f32; 2],
+    pub offset: [f32; 2],
+    pub layer: u8, // 0 under, 1 over
 }
 
 #[derive(Clone, Default)]
@@ -319,6 +345,104 @@ fn parse_opt_hf(c: &mut Cursor) -> Result<Option<HFSpec>, String> {
     Ok(if c.u8()? != 0 { Some(parse_hf(c)?) } else { None })
 }
 
+fn parse_watermark_v9(c: &mut Cursor) -> Result<WatermarkSpec, String> {
+    let tlen = c.u16()? as usize;
+    let text = c.utf8(tlen)?;
+    let color = [c.f32()?, c.f32()?, c.f32()?, c.f32()?];
+    let flen = c.u16()? as usize;
+    let family = c.utf8(flen)?;
+    let font_size_px = c.f32()?;
+    let weight = c.u16()?;
+    let italic = c.u8()?;
+    let angle_deg = c.f32()?;
+    let spacing = [c.f32()?, c.f32()?];
+    let offset = [c.f32()?, c.f32()?];
+    let layer = c.u8()?;
+    Ok(WatermarkSpec {
+        kind: 0,
+        text,
+        color,
+        family,
+        font_size_px,
+        weight,
+        italic,
+        image_id: 0,
+        image_width_px: 0.0,
+        image_height_px: 0.0,
+        opacity: color[3],
+        angle_deg,
+        spacing,
+        offset,
+        layer,
+    })
+}
+
+fn parse_watermark(c: &mut Cursor, version: u32) -> Result<WatermarkSpec, String> {
+    if version < 10 {
+        return parse_watermark_v9(c);
+    }
+    let kind = c.u8()?;
+    let angle_deg = c.f32()?;
+    let spacing = [c.f32()?, c.f32()?];
+    let offset = [c.f32()?, c.f32()?];
+    let layer = c.u8()?;
+    match kind {
+        0 => {
+            let tlen = c.u16()? as usize;
+            let text = c.utf8(tlen)?;
+            let color = [c.f32()?, c.f32()?, c.f32()?, c.f32()?];
+            let flen = c.u16()? as usize;
+            let family = c.utf8(flen)?;
+            let font_size_px = c.f32()?;
+            let weight = c.u16()?;
+            let italic = c.u8()?;
+            Ok(WatermarkSpec {
+                kind,
+                text,
+                color,
+                family,
+                font_size_px,
+                weight,
+                italic,
+                image_id: 0,
+                image_width_px: 0.0,
+                image_height_px: 0.0,
+                opacity: color[3],
+                angle_deg,
+                spacing,
+                offset,
+                layer,
+            })
+        }
+        1 => Ok(WatermarkSpec {
+            kind,
+            text: String::new(),
+            color: [0.0, 0.0, 0.0, 0.0],
+            family: String::new(),
+            font_size_px: 0.0,
+            weight: 400,
+            italic: 0,
+            image_id: c.u32()?,
+            image_width_px: c.f32()?,
+            image_height_px: c.f32()?,
+            opacity: c.f32()?,
+            angle_deg,
+            spacing,
+            offset,
+            layer,
+        }),
+        _ => Err(format!("unsupported watermark kind {}", kind)),
+    }
+}
+
+fn parse_opt_watermark(c: &mut Cursor, version: u32) -> Result<Option<WatermarkSpec>, String> {
+    Ok(if c.u8()? != 0 {
+        Some(parse_watermark(c, version)?)
+    } else {
+        None
+    })
+}
+
 pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
     let mut c = Cursor::new(data);
     let magic = c.bytes(4)?;
@@ -326,8 +450,11 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
         return Err(format!("bad magic: {:?}", magic));
     }
     let version = c.u32()?;
-    if version != 7 && version != 8 {
-        return Err(format!("unsupported version {} (expected 7 or 8)", version));
+    if version != 7 && version != 8 && version != 9 && version != 10 {
+        return Err(format!(
+            "unsupported version {} (expected 7, 8, 9 or 10)",
+            version
+        ));
     }
     let page_width_pt = c.f32()?;
     let page_height_pt = c.f32()?;
@@ -358,6 +485,11 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
     };
     // v8: compress flag. v7 has no such field; default to false.
     let compress = if version >= 8 { c.u8()? != 0 } else { false };
+    let static_watermark = if version >= 9 {
+        parse_opt_watermark(&mut c, version)?
+    } else {
+        None
+    };
 
     // Fonts block
     let font_count = c.u32()?;
@@ -387,6 +519,16 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
         let footer = parse_opt_hf(&mut c)?;
         per_page_hf.push(PageHF { header, footer });
     }
+    let per_page_watermark = if version >= 9 {
+        let count = c.u32()?;
+        let mut out = Vec::with_capacity(count as usize);
+        for _ in 0..count {
+            out.push(parse_opt_watermark(&mut c, version)?);
+        }
+        out
+    } else {
+        Vec::new()
+    };
 
     let config = Config {
         precision,
@@ -397,6 +539,7 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
         footer_h_px,
         static_hf,
         compress,
+        static_watermark,
     };
 
     // Nodes
@@ -578,6 +721,7 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
         config,
         fonts,
         per_page_hf,
+        per_page_watermark,
         nodes,
         images,
     })
