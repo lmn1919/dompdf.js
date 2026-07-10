@@ -14,6 +14,7 @@ These APIs are available and have working behavior in the current branch:
 - `fontConfig`
 - `iconFont`
 - `langFontConfig`
+- `encryption`
 - `pagination`
 - `pageConfig` object form
 - `pageConfig(pageNum, totalPages)` function form
@@ -31,7 +32,6 @@ engine does not provide the old behavior yet. A runtime warning is emitted.
 
 - `onJspdfReady`
 - `onJspdfFinish`
-- `encryption`
 - `foreignObjectRendering`
 - `allowTaint`
 - `proxy`

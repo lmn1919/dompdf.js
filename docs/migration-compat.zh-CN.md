@@ -14,6 +14,7 @@
 - `fontConfig`
 - `iconFont`
 - `langFontConfig`
+- `encryption`
 - `pagination`
 - `pageConfig` 对象形式
 - `pageConfig(pageNum, totalPages)` 函数形式
@@ -30,7 +31,6 @@
 
 - `onJspdfReady`
 - `onJspdfFinish`
-- `encryption`
 - `foreignObjectRendering`
 - `allowTaint`
 - `proxy`

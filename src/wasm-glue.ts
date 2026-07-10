@@ -12,6 +12,7 @@ export interface WasmExports {
   alloc(n: number): number;
   dealloc(ptr: number, n: number): void;
   render_pdf(ptr: number, len: number): number;
+  render_pdf_encrypted(ptr: number, len: number, encPtr: number, encLen: number): number;
   render_pdf_len(): number;
   free_pdf(ptr: number, len: number): void;
   count_pages(ptr: number, len: number): number;
@@ -79,13 +80,21 @@ function copyIn(wasm: WasmExports, data: Uint8Array): number {
   return ptr;
 }
 
-export async function renderPdf(snapshot: Uint8Array): Promise<Uint8Array> {
+export async function renderPdf(
+  snapshot: Uint8Array,
+  encryption?: Uint8Array,
+): Promise<Uint8Array> {
   await initWasm();
   const wasm = exports();
   const inPtr = copyIn(wasm, snapshot);
-  const outPtr = wasm.render_pdf(inPtr, snapshot.length);
+  const encPtr = encryption ? copyIn(wasm, encryption) : 0;
+  const encLen = encryption?.length ?? 0;
+  const outPtr = encryption
+    ? wasm.render_pdf_encrypted(inPtr, snapshot.length, encPtr, encLen)
+    : wasm.render_pdf(inPtr, snapshot.length);
   const outLen = wasm.render_pdf_len();
   wasm.dealloc(inPtr, snapshot.length);
+  if (encPtr !== 0) wasm.dealloc(encPtr, encLen);
   if (outPtr === 0 || outLen === 0) {
     if (outPtr !== 0) wasm.free_pdf(outPtr, outLen);
     throw new Error('render_pdf failed: invalid snapshot or internal error');
