@@ -13,32 +13,26 @@
     href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
     rel="stylesheet">
 
-  <!-- Stylesheets -->
   <style>
     /* ==========================================================================
-       Dashboard Core Design System (Premium Light Editorial)
+       Dashboard Core Design System (Clean Minimalist Developer Editorial)
        ========================================================================== */
     :root {
-      --bg-base: #fcfbfa;
-      /* Soft warm alabaster */
+      --bg-base: #f8fafc;
       --bg-surface: #ffffff;
       --bg-card: #ffffff;
-      --border-color: #e7e5e4;
-      /* Soft stone border */
+      --border-color: #e2e8f0;
+      --border-color-hover: #cbd5e1;
 
-      --accent-dompdf: #1d40af;
-      /* Classic Slate Blue */
-      --accent-html2pdf: #b45309;
-      /* Deep Ochre Amber */
+      --accent-dompdf: #4f46e5; /* Indigo */
+      --accent-html2pdf: #ea580c; /* Orange */
 
-      --text-primary: #1c1917;
-      /* Slate charcoal */
-      --text-secondary: #57534e;
-      /* Soft graphite */
-      --text-tertiary: #878681;
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-tertiary: #94a3b8;
 
-      --success: #15803d;
-      --error: #b91c1c;
+      --success: #10b981;
+      --error: #ef4444;
 
       --font-serif: 'Lora', Georgia, serif;
       --font-ui: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -55,7 +49,7 @@
       background-color: var(--bg-base);
       color: var(--text-primary);
       font-family: var(--font-ui);
-      line-height: 1.6;
+      line-height: 1.5;
       overflow-x: hidden;
     }
 
@@ -74,18 +68,27 @@
       border-radius: 3px;
     }
 
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
     /* Container */
     .container {
-      max-width: 1300px;
+      max-width: 1360px;
       margin: 0 auto;
       padding: 3rem 2rem;
     }
 
     /* Header & Brand */
     header {
-      margin-bottom: 3rem;
+      margin-bottom: 2.5rem;
       border-bottom: 1px solid var(--border-color);
       padding-bottom: 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      gap: 1.5rem;
     }
 
     .brand {
@@ -95,33 +98,33 @@
     }
 
     .brand-title {
-      font-family: var(--font-serif);
+      font-family: var(--font-ui);
       font-size: 2.25rem;
-      font-weight: 600;
+      font-weight: 700;
       color: var(--text-primary);
-      letter-spacing: -0.02em;
+      letter-spacing: -0.025em;
     }
 
     .brand-subtitle {
       color: var(--text-secondary);
-      font-size: 0.95rem;
+      font-size: 1rem;
       font-weight: 400;
     }
 
     .badge-row {
       display: flex;
       gap: 0.5rem;
-      margin-top: 0.5rem;
+      margin-top: 0.25rem;
     }
 
     /* Badge indicators */
     .badge {
       display: inline-flex;
       align-items: center;
-      padding: 0.15rem 0.5rem;
+      padding: 0.2rem 0.5rem;
       border-radius: 4px;
       font-size: 0.7rem;
-      font-weight: 700;
+      font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
@@ -133,9 +136,9 @@
     }
 
     .badge-html2pdf {
-      background: #fefbeb;
-      color: #b45309;
-      border: 1px solid #fde68a;
+      background: #fff7ed;
+      color: #c2410c;
+      border: 1px solid #ffedd5;
     }
 
     /* Controls Panel */
@@ -143,12 +146,13 @@
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 2rem;
+      gap: 1.75rem;
       background: var(--bg-surface);
       border: 1px solid var(--border-color);
-      border-radius: 6px;
+      border-radius: 8px;
       padding: 1.25rem 1.5rem;
-      margin-bottom: 2.5rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
     }
 
     .control-group {
@@ -168,22 +172,28 @@
       background: var(--bg-surface);
       border: 1px solid var(--border-color);
       color: var(--text-primary);
-      padding: 0.4rem 2rem 0.4rem 0.75rem;
-      border-radius: 4px;
+      padding: 0.45rem 2rem 0.45rem 0.75rem;
+      border-radius: 6px;
       font-family: var(--font-ui);
       font-size: 0.85rem;
       cursor: pointer;
       appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2357534e'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23475569'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
       background-repeat: no-repeat;
-      background-position: right 0.5rem center;
+      background-position: right 0.6rem center;
       background-size: 0.85rem;
-      min-width: 220px;
-      transition: border-color 0.2s ease;
+      min-width: 260px;
+      transition: all 0.15s ease;
     }
 
     .select-custom:hover {
-      border-color: var(--text-secondary);
+      border-color: var(--border-color-hover);
+    }
+
+    .select-custom:focus {
+      outline: none;
+      border-color: var(--accent-dompdf);
+      box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
     }
 
     /* Switch Style Toggle */
@@ -202,10 +212,10 @@
     .switch-track {
       width: 2rem;
       height: 1.1rem;
-      background: #e7e5e4;
+      background: #e2e8f0;
       border-radius: 999px;
       position: relative;
-      transition: background 0.2s ease;
+      transition: background 0.15s ease;
     }
 
     .switch-thumb {
@@ -216,7 +226,8 @@
       position: absolute;
       top: 0.15rem;
       left: 0.15rem;
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
 
     .switch-input:checked+.switch-track {
@@ -229,7 +240,7 @@
 
     .font-loader-status {
       margin-left: auto;
-      font-size: 0.8rem;
+      font-size: 0.85rem;
       display: flex;
       align-items: center;
       gap: 0.5rem;
@@ -257,27 +268,40 @@
       background: var(--error);
     }
 
+    @keyframes pulse {
+      0% { transform: scale(0.95); opacity: 0.5; }
+      50% { transform: scale(1.05); opacity: 1; }
+      100% { transform: scale(0.95); opacity: 0.5; }
+    }
+
     /* Actions Panel Grid */
     .action-panel {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
       gap: 1.5rem;
-      margin-bottom: 2.5rem;
+      margin-bottom: 2rem;
     }
 
     .action-card {
-      background: var(--bg-surface);
+      background: var(--bg-card);
       border: 1px solid var(--border-color);
-      border-radius: 6px;
+      border-radius: 8px;
       padding: 1.5rem;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      gap: 1.25rem;
+      gap: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.01);
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .action-card:hover {
+      border-color: var(--border-color-hover);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
     }
 
     .card-title {
-      font-family: var(--font-serif);
+      font-family: var(--font-ui);
       font-size: 1.2rem;
       font-weight: 600;
       color: var(--text-primary);
@@ -293,7 +317,7 @@
     .btn {
       width: 100%;
       padding: 0.6rem 1rem;
-      border-radius: 4px;
+      border-radius: 6px;
       font-family: var(--font-ui);
       font-size: 0.85rem;
       font-weight: 600;
@@ -302,7 +326,7 @@
       align-items: center;
       justify-content: center;
       gap: 0.5rem;
-      transition: all 0.2s ease;
+      transition: all 0.15s ease;
     }
 
     .btn-dompdf {
@@ -312,59 +336,60 @@
     }
 
     .btn-dompdf:hover {
-      background: #3f3f46;
-      border-color: #3f3f46;
+      background: #1e293b;
+      border-color: #1e293b;
     }
 
     .btn-html2pdf {
       background: transparent;
-      border: 1px solid var(--border-color);
+      border: 1px solid #cbd5e1;
       color: var(--text-primary);
     }
 
     .btn-html2pdf:hover {
-      background: #faf9f6;
-      border-color: var(--text-secondary);
+      background: #f8fafc;
+      border-color: #94a3b8;
     }
 
     .btn-benchmark {
-      background: transparent;
-      border: 1px solid var(--accent-dompdf);
-      color: var(--accent-dompdf);
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1d40af;
     }
 
     .btn-benchmark:hover {
-      background: #f0f4ff;
+      background: #dbeafe;
+      border-color: #93c5fd;
     }
 
     /* Minimalist Metrics Panel */
     .dashboard-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 2rem;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.5rem;
       border-top: 1px solid var(--border-color);
       border-bottom: 1px solid var(--border-color);
       padding: 2rem 0;
-      margin-bottom: 3rem;
+      margin-bottom: 2.5rem;
     }
 
     .stat-card {
       display: flex;
       flex-direction: column;
-      gap: 0.75rem;
-      padding: 0 0.5rem;
-    }
-
-    .stat-card:not(:first-child) {
-      border-left: 1px solid var(--border-color);
+      gap: 1rem;
+      padding: 1.25rem;
+      background: var(--bg-surface);
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.01);
     }
 
     .stat-header {
-      color: var(--text-tertiary);
+      color: var(--text-secondary);
       font-size: 0.75rem;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.05em;
     }
 
     .stat-values {
@@ -386,9 +411,9 @@
     }
 
     .val-number {
-      font-family: var(--font-serif);
+      font-family: var(--font-ui);
       font-size: 1.35rem;
-      font-weight: 600;
+      font-weight: 700;
     }
 
     .val-number.dompdf-color {
@@ -401,10 +426,10 @@
 
     /* Simple Progress Bars */
     .compare-bar-wrapper {
-      height: 4px;
+      height: 6px;
       width: 100%;
-      background: #f5f5f4;
-      border-radius: 2px;
+      background: #f1f5f9;
+      border-radius: 3px;
       overflow: hidden;
       display: flex;
     }
@@ -436,12 +461,12 @@
     .playground-grid {
       display: grid;
       grid-template-columns: 1fr;
-      gap: 3rem;
+      gap: 2.5rem;
     }
 
-    @media (min-width: 1024px) {
+    @media (min-width: 1200px) {
       .playground-grid {
-        grid-template-columns: 1.15fr 0.85fr;
+        grid-template-columns: 1.1fr 0.9fr;
       }
     }
 
@@ -449,19 +474,19 @@
       display: flex;
       flex-direction: column;
       min-height: 750px;
-      width: 600px;
+      width: 100%;
     }
 
     .playground-title {
-      font-family: var(--font-serif);
-      font-size: 1.35rem;
-      font-weight: 600;
-      margin-bottom: 1.5rem;
+      font-family: var(--font-ui);
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
       display: flex;
       justify-content: space-between;
       align-items: flex-end;
       border-bottom: 1px solid var(--border-color);
-      padding-bottom: 0.75rem;
+      padding-bottom: 0.5rem;
     }
 
     .playground-title-desc {
@@ -474,13 +499,13 @@
     /* Source HTML Viewer/Wrapper */
     .source-wrapper {
       flex: 1;
-      background: #f5f5f4;
-      /* Realistic gray draft surface */
+      background: #f1f5f9;
+      /* Muted clean gray desk background */
       border: 1px solid var(--border-color);
-      border-radius: 4px;
+      border-radius: 8px;
       padding: 2.5rem 1.5rem;
       overflow-y: auto;
-      max-height: 700px;
+      max-height: 720px;
       display: flex;
       justify-content: center;
       align-items: flex-start;
@@ -490,9 +515,9 @@
     .pdf-preview-container {
       flex: 1;
       position: relative;
-      background: #f5f5f4;
+      background: #f1f5f9;
       border: 1px solid var(--border-color);
-      border-radius: 4px;
+      border-radius: 8px;
       overflow: hidden;
       display: flex;
       flex-direction: column;
@@ -521,31 +546,30 @@
     }
 
     .pdf-placeholder svg {
-      width: 3rem;
-      height: 3rem;
+      width: 2.5rem;
+      height: 2.5rem;
       stroke: var(--text-tertiary);
-      opacity: 0.5;
     }
 
     /* Tabs styled with underline style instead of pills */
     .preview-tabs {
       display: flex;
       border-bottom: 1px solid var(--border-color);
-      gap: 2rem;
-      margin-bottom: 1.5rem;
+      gap: 1.5rem;
+      margin-bottom: 1.25rem;
     }
 
     .tab-btn {
       background: transparent;
       border: none;
       color: var(--text-secondary);
-      padding: 0.5rem 0;
+      padding: 0.5rem 0.25rem;
       font-size: 0.85rem;
       font-weight: 600;
       font-family: var(--font-ui);
       cursor: pointer;
       border-bottom: 2px solid transparent;
-      transition: all 0.2s ease;
+      transition: all 0.15s ease;
     }
 
     .tab-btn:hover {
@@ -563,7 +587,7 @@
       flex: 1;
       width: 100%;
       overflow-y: auto;
-      max-height: 700px;
+      max-height: 720px;
     }
 
     .info-container.active {
@@ -579,7 +603,7 @@
 
     .specs-table th,
     .specs-table td {
-      padding: 0.85rem 0.5rem;
+      padding: 0.75rem 0.5rem;
       border-bottom: 1px solid var(--border-color);
     }
 
@@ -593,7 +617,7 @@
     }
 
     .specs-table tr:hover td {
-      background: #fafaf9;
+      background: #f8fafc;
     }
 
     .feature-yes {
@@ -605,11 +629,11 @@
       color: var(--text-tertiary);
     }
 
-    /* Code Snippets (GitHub Light inspired) */
+    /* Code Snippets (Clean Github Light style) */
     .code-wrapper {
-      background: #f8fafc;
+      background: #f6f8fa;
       padding: 1.25rem;
-      border-radius: 6px;
+      border-radius: 8px;
       overflow-x: auto;
       font-family: var(--font-mono);
       font-size: 0.8rem;
@@ -617,6 +641,7 @@
       margin-bottom: 1.5rem;
       color: #24292e;
       line-height: 1.6;
+      position: relative;
     }
 
     #code-dompdf {
@@ -664,7 +689,7 @@
       font-size: 0.7rem;
       font-weight: 600;
       cursor: pointer;
-      transition: all 0.2s ease;
+      transition: all 0.15s ease;
     }
 
     .copy-btn:hover {
@@ -680,7 +705,7 @@
     }
 
     .print-box-shadow {
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
     }
 
     /* ==========================================================================
@@ -1029,6 +1054,7 @@
         <select class="select-custom" id="template-select" onchange="switchTemplate(this.value)">
           <option value="report">英文财务年度报告 (2页/多矢量元素)</option>
           <option value="text">纯文本长文示例 (仅限追加文本)</option>
+          <option value="invoice">中英双语电子结算发票 (1页/中文和印章)</option>
         </select>
       </div>
 
@@ -2027,6 +2053,7 @@ window.<span class="token-function">dompdf</span>(element, options)
     // System States
     let activeTemplate = 'report';
     let customFontBytes = null;
+    let fontLoadPromise = null;
     let pdfJsReady = false;
     let generatedBlobs = {
       dompdf: null,
@@ -2037,7 +2064,6 @@ window.<span class="token-function">dompdf</span>(element, options)
     document.addEventListener("DOMContentLoaded", () => {
       initPdfJs();
       switchTemplate('report');
-      loadFont();
     });
 
     function initPdfJs() {
@@ -2118,8 +2144,10 @@ window.<span class="token-function">dompdf</span>(element, options)
       generatedBlobs = { dompdf: null, html2pdf: null };
 
       // Update UI placeholders
-      document.getElementById('pdf-iframe').style.display = 'none';
-      document.getElementById('pdf-placeholder').style.display = 'flex';
+      const iframe = document.getElementById('pdf-iframe');
+      if (iframe) iframe.style.display = 'none';
+      const placeholder = document.getElementById('pdf-placeholder');
+      if (placeholder) placeholder.style.display = 'flex';
 
       // Reset metrics display
       resetMetricTexts();
@@ -2187,31 +2215,42 @@ window.<span class="token-function">dompdf</span>(element, options)
       }
     }
 
-    // Load local font file examples/SourceHanSansSC-Regular.ttf
+    // Load local font file examples/SourceHanSansSC-Regular.ttf on demand.
     async function loadFont() {
+      if (customFontBytes) return customFontBytes;
+      if (fontLoadPromise) return fontLoadPromise;
+
       const dot = document.getElementById('font-status-dot');
       const text = document.getElementById('font-status-text');
 
       dot.className = 'status-dot loading';
       text.innerText = '载入思源黑体 (4.6MB)...';
 
-      try {
+      fontLoadPromise = (async function () {
         // Fetch TTF locally
-        const res = await fetch('SourceHanSansSC-Regular.ttf');
-        if (!res.ok) {
-          throw new Error('Local font not found (HTTP Status ' + res.status + ')');
-        }
-        const ab = await res.arrayBuffer();
-        customFontBytes = new Uint8Array(ab);
-        window.customFontBytes = customFontBytes; // share globally
+        try {
+          const res = await fetch('SourceHanSansSC-Regular.ttf');
+          if (!res.ok) {
+            throw new Error('Local font not found (HTTP Status ' + res.status + ')');
+          }
+          const ab = await res.arrayBuffer();
+          customFontBytes = new Uint8Array(ab);
+          window.customFontBytes = customFontBytes; // share globally
 
-        dot.className = 'status-dot success';
-        text.innerText = '中文矢量字体载入成功';
-      } catch (err) {
-        console.warn('Could not load custom TTF font:', err);
-        dot.className = 'status-dot error';
-        text.innerText = '字体加载失败 (中文系统将回落)';
-      }
+          dot.className = 'status-dot success';
+          text.innerText = '中文矢量字体载入成功';
+          return customFontBytes;
+        } catch (err) {
+          console.warn('Could not load custom TTF font:', err);
+          dot.className = 'status-dot error';
+          text.innerText = '字体加载失败 (中文系统将回落)';
+          throw err;
+        } finally {
+          fontLoadPromise = null;
+        }
+      })();
+
+      return fontLoadPromise;
     }
 
     // Main PDF Generation Router
@@ -2220,92 +2259,71 @@ window.<span class="token-function">dompdf</span>(element, options)
       const startTime = performance.now();
       let blob = null;
       let blankPdfSuspected = false;
+      const sep = sourceElement.querySelector('#sep-report');
+      const wrapper = document.getElementById('source-wrapper');
+      const originalScrollTop = wrapper ? wrapper.scrollTop : 0;
 
       try {
+        // Keep export geometry stable for both engines.
+        if (sep) sep.style.display = 'none';
+        if (wrapper) wrapper.scrollTop = 0;
+
         if (engine === 'dompdf') {
-          // We will clone the node to render a clean DOM.
-          const printClone = sourceElement.cloneNode(true);
+          // Render the live active template directly to avoid deep clone + re-layout cost.
+          const options = {
+            pagination: true,
+            format: 'a4',
+            useCORS: true,
+            compress: document.getElementById('dompdf-compress').checked,
+            putOnlyUsedFonts: document.getElementById('dompdf-subset').checked,
+          };
 
-          // If report template, remove separator line in the print Clone
-          const sep = printClone.querySelector('#sep-report');
-          if (sep) sep.remove();
-
-          // Ensure the cloned node is appended to body invisibly so layouts calculate correctly
-          printClone.style.position = 'absolute';
-          printClone.style.left = '-9999px';
-          printClone.style.top = '-9999px';
-          printClone.style.display = 'block'; // Make it compute layout geometry correctly
-          document.body.appendChild(printClone);
-
-          try {
-            // Prepare Options
-            const options = {
-              pagination: true,
-              format: 'a4',
-              useCORS: true,
-              compress: document.getElementById('dompdf-compress').checked,
-              putOnlyUsedFonts: document.getElementById('dompdf-subset').checked,
-            };
-
-            // Assign Font only if we are using the Chinese/English template
-            if (activeTemplate === 'invoice' && customFontBytes) {
-              options.fontConfig = {
-                fontFamily: 'SourceHanSansSC-Regular',
-                fontBytes: customFontBytes,
-                fontStyle: 'normal',
-                fontWeight: 400
-              };
-            }
-
-            blob = await window.dompdf(printClone, options);
-          } finally {
-            // Clean up cloned node
-            if (printClone.parentNode) {
-              document.body.removeChild(printClone);
+          // Load the CJK font only when the invoice template really needs it.
+          if (activeTemplate === 'invoice') {
+            try {
+              await loadFont();
+            } catch (_) {
+              // Fall back to system fonts if the demo font is unavailable.
             }
           }
+
+          if (activeTemplate === 'invoice' && customFontBytes) {
+            options.fontConfig = {
+              fontFamily: 'SourceHanSansSC-Regular',
+              fontBytes: customFontBytes,
+              fontStyle: 'normal',
+              fontWeight: 400
+            };
+          }
+
+          blob = await window.dompdf(sourceElement, options);
         } else if (engine === 'html2pdf') {
           if (typeof html2pdf === 'undefined') {
             throw new Error('html2pdf library failed to load from CDN. Check network.');
           }
 
-          // Temporarily hide the visual page break separator so it doesn't print
-          const sep = sourceElement.querySelector('#sep-report');
-          if (sep) sep.style.display = 'none';
+          const opt = {
+            margin: 0,
+            filename: 'html2pdf-export.pdf',
+            image: { type: 'jpeg', quality: 2 },
+            html2canvas: {
+              scale: 2,
+              useCORS: true,
+              logging: false,
+              scrollY: 0,  // Forces html2canvas to render at scroll coordinate 0
+              scrollX: 0
+            },
+            jsPDF: { unit: 'pt', format: 'a4', orientation: 'portrait' },
+            pagebreak: {
+              mode: ['css', 'legacy'],
+              avoid: ['tr', 'h1', 'h2', 'h3', '.report-stat-card', '.report-chart-container', '.invoice-details-grid > div', '[divisionDisable]']
+            }
+          };
 
-          // Prevent container scrolling offset in html2canvas calculations
-          const wrapper = document.getElementById('source-wrapper');
-          const originalScrollTop = wrapper ? wrapper.scrollTop : 0;
-          if (wrapper) wrapper.scrollTop = 0;
-
-          try {
-            const opt = {
-              margin: 0,
-              filename: 'html2pdf-export.pdf',
-              image: { type: 'jpeg', quality: 2 },
-              html2canvas: {
-                scale: 2,
-                useCORS: true,
-                logging: false,
-                scrollY: 0,  // Forces html2canvas to render at scroll coordinate 0
-                scrollX: 0
-              },
-              jsPDF: { unit: 'pt', format: 'a4', orientation: 'portrait' },
-              pagebreak: {
-                mode: ['css', 'legacy'],
-                avoid: ['tr', 'h1', 'h2', 'h3', '.report-stat-card', '.report-chart-container', '.invoice-details-grid > div', '[divisionDisable]']
-              }
-            };
-
-            // Pass sourceElement directly: html2pdf will clone it internally
-            // inside its own correctly positioned sandbox.
-            blob = await html2pdf().from(sourceElement).set(opt).output('blob');
-            blankPdfSuspected = await detectBlankPdf(blob);
-          } finally {
-            // Restore visual separator on the screen
-            if (sep) sep.style.display = 'block';
-            if (wrapper) wrapper.scrollTop = originalScrollTop;
-          }
+          // Pass sourceElement directly: html2pdf will clone it internally
+          // inside its own correctly positioned sandbox.
+          blob = await html2pdf().from(sourceElement).set(opt).output('blob');
+          blankPdfSuspected = await detectBlankPdf(blob);
         }
 
         const endTime = performance.now();
@@ -2329,6 +2347,9 @@ window.<span class="token-function">dompdf</span>(element, options)
       } catch (err) {
         alert(`渲染失败 (${engine}): ` + err.message);
         console.error(err);
+      } finally {
+        if (sep) sep.style.display = 'block';
+        if (wrapper) wrapper.scrollTop = originalScrollTop;
       }
     }
 
@@ -2490,11 +2511,32 @@ window.<span class="token-function">dompdf</span>(element, options)
         <h3 style="font-size: 0.85rem; font-family: var(--font-serif); font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;">Section ${count}: Operational Analysis Briefing</h3>
         <p style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 0.5rem;">
           Our continuous optimization framework has yielded additional efficiency gains in cluster scheduling and cache validation overhead. 
-          By deploying standard vector engines across our edge networks, latency variability has been reduced by 18.4% globally.
+          By deploying standard vector engines across our edge networks, latency variability has been reduced by 18.4% globally. The implementation 
+          leverages a distributed tracing pipeline that correlates request telemetry with real-time resource utilization metrics, enabling proactive 
+          scaling decisions before saturation thresholds are breached. Historical data from the previous four quarters confirms that these architectural 
+          improvements consistently deliver double-digit percentage reductions in tail latency across all measured percentiles. Service reliability 
+          metrics across all production tiers have remained above the contractual SLA baseline for six consecutive quarters. The incident response 
+          framework has been augmented with automated runbook execution for the ten most frequent alert categories, cutting mean time to resolution 
+          by 42%. On-call rotations now follow a follow-the-sun model distributed across three geographic regions, ensuring that no single team 
+          carries the full overnight burden and that median acknowledgment time stays under three minutes regardless of the incident origin timezone.
+          Cost optimization initiatives across compute, storage, and networking have unlocked an aggregate 23% reduction in per-unit infrastructure 
+          spend without degrading end-user performance. The primary drivers include rightsizing underutilized instances, transitioning cold-storage 
+          workloads to archival tiers, and renegotiating bandwidth commitments based on updated traffic profiles. Finance and engineering have jointly 
+          established a weekly cost-attribution review that maps every line item to the owning service team, creating clear accountability and 
+          surfacing idle resources within 72 hours of detection.
         </p>
         <p style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.6;">
           Operational capacity planning models forecast steady growth in storage metrics. We recommend increasing infrastructure allocations
-          to offset localized demand anomalies.
+          to offset localized demand anomalies. The capacity forecasting engine incorporates seasonal traffic patterns, product launch calendars, 
+          and regional growth coefficients to produce a rolling 12-month projection with 95% confidence intervals. Teams should review the monthly 
+          capacity review dashboard and adjust reservation commitments at least four weeks before projected crossover dates to avoid provisioning 
+          gaps during peak windows. The platform security posture has been strengthened through mandatory multi-factor authentication for all 
+          administrative interfaces, automated credential rotation across 14,000+ service accounts, and a real-time threat detection pipeline that 
+          ingests over 2.3 million events per second. The security operations center has adopted a risk-based alert triage model that prioritizes 
+          actionable signals over informational noise, allowing analysts to focus on the most critical 3% of daily alerts while the remaining 97% 
+          are resolved through automated containment playbooks. Supply chain resilience assessments have been embedded into the quarterly planning 
+          cycle, with dual-source mandates applied to all tier-one component categories and buffer inventory thresholds recalibrated to cover 
+          90-day disruption scenarios without impacting customer-facing delivery commitments.
         </p>
       `;
       container.appendChild(section);
