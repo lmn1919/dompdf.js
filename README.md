@@ -5,6 +5,7 @@
 Pure-frontend DOM-to-PDF engine (WASM-backed, no jsPDF). This library allows you to generate editable, non-image, printable vector PDFs directly in the user's browser from web pages or DOM elements. It supports pagination and can generate PDF files with thousands of pages.
 
 **Live Demo:** [Online Demo](https://dompdfjs.lisky.com.cn)
+**Legacy API Migration:** [docs/migration-compat.md](./docs/migration-compat.md)
 
 ## 🚀 Version Comparison: New vs Old
 
@@ -189,6 +190,32 @@ Force an element to start on a new page:
 |-----------|---------|------|-------------|
 | `header` | See below | `object` | Header settings |
 | `footer` | See below | `object` | Footer settings |
+| `excludePage` | - | `number \| number[]` | Skip header/footer on one or more pages when using object-form `pageConfig` |
+| `excludePages` | - | `number[]` | Alias of `excludePage` for object-form `pageConfig` |
+
+### Excluding Specific Pages
+
+Object-form `pageConfig` can skip header/footer on selected pages:
+
+```js
+pageConfig: {
+    excludePages: [1],
+    header: {
+        content: 'Document Title',
+        height: 50,
+        contentColor: '#333333',
+        contentFontSize: 12,
+        contentPosition: 'center'
+    },
+    footer: {
+        content: 'Page ${currentPage} of ${totalPages}',
+        height: 50,
+        contentColor: '#333333',
+        contentFontSize: 12,
+        contentPosition: 'center'
+    }
+}
+```
 
 ### Per-Page Header/Footer Control
 

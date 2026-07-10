@@ -5,6 +5,7 @@
 纯前端 DOM 转 PDF 引擎（基于 WASM，不依赖 jsPDF）。该库允许您直接在用户浏览器中将网页或 DOM 元素生成为可编辑、非图片式、可打印的矢量 PDF。支持分页，可以生成数千页的 PDF 文件。
 
 **在线体验：** [在线演示](https://dompdfjs.lisky.com.cn)
+**旧版 API 迁移说明：** [docs/migration-compat.zh-CN.md](./docs/migration-compat.zh-CN.md)
 
 ## 🚀 版本对比：新版 vs 旧版
 
@@ -189,6 +190,32 @@ dompdf(document.querySelector('#capture'), {
 |--------|--------|------|------|
 | `header` | 见下文 | `object` | 页眉设置 |
 | `footer` | 见下文 | `object` | 页脚设置 |
+| `excludePage` | - | `number \| number[]` | 对象形式 `pageConfig` 下跳过某一页或多页的页眉页脚 |
+| `excludePages` | - | `number[]` | `excludePage` 的数组别名 |
+
+### 排除指定页
+
+对象形式的 `pageConfig` 现在也可以直接排除指定页：
+
+```js
+pageConfig: {
+    excludePages: [1],
+    header: {
+        content: '文档标题',
+        height: 50,
+        contentColor: '#333333',
+        contentFontSize: 12,
+        contentPosition: 'center'
+    },
+    footer: {
+        content: '第${currentPage}页/共${totalPages}页',
+        height: 50,
+        contentColor: '#333333',
+        contentFontSize: 12,
+        contentPosition: 'center'
+    }
+}
+```
 
 ### 按页控制页眉页脚
 

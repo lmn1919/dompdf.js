@@ -20,6 +20,10 @@ export interface FontConfig {
   fontStyle?: 'normal' | 'italic';
   fontWeight?: 400 | 700 | number;
   iconFont?: boolean;
+  /** Unicode ranges this font should handle in legacy langFontConfig mode. */
+  charRange?: [number, number][];
+  /** Default fallback font in legacy langFontConfig mode. */
+  isDefault?: boolean;
   /** Pre-decoded TTF bytes (alternative to fontBase64). */
   fontBytes?: Uint8Array;
 }
@@ -32,6 +36,10 @@ export type ContentPosition =
 export interface PageConfigOptions {
   header?: PageRegionConfig;
   footer?: PageRegionConfig;
+  /** Legacy object-form pageConfig field: skip header/footer on a page or pages. */
+  excludePage?: number | number[];
+  /** Explicit plural alias for object-form pageConfig exclusions. */
+  excludePages?: number[];
 }
 
 export interface PageRegionConfig {
@@ -82,31 +90,219 @@ function resolveStaticHF(options: ExportOptions, pagination: boolean): PageConfi
   return null;
 }
 
+function normalizePageNumber(value: number): number | null {
+  if (!Number.isFinite(value)) return null;
+  const pageNum = Math.trunc(value);
+  return pageNum > 0 ? pageNum : null;
+}
+
+function normalizeExcludedPages(pageConfig: PageConfigOptions | null | undefined): number[] {
+  if (!pageConfig) return [];
+  const raw = [
+    ...(Array.isArray(pageConfig.excludePage)
+      ? pageConfig.excludePage
+      : pageConfig.excludePage == null
+        ? []
+        : [pageConfig.excludePage]),
+    ...(pageConfig.excludePages ?? []),
+  ];
+  const out: number[] = [];
+  const seen = new Set<number>();
+  for (const value of raw) {
+    const pageNum = normalizePageNumber(value);
+    if (pageNum == null || seen.has(pageNum)) continue;
+    seen.add(pageNum);
+    out.push(pageNum);
+  }
+  return out;
+}
+
+function pageConfigExcludesPage(pageConfig: PageConfigOptions | null | undefined, pageNum: number): boolean {
+  return normalizeExcludedPages(pageConfig).includes(pageNum);
+}
+
+export function pageConfigNeedsPerPageResolution(pageConfig: PageConfig | undefined): boolean {
+  return typeof pageConfig === 'function'
+    || (typeof pageConfig === 'object' && pageConfig != null && normalizeExcludedPages(pageConfig).length > 0);
+}
+
+const warnedLegacyOptions = new Set<string>();
+
+function warnLegacyOption(name: string, detail: string): void {
+  if (warnedLegacyOptions.has(name)) return;
+  warnedLegacyOptions.add(name);
+  console.warn(`dom2pdf: legacy option "${name}" ${detail}`);
+}
+
+function normalizeLegacyFontStyle(fontStyle?: string): 'normal' | 'italic' {
+  return fontStyle === 'italic' || fontStyle === 'oblique' ? 'italic' : 'normal';
+}
+
+function normalizeLegacyFontWeight(fontWeight?: number): 400 | 700 {
+  return (fontWeight ?? 400) > 500 ? 700 : 400;
+}
+
+function arrayifyFontConfig(fontConfig?: FontConfig | FontConfig[]): FontConfig[] {
+  if (!fontConfig) return [];
+  return Array.isArray(fontConfig) ? fontConfig : [fontConfig];
+}
+
+function dedupeFontConfigs(fontConfigs: FontConfig[]): FontConfig[] {
+  const out: FontConfig[] = [];
+  const seen = new Set<string>();
+  for (const fontConfig of fontConfigs) {
+    const key = JSON.stringify({
+      charRange: fontConfig.charRange ?? null,
+      family: fontConfig.fontFamily,
+      iconFont: fontConfig.iconFont ?? false,
+      isDefault: fontConfig.isDefault ?? false,
+      style: fontConfig.fontStyle ?? 'normal',
+      weight: fontConfig.fontWeight ?? 400,
+    });
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(fontConfig);
+  }
+  return out;
+}
+
+function normalizeLegacyOptions(options: ExportOptions = {}): NormalizedExportOptions {
+  const normalized: NormalizedExportOptions = {
+    ...options,
+    fontConfig: arrayifyFontConfig(options.fontConfig),
+    langFontConfig: arrayifyFontConfig(options.langFontConfig),
+  };
+
+  if (options.allowTaint !== undefined) {
+    warnLegacyOption('allowTaint', 'is accepted for API compatibility but is not used by the WASM snapshot pipeline.');
+  }
+  if (options.cache !== undefined) {
+    warnLegacyOption('cache', 'is accepted for API compatibility but cache injection is not supported in the current pipeline.');
+  }
+  if (options.canvas !== undefined) {
+    warnLegacyOption('canvas', 'is accepted for API compatibility but rendering does not target a caller-provided canvas.');
+  }
+  if (options.floatPrecision !== undefined) {
+    warnLegacyOption('floatPrecision', 'is accepted for API compatibility but only `precision` is used by the current PDF encoder.');
+  }
+  if (options.foreignObjectRendering !== undefined) {
+    warnLegacyOption('foreignObjectRendering', 'is accepted for API compatibility but the current pipeline always uses DOM snapshot + WASM rendering.');
+  }
+  if (options.imageTimeout !== undefined) {
+    warnLegacyOption('imageTimeout', 'is accepted for API compatibility but image loading timeout is not configurable in the current pipeline.');
+  }
+  if (options.logging !== undefined) {
+    warnLegacyOption('logging', 'is accepted for API compatibility but there is no runtime logger toggle in the current pipeline.');
+  }
+  if (options.onclone !== undefined) {
+    warnLegacyOption('onclone', 'is accepted for API compatibility but there is no cloned document stage in the current pipeline.');
+  }
+  if (options.orientation !== undefined) {
+    warnLegacyOption('orientation', 'is accepted for API compatibility but page orientation should be expressed through `format` or explicit page sizes.');
+  }
+  if (options.pdfFileName !== undefined) {
+    warnLegacyOption('pdfFileName', 'is accepted for API compatibility but only `downloadPDF(..., filename)` controls the saved filename.');
+  }
+  if (options.proxy !== undefined) {
+    warnLegacyOption('proxy', 'is accepted for API compatibility but proxy-based resource loading is not supported in the current pipeline.');
+  }
+  if (options.removeContainer !== undefined) {
+    warnLegacyOption('removeContainer', 'is accepted for API compatibility but there is no cloned container to remove in the current pipeline.');
+  }
+  if (options.scale !== undefined) {
+    warnLegacyOption('scale', 'is accepted for API compatibility but snapshot rendering uses layout pixels and internal supersampling.');
+  }
+  if (options.scrollX !== undefined || options.scrollY !== undefined) {
+    warnLegacyOption('scrollX/scrollY', 'are accepted for API compatibility but live window scroll offsets are used by the current pipeline.');
+  }
+  if (options.windowWidth !== undefined || options.windowHeight !== undefined) {
+    warnLegacyOption('windowWidth/windowHeight', 'are accepted for API compatibility but the current pipeline reads the live DOM viewport.');
+  }
+  if (options.x !== undefined || options.y !== undefined || options.width !== undefined || options.height !== undefined) {
+    warnLegacyOption('x/y/width/height', 'are accepted for API compatibility but snapshot cropping is not implemented in the current pipeline.');
+  }
+
+  const fontConfigs = normalized.fontConfig ?? [];
+  const langFontConfigs = normalized.langFontConfig ?? [];
+  normalized.langFontConfig = langFontConfigs.length > 0 ? dedupeFontConfigs(langFontConfigs) : undefined;
+  normalized.fontConfig = dedupeFontConfigs([...fontConfigs, ...langFontConfigs]);
+  return normalized;
+}
+
 export interface ExportOptions {
   /** Allow cross-origin resources (requires server CORS). */
   useCORS?: boolean;
+  /** Legacy html2canvas option, accepted for compatibility. */
+  allowTaint?: boolean;
   /** Page background color; null = transparent. */
   backgroundColor?: string | null;
+  /** Legacy html2canvas option, accepted for compatibility. */
+  cache?: unknown;
+  /** Legacy html2canvas option, accepted for compatibility. */
+  canvas?: HTMLCanvasElement;
   /** Non-Latin font registration (TTF, base64). */
   fontConfig?: FontConfig | FontConfig[];
+  /**
+   * Legacy dompdf.js option. Fonts are matched by charRange + default fallback,
+   * then merged into the current registration pipeline.
+   */
+  langFontConfig?: FontConfig[];
+  /** Legacy clone option, supported by skipping matching elements. */
+  ignoreElements?: (element: Element) => boolean;
+  /** Legacy resource option, accepted for compatibility. */
+  imageTimeout?: number;
   /** PDF encryption config (accepted, not yet implemented — no-op). */
   encryption?: object;
+  /** Legacy logging flag, accepted for compatibility. */
+  logging?: boolean;
   /** Coordinate precision (decimal places). Default 2. */
   precision?: number;
+  /** Legacy jsPDF option, accepted for compatibility. */
+  floatPrecision?: number | 'smart';
   /** Compress PDF streams with DEFLATE (FlateDecode). Default false. */
   compress?: boolean;
   /** Only embed actually-used fonts. Default false. */
   putOnlyUsedFonts?: boolean;
   /** Enable pagination. Default false (single page). */
   pagination?: boolean;
+  /** Legacy removeContainer option, accepted for compatibility. */
+  removeContainer?: boolean;
+  /** Legacy clone hook, accepted for compatibility. */
+  onclone?: (document: Document, element: HTMLElement) => void;
   /** Page size name or [widthPt, heightPt]. Default 'a4'. */
   format?: string | [number, number];
+  /** Legacy rendering mode switch, accepted for compatibility. */
+  foreignObjectRendering?: boolean;
   /** Header/footer config (object = all pages, function = per-page). */
   pageConfig?: PageConfig;
   /** jsPDF instance init hook (accepted, no-op — no jsPDF in this engine). */
   onJspdfReady?: (jspdf: unknown) => void;
   /** jsPDF instance finish hook (accepted, no-op). */
   onJspdfFinish?: (jspdf: unknown) => void;
+  /** Legacy resource option, accepted for compatibility. */
+  proxy?: string;
+  /** Legacy render option, accepted for compatibility. */
+  scale?: number;
+  /** Legacy window options, accepted for compatibility. */
+  scrollX?: number;
+  /** Legacy window options, accepted for compatibility. */
+  scrollY?: number;
+  /** Legacy render option, accepted for compatibility. */
+  orientation?: 'p' | 'portrait' | 'l' | 'landscape';
+  /** Legacy render option, accepted for compatibility. */
+  pdfFileName?: string;
+  /** Legacy crop option, accepted for compatibility. */
+  x?: number;
+  /** Legacy crop option, accepted for compatibility. */
+  y?: number;
+  /** Legacy crop option, accepted for compatibility. */
+  width?: number;
+  /** Legacy crop option, accepted for compatibility. */
+  height?: number;
+  /** Legacy window options, accepted for compatibility. */
+  windowWidth?: number;
+  /** Legacy window options, accepted for compatibility. */
+  windowHeight?: number;
 
   // ---- advanced pt-level overrides (take precedence over format/margins) ----
   pageWidthPt?: number;
@@ -114,6 +310,17 @@ export interface ExportOptions {
   /** Margins in pt: number (all sides) or [top, right, bottom, left]. Default 0. */
   marginPt?: number | [number, number, number, number];
   jpegQuality?: number;
+}
+
+interface NormalizedExportOptions extends ExportOptions {
+  fontConfig?: FontConfig[];
+  langFontConfig?: FontConfig[];
+}
+
+interface FontOverride {
+  family: string;
+  italic: number;
+  weight: number;
 }
 
 // ---- internal types ----
@@ -212,6 +419,7 @@ interface InlineRun {
   text: string;
   start16: number;
   end16: number;
+  fontOverride?: FontOverride;
 }
 
 interface NodeRec {
@@ -1493,32 +1701,32 @@ export async function collectSnapshotData(
   root: HTMLElement,
   options: ExportOptions = {},
 ): Promise<EncodeArgs> {
+  const normalizedOptions = normalizeLegacyOptions(options);
   // jsPDF hooks: accepted but no-op (engine has no jsPDF instance).
-  if (options.onJspdfReady) {
+  if (normalizedOptions.onJspdfReady) {
     console.warn('dom2pdf: onJspdfReady is accepted but not implemented (no jsPDF engine).');
   }
-  if (options.onJspdfFinish) {
+  if (normalizedOptions.onJspdfFinish) {
     console.warn('dom2pdf: onJspdfFinish is accepted but not implemented (no jsPDF engine).');
   }
-  if (options.encryption) {
+  if (normalizedOptions.encryption) {
     console.warn('dom2pdf: encryption is accepted but not yet implemented.');
   }
 
-  const [fmtW, fmtH] = resolvePageSize(options.format);
-  const pageWidthPt = options.pageWidthPt ?? fmtW;
-  const pageHeightPt = options.pageHeightPt ?? fmtH;
-  const m = options.marginPt ?? 0;
+  const [fmtW, fmtH] = resolvePageSize(normalizedOptions.format);
+  const pageWidthPt = normalizedOptions.pageWidthPt ?? fmtW;
+  const pageHeightPt = normalizedOptions.pageHeightPt ?? fmtH;
+  const m = normalizedOptions.marginPt ?? 0;
   const [mTop, mRight, mBottom, mLeft] = Array.isArray(m) ? m : [m, m, m, m];
-  const quality = options.jpegQuality ?? 0.85;
-  const useCORS = options.useCORS ?? false;
-  const pagination = options.pagination ?? false;
-  const precision = (options.precision ?? 2) | 0;
-  const compress = options.compress ?? false;
+  const quality = normalizedOptions.jpegQuality ?? 0.85;
+  const useCORS = normalizedOptions.useCORS ?? false;
+  const pagination = normalizedOptions.pagination ?? false;
+  const precision = (normalizedOptions.precision ?? 2) | 0;
+  const compress = normalizedOptions.compress ?? false;
+  const ignoreElements = normalizedOptions.ignoreElements;
 
   // Fonts
-  const fontConfigs = options.fontConfig
-    ? Array.isArray(options.fontConfig) ? options.fontConfig : [options.fontConfig]
-    : [];
+  const fontConfigs = normalizedOptions.fontConfig ?? [];
   const fonts: CollectedFont[] = [];
   for (const fc of fontConfigs) {
     let bytes: Uint8Array | undefined = fc.fontBytes;
@@ -1537,10 +1745,11 @@ export async function collectSnapshotData(
   //            function form -> per-page resolved text (JS resolves placeholders),
   //            needs totalPages via count_pages (handled by caller in index.ts).
   //            undefined/null + pagination -> library default (page-number footer).
-  const staticHF = resolveStaticHF(options, pagination);
+  const staticHF = resolveStaticHF(normalizedOptions, pagination);
 
   // Pre-collect images.
-  const imgElements = Array.from(root.querySelectorAll('img'));
+  const imgElements = Array.from(root.querySelectorAll('img'))
+    .filter((img) => !(ignoreElements && ignoreElements(img)));
   const images: CollectedImage[] = [];
   const imgToId = new Map<HTMLElement, number>();
   // convertImage rasterizes pixels from a detached, independently-loaded clone
@@ -1718,6 +1927,105 @@ export async function collectSnapshotData(
     return runs;
   }
 
+function isCodePointInRange(codePoint: number, ranges: [number, number][]): boolean {
+  return ranges.some(([start, end]) => codePoint >= start && codePoint <= end);
+}
+
+function pickLangFontOverride(
+  grapheme: string,
+  computedStyle: CSSStyleDeclaration,
+  langFontConfigs: FontConfig[] | undefined,
+): FontOverride | undefined {
+  if (!langFontConfigs || langFontConfigs.length === 0) return undefined;
+  const codePoint = grapheme.codePointAt(0);
+  if (codePoint == null) return undefined;
+  const targetWeight = normalizeLegacyFontWeight(weightNum(computedStyle.fontWeight));
+  const targetStyle = normalizeLegacyFontStyle(computedStyle.fontStyle);
+  const candidates = langFontConfigs.filter((fontConfig) => (
+    normalizeLegacyFontWeight(fontConfig.fontWeight) === targetWeight
+      && normalizeLegacyFontStyle(fontConfig.fontStyle) === targetStyle
+  ));
+  if (candidates.length === 0) {
+    return {
+      family: 'Helvetica',
+      italic: targetStyle === 'italic' ? 1 : 0,
+      weight: targetWeight,
+    };
+  }
+  let defaultFont: FontConfig | null = null;
+  for (const candidate of candidates) {
+    if (candidate.charRange && isCodePointInRange(codePoint, candidate.charRange)) {
+      return {
+        family: candidate.fontFamily,
+        italic: targetStyle === 'italic' ? 1 : 0,
+        weight: targetWeight,
+      };
+    }
+    if (candidate.isDefault && !defaultFont) {
+      defaultFont = candidate;
+    }
+  }
+  if (defaultFont) {
+    return {
+      family: defaultFont.fontFamily,
+      italic: targetStyle === 'italic' ? 1 : 0,
+      weight: targetWeight,
+    };
+  }
+  return {
+    family: 'Helvetica',
+    italic: targetStyle === 'italic' ? 1 : 0,
+    weight: targetWeight,
+  };
+}
+
+function fontOverrideKey(fontOverride: FontOverride | undefined): string {
+  if (!fontOverride) return '';
+  return `${fontOverride.family}|${fontOverride.weight}|${fontOverride.italic}`;
+}
+
+function buildInlineRunsWithLangFont(
+  text: string,
+  computedStyle: CSSStyleDeclaration,
+  langFontConfigs: FontConfig[] | undefined,
+): InlineRun[] {
+  const graphemes = segmentGraphemes(text);
+  if (graphemes.length === 0) return [];
+  const runs: InlineRun[] = [];
+  let currentKind: InlineRun['kind'] = graphemeNeedsBitmapFallback(graphemes[0].text) ? 'bitmap' : 'text';
+  let currentFontOverride = pickLangFontOverride(graphemes[0].text, computedStyle, langFontConfigs);
+  let start16 = graphemes[0].start16;
+  let end16 = graphemes[0].end16;
+  for (let i = 1; i < graphemes.length; i++) {
+    const segment = graphemes[i];
+    const kind: InlineRun['kind'] = graphemeNeedsBitmapFallback(segment.text) ? 'bitmap' : 'text';
+    const fontOverride = pickLangFontOverride(segment.text, computedStyle, langFontConfigs);
+    if (kind === currentKind && fontOverrideKey(fontOverride) === fontOverrideKey(currentFontOverride)) {
+      end16 = segment.end16;
+      continue;
+    }
+    runs.push({
+      kind: currentKind,
+      text: text.slice(start16, end16),
+      start16,
+      end16,
+      fontOverride: currentFontOverride,
+    });
+    currentKind = kind;
+    currentFontOverride = fontOverride;
+    start16 = segment.start16;
+    end16 = segment.end16;
+  }
+  runs.push({
+    kind: currentKind,
+    text: text.slice(start16, end16),
+    start16,
+    end16,
+    fontOverride: currentFontOverride,
+  });
+  return runs;
+}
+
   function canvasFontForComputedStyle(cs: CSSStyleDeclaration): string {
     const style = cs.fontStyle && cs.fontStyle !== 'normal' ? `${cs.fontStyle} ` : '';
     const weight = cs.fontWeight && cs.fontWeight !== 'normal' ? `${cs.fontWeight} ` : '';
@@ -1808,6 +2116,19 @@ export async function collectSnapshotData(
     };
   }
 
+  function applyFontOverride(
+    font: NonNullable<NodeRec['font']>,
+    fontOverride: FontOverride | undefined,
+  ): NonNullable<NodeRec['font']> {
+    if (!fontOverride) return font;
+    return {
+      ...font,
+      family: fontOverride.family,
+      italic: fontOverride.italic,
+      weight: fontOverride.weight,
+    };
+  }
+
   function pushTextNode(
     parentId: number,
     font: NonNullable<NodeRec['font']>,
@@ -1841,7 +2162,13 @@ export async function collectSnapshotData(
   // Used to fix table rowspan rendering order — see the comment in visit().
   const rowGroupDeferredCells = new Map<HTMLElement, Array<{ cell: HTMLElement }>>();
 
-  async function visit(el: HTMLElement, parentId: number): Promise<void> {
+  // `forcedBg`: an opaque backdrop colour (rgb string) to paint under a cell that
+  // is otherwise background-transparent. Used for deferred rowspan cells in a
+  // `border-collapse: collapse` table so they can cover the row separator borders
+  // (e.g. a <tr>'s border-bottom) that visually cross them — mirroring how the
+  // browser's collapse model hides internal row borders behind a spanning cell.
+  async function visit(el: HTMLElement, parentId: number, forcedBg?: [number, number, number, number]): Promise<void> {
+    if (ignoreElements && ignoreElements(el)) return;
     const id = nodes.length;
     const cs = getComputedStyle(el);
     const isImg = el.tagName === 'IMG' && imgToId.has(el);
@@ -1891,6 +2218,13 @@ export async function collectSnapshotData(
     }
 
     let bg = parseColor(cs.backgroundColor);
+    // A deferred rowspan cell with a transparent background can't cover the row
+    // separator borders that cross it (see forcedBg above). Substitute the
+    // caller-provided opaque backdrop so the cell paints a solid fill matching
+    // what the browser shows through the transparent cell.
+    if (forcedBg && bg[3] <= 0.001) {
+      bg = forcedBg;
+    }
     // Semi-transparent backgrounds (e.g. rgba(27,31,35,0.05) used by CODE tags on
     // juejin.cn) cannot be faithfully reproduced in PDF — the Rust backend ignores
     // the alpha channel and paints an opaque rect. Pre-multiply with the nearest
@@ -2096,26 +2430,32 @@ export async function collectSnapshotData(
             }
           }
         }
+        if (ignoreElements && ignoreElements(childEl)) continue;
         await visit(childEl, id);
       } else if (child.nodeType === 3) {
         const textNode = child as Text;
         const text = textNode.data;
         if (!text) continue;
         const font = makeFont(cs) as NonNullable<NodeRec['font']>;
-        const runs = buildInlineRuns(text);
+        const runs = normalizedOptions.langFontConfig
+          ? buildInlineRunsWithLangFont(text, cs, normalizedOptions.langFontConfig)
+          : buildInlineRuns(text);
         const hasBitmapRun = runs.some((run) => run.kind === 'bitmap');
         if (!hasBitmapRun) {
-          const lines = collectTextLines(textNode);
-          if (lines.length === 0) continue;
-          pushTextNode(id, font, text, lines);
+          for (const run of runs) {
+            const lines = collectTextLines(textNode, run.start16, run.end16);
+            if (lines.length === 0) continue;
+            pushTextNode(id, applyFontOverride(font, run.fontOverride), run.text, lines);
+          }
           continue;
         }
         for (const run of runs) {
           const fragments = collectTextFragments(textNode, run.start16, run.end16);
           if (fragments.length === 0) continue;
+          const runFont = applyFontOverride(font, run.fontOverride);
           if (run.kind === 'text') {
             const lines = linesFromFragments(run.text, run.start16, fragments);
-            pushTextNode(id, font, run.text, lines);
+            pushTextNode(id, runFont, run.text, lines);
             continue;
           }
           const bitmapNodes: Array<{
@@ -2142,7 +2482,7 @@ export async function collectSnapshotData(
           }
           if (bitmapNodes.length === 0) {
             const fallbackLines = linesFromFragments(run.text, run.start16, fragments);
-            pushTextNode(id, font, run.text, fallbackLines);
+            pushTextNode(id, runFont, run.text, fallbackLines);
             continue;
           }
           for (const bitmapNode of bitmapNodes) {
@@ -2171,7 +2511,7 @@ export async function collectSnapshotData(
           const hiddenLines = linesFromFragments(run.text, run.start16, fragments);
           // Emit an invisible text object instead of alpha=0. Many PDF text
           // extractors keep `Tr 3` text but ignore fully transparent glyphs.
-          pushTextNode(id, font, run.text, hiddenLines, undefined, 3);
+          pushTextNode(id, runFont, run.text, hiddenLines, undefined, 3);
         }
       }
     }
@@ -2183,8 +2523,20 @@ export async function collectSnapshotData(
     if (isRowGroup && rowGroupDeferredCells.has(el)) {
       const deferred = rowGroupDeferredCells.get(el)!;
       rowGroupDeferredCells.delete(el);
+      // In a `border-collapse: collapse` table, each <tr>'s border-bottom is
+      // drawn as its own rect and visually crosses a spanning cell. The browser
+      // hides those internal borders behind the spanning cell; we replicate that
+      // by giving a transparent spanning cell an opaque backdrop so its fill (now
+      // painted last, on top of the row borders) covers them. Cells that already
+      // have their own background need no help.
+      const tableEl = el.tagName === 'TABLE' ? el : el.closest('table');
+      const collapsed = tableEl ? getComputedStyle(tableEl).borderCollapse === 'collapse' : false;
       for (const { cell } of deferred) {
-        await visit(cell, id);
+        let forcedBg: [number, number, number, number] | undefined;
+        if (collapsed && parseColor(getComputedStyle(cell).backgroundColor)[3] <= 0.001) {
+          forcedBg = parseColor(findOpaqueBackdropColor(cell));
+        }
+        await visit(cell, id, forcedBg);
       }
     }
   }
@@ -2199,8 +2551,8 @@ export async function collectSnapshotData(
   // later by index.ts once totalPages is known.)
   let headerHPx = staticHeader?.heightPx ?? 0;
   let footerHPx = staticFooter?.heightPx ?? 0;
-  if (typeof options.pageConfig === 'function' && pagination) {
-    const sample = options.pageConfig(1, 1);
+  if (typeof normalizedOptions.pageConfig === 'function' && pagination) {
+    const sample = normalizedOptions.pageConfig(1, 1);
     if (sample) {
       const sh = resolveRegion(sample.header, false);
       const sf = resolveRegion(sample.footer, true);
@@ -2211,7 +2563,7 @@ export async function collectSnapshotData(
 
   return {
     pageWidthPt, pageHeightPt, mTop, mRight, mBottom, mLeft,
-    precision, pagination, compress, backgroundColor: options.backgroundColor ?? null,
+    precision, pagination, compress, backgroundColor: normalizedOptions.backgroundColor ?? null,
     headerHPx, footerHPx,
     staticHeader, staticFooter,
     perPageHF: [],
@@ -2409,17 +2761,18 @@ function encode(a: EncodeArgs): Uint8Array {
 
 /** Compute page-break Y positions (document px, relative to root top) for overlays. */
 export function computePageBreaks(root: HTMLElement, options: ExportOptions = {}): number[] {
-  const [fmtW, fmtH] = resolvePageSize(options.format);
-  const pageWidthPt = options.pageWidthPt ?? fmtW;
-  const pageHeightPt = options.pageHeightPt ?? fmtH;
-  const m = options.marginPt ?? 36;
+  const normalizedOptions = normalizeLegacyOptions(options);
+  const [fmtW, fmtH] = resolvePageSize(normalizedOptions.format);
+  const pageWidthPt = normalizedOptions.pageWidthPt ?? fmtW;
+  const pageHeightPt = normalizedOptions.pageHeightPt ?? fmtH;
+  const m = normalizedOptions.marginPt ?? 36;
   const mTop = Array.isArray(m) ? m[0] : m;
   const mRight = Array.isArray(m) ? m[1] : m;
   const mBottom = Array.isArray(m) ? m[2] : m;
   const mLeft = Array.isArray(m) ? m[3] : m;
-  const pagination = options.pagination ?? false;
+  const pagination = normalizedOptions.pagination ?? false;
   if (!pagination) return [];
-  const staticHF = resolveStaticHF(options, pagination);
+  const staticHF = resolveStaticHF(normalizedOptions, pagination);
   const headerHPt = (staticHF?.header?.height ?? 0) * PX_TO_PT;
   const footerHPt = (staticHF?.footer?.height ?? 0) * PX_TO_PT;
   const contentHpt = pageHeightPt - mTop - mBottom - headerHPt - footerHPt;
@@ -2509,9 +2862,33 @@ export function resolvePerPageHF(
       out.push({ header: null, footer: null });
       continue;
     }
+    if (pageConfigExcludesPage(cfg, p + 1)) {
+      out.push({ header: null, footer: null });
+      continue;
+    }
     out.push({
       header: resolveRegion(cfg.header, false),
       footer: resolveRegion(cfg.footer, true),
+    });
+  }
+  return out;
+}
+
+/** Resolve per-page HF for object-form pageConfig with excludePage(s) support. */
+export function resolveStaticPageConfigHF(
+  pageConfig: PageConfigOptions,
+  totalPages: number,
+): ResolvedPageHF[] {
+  const out: ResolvedPageHF[] = [];
+  for (let p = 0; p < totalPages; p++) {
+    const pageNum = p + 1;
+    if (pageConfigExcludesPage(pageConfig, pageNum)) {
+      out.push({ header: null, footer: null });
+      continue;
+    }
+    out.push({
+      header: resolveRegion(pageConfig.header, false),
+      footer: resolveRegion(pageConfig.footer, true),
     });
   }
   return out;
@@ -2532,5 +2909,5 @@ export function resolvePerPageHFText(
   }));
 }
 
-export { resolveRegion, resolvePlaceholder };
+export { resolveRegion, resolvePlaceholder, normalizeExcludedPages };
 export type { ResolvedHF };
