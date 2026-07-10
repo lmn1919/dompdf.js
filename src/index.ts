@@ -21,13 +21,10 @@ import {
   resolveStaticWatermarkPages,
   computePageBreaks,
   type ExportOptions,
-  type EncryptionPermission,
   type PageConfigOptions,
-  type PdfEncryptionOptions,
   type ResolvedPageHF,
   type ResolvedPageWatermark,
 } from './snapshot';
-import { encodeEncryptionConfig } from './encryption';
 // `?worker&inline` is resolved by the rollup inlineWorker plugin — the worker
 // module is bundled separately and wrapped in a Blob URL, no extra chunk file.
 import Dom2pdfWorker from './worker?worker&inline';
@@ -46,12 +43,10 @@ export {
   resolveStaticWatermarkPages,
 } from './snapshot';
 export type {
-  EncryptionPermission,
   FontConfig,
   PageConfig,
   PageConfigOptions,
   PageRegionConfig,
-  PdfEncryptionOptions,
   WatermarkConfig,
   WatermarkOptions,
 } from './snapshot';
@@ -103,17 +98,13 @@ function getWorker(): Worker {
 function callWorker(
   snapshot: Uint8Array,
   op: 'render' | 'inspect' | 'countPages',
-  encryption?: Uint8Array,
 ): Promise<WorkerResponse> {
   const id = ++seq;
   return new Promise((resolve) => {
     pending.set(id, resolve);
     // Transfer the snapshot buffer (we don't need it on the main thread after).
     const transfer = snapshot.buffer.byteLength > 0 ? [snapshot.buffer] : [];
-    if (encryption && encryption.buffer.byteLength > 0) {
-      transfer.push(encryption.buffer);
-    }
-    getWorker().postMessage({ id, op, snapshot, encryption }, transfer);
+    getWorker().postMessage({ id, op, snapshot }, transfer);
   });
 }
 
@@ -178,8 +169,7 @@ export async function renderToBytes(
 ): Promise<Uint8Array> {
   const resolvedOptions = options ?? {};
   const snapshot = await buildSnapshot(root, resolvedOptions);
-  const encryption = encodeEncryptionConfig(resolvedOptions.encryption);
-  const res = await callWorker(snapshot, 'render', encryption);
+  const res = await callWorker(snapshot, 'render');
   if (!res.ok || !res.result || typeof res.result === 'string') {
     throw new Error(res.error || 'render failed');
   }
