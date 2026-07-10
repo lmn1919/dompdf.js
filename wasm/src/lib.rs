@@ -13,6 +13,7 @@
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+mod encrypt;
 mod font;
 mod paginate;
 mod pdf;
@@ -47,11 +48,36 @@ pub extern "C" fn dealloc(ptr: *mut u8, n: usize) {
 /// must be copied out then freed with `free_pdf`). Length via `render_pdf_len`.
 #[no_mangle]
 pub extern "C" fn render_pdf(in_ptr: *const u8, in_len: usize) -> usize {
+    render_pdf_inner(in_ptr, in_len, std::ptr::null(), 0)
+}
+
+#[no_mangle]
+pub extern "C" fn render_pdf_encrypted(
+    in_ptr: *const u8,
+    in_len: usize,
+    enc_ptr: *const u8,
+    enc_len: usize,
+) -> usize {
+    render_pdf_inner(in_ptr, in_len, enc_ptr, enc_len)
+}
+
+fn render_pdf_inner(
+    in_ptr: *const u8,
+    in_len: usize,
+    enc_ptr: *const u8,
+    enc_len: usize,
+) -> usize {
     let data = unsafe { std::slice::from_raw_parts(in_ptr, in_len) };
     let result = (|| -> Result<Vec<u8>, String> {
         let mut snap = snapshot::parse(data)?;
+        let security = if !enc_ptr.is_null() && enc_len > 0 {
+            let enc = unsafe { std::slice::from_raw_parts(enc_ptr, enc_len) };
+            Some(encrypt::PdfSecurity::new(&encrypt::parse_config(enc)?))
+        } else {
+            None
+        };
         let (pages, _total, fontctx, _single_h) = paginate::paginate(&mut snap)?;
-        Ok(paginate::build_pdf(&snap, &pages, &fontctx))
+        Ok(paginate::build_pdf(&snap, &pages, &fontctx, security.as_ref()))
     })();
     match result {
         Ok(bytes) => {

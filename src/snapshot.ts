@@ -56,6 +56,8 @@ export interface PageRegionConfig {
 
 export type PageConfig = PageConfigOptions | ((pageNum: number, totalPages: number) => PageConfigOptions | null);
 
+export type EncryptionPermission = 'print' | 'modify' | 'copy' | 'annot-forms';
+
 export type WatermarkLayer = 'under' | 'over';
 
 interface BaseWatermarkOptions extends ExcludedPagesConfig {
@@ -86,6 +88,12 @@ export type WatermarkOptions = TextWatermarkOptions | ImageWatermarkOptions;
 export type WatermarkConfig =
   | WatermarkOptions
   | ((pageNum: number, totalPages: number) => WatermarkOptions | null);
+
+export interface PdfEncryptionOptions {
+  userPassword?: string;
+  ownerPassword?: string;
+  userPermissions?: EncryptionPermission[];
+}
 
 /**
  * Default pageConfig applied when `pagination` is enabled but no `pageConfig`
@@ -265,6 +273,8 @@ function normalizeLegacyOptions(options: ExportOptions = {}): NormalizedExportOp
     warnLegacyOption('x/y/width/height', 'are accepted for API compatibility but snapshot cropping is not implemented in the current pipeline.');
   }
 
+  normalized.encryption = normalizeEncryptionOptions(options.encryption);
+
   const fontConfigs = normalized.fontConfig ?? [];
   const langFontConfigs = normalized.langFontConfig ?? [];
   normalized.langFontConfig = langFontConfigs.length > 0 ? dedupeFontConfigs(langFontConfigs) : undefined;
@@ -294,8 +304,8 @@ export interface ExportOptions {
   ignoreElements?: (element: Element) => boolean;
   /** Legacy resource option, accepted for compatibility. */
   imageTimeout?: number;
-  /** PDF encryption config (accepted, not yet implemented — no-op). */
-  encryption?: object;
+  /** PDF encryption config. */
+  encryption?: PdfEncryptionOptions;
   /** Legacy logging flag, accepted for compatibility. */
   logging?: boolean;
   /** Coordinate precision (decimal places). Default 2. */
@@ -360,12 +370,41 @@ export interface ExportOptions {
 interface NormalizedExportOptions extends ExportOptions {
   fontConfig?: FontConfig[];
   langFontConfig?: FontConfig[];
+  encryption?: PdfEncryptionOptions;
 }
 
 interface FontOverride {
   family: string;
   italic: number;
   weight: number;
+}
+
+const VALID_ENCRYPTION_PERMISSIONS: ReadonlySet<EncryptionPermission> = new Set([
+  'annot-forms',
+  'copy',
+  'modify',
+  'print',
+]);
+
+export function normalizeEncryptionOptions(
+  encryption?: PdfEncryptionOptions,
+): PdfEncryptionOptions | undefined {
+  if (!encryption) return undefined;
+  const normalized: PdfEncryptionOptions = {
+    ownerPassword: typeof encryption.ownerPassword === 'string' ? encryption.ownerPassword : '',
+    userPassword: typeof encryption.userPassword === 'string' ? encryption.userPassword : '',
+    userPermissions: [],
+  };
+  const seen = new Set<EncryptionPermission>();
+  for (const permission of encryption.userPermissions ?? []) {
+    if (!VALID_ENCRYPTION_PERMISSIONS.has(permission)) {
+      throw new Error(`dom2pdf: invalid encryption permission "${permission}"`);
+    }
+    if (seen.has(permission)) continue;
+    seen.add(permission);
+    normalized.userPermissions!.push(permission);
+  }
+  return normalized;
 }
 
 // ---- internal types ----
@@ -1888,9 +1927,6 @@ export async function collectSnapshotData(
   }
   if (normalizedOptions.onJspdfFinish) {
     console.warn('dom2pdf: onJspdfFinish is accepted but not implemented (no jsPDF engine).');
-  }
-  if (normalizedOptions.encryption) {
-    console.warn('dom2pdf: encryption is accepted but not yet implemented.');
   }
   const [fmtW, fmtH] = resolvePageSize(normalizedOptions.format);
   const pageWidthPt = normalizedOptions.pageWidthPt ?? fmtW;

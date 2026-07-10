@@ -2,14 +2,32 @@
 //!
 //! Maintains an output buffer, an object offset table, and emits xref + trailer.
 
+use crate::encrypt::PdfSecurity;
+
 pub struct PdfWriter {
     pub out: Vec<u8>,
     offsets: Vec<usize>, // index = obj_id - 1
+    file_id: Option<[u8; 16]>,
+    security: Option<PdfSecurity>,
+    encrypt_id: Option<u32>,
 }
 
 impl PdfWriter {
     pub fn new() -> Self {
         Self {
+            out: Vec::new(),
+            offsets: Vec::new(),
+            file_id: None,
+            security: None,
+            encrypt_id: None,
+        }
+    }
+
+    pub fn with_security(security: PdfSecurity) -> Self {
+        Self {
+            file_id: Some(security.file_id),
+            security: Some(security),
+            encrypt_id: None,
             out: Vec::new(),
             offsets: Vec::new(),
         }
@@ -21,6 +39,12 @@ impl PdfWriter {
             self.offsets.push(0);
         }
         start
+    }
+
+    pub fn reserve_encrypt_obj(&mut self) -> u32 {
+        let id = self.alloc(1);
+        self.encrypt_id = Some(id);
+        id
     }
 
     fn put(&mut self, s: &str) {
@@ -56,16 +80,32 @@ impl PdfWriter {
         self.end_obj();
     }
 
+    pub fn write_encrypt_obj(&mut self) {
+        if let (Some(security), Some(id)) = (self.security.as_ref(), self.encrypt_id) {
+            let body = security.encrypt_dict();
+            self.indirect(id, &body);
+        }
+    }
+
     /// Write a stream object. `dict_extra` is inserted into the stream dict
     /// (e.g. `/Width 800`). /Length is added automatically.
     pub fn stream(&mut self, id: u32, dict_extra: &str, data: &[u8]) {
         self.begin_obj(id);
+        let payload = if let Some(security) = &self.security {
+            if Some(id) == self.encrypt_id {
+                data.to_vec()
+            } else {
+                security.encrypt_bytes(id, 0, data)
+            }
+        } else {
+            data.to_vec()
+        };
         self.put(&format!(
             "<< /Length {}{} >>\nstream\n",
-            data.len(),
+            payload.len(),
             dict_extra
         ));
-        self.put_bytes(data);
+        self.put_bytes(&payload);
         self.put("\nendstream");
         self.end_obj();
     }
@@ -75,12 +115,21 @@ impl PdfWriter {
     /// /Filter or /Length (this method adds /Filter /FlateDecode and /Length).
     pub fn stream_compressed(&mut self, id: u32, dict_extra: &str, compressed: &[u8]) {
         self.begin_obj(id);
+        let payload = if let Some(security) = &self.security {
+            if Some(id) == self.encrypt_id {
+                compressed.to_vec()
+            } else {
+                security.encrypt_bytes(id, 0, compressed)
+            }
+        } else {
+            compressed.to_vec()
+        };
         self.put(&format!(
             "<< /Length {} /Filter /FlateDecode{} >>\nstream\n",
-            compressed.len(),
+            payload.len(),
             dict_extra
         ));
-        self.put_bytes(compressed);
+        self.put_bytes(&payload);
         self.put("\nendstream");
         self.end_obj();
     }
@@ -96,12 +145,16 @@ impl PdfWriter {
             body.push_str(&format!("{:010} 00000 n \n", off));
         }
         self.put(&body);
-        self.put(&format!(
-            "trailer\n<< /Size {} /Root {} 0 R >>\nstartxref\n{}\n%%EOF\n",
-            count + 1,
-            root_id,
-            xref_offset
-        ));
+        self.put("trailer\n<< ");
+        self.put(&format!("/Size {} /Root {} 0 R ", count + 1, root_id));
+        if let Some(encrypt_id) = self.encrypt_id {
+            self.put(&format!("/Encrypt {} 0 R ", encrypt_id));
+        }
+        if let Some(file_id) = self.file_id {
+            let hex = file_id.iter().map(|b| format!("{:02X}", b)).collect::<String>();
+            self.put(&format!("/ID [<{}> <{}>] ", hex, hex));
+        }
+        self.put(&format!(">>\nstartxref\n{}\n%%EOF\n", xref_offset));
         xref_offset
     }
 

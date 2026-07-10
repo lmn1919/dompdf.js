@@ -8,6 +8,7 @@ import { renderPdf, inspectSnapshot, countPages } from './wasm-glue';
 
 self.onmessage = async (e: MessageEvent) => {
   const { id, op, snapshot } = e.data as {
+    encryption?: Uint8Array;
     id: number;
     op: 'render' | 'inspect' | 'countPages';
     snapshot: Uint8Array;
@@ -20,7 +21,7 @@ self.onmessage = async (e: MessageEvent) => {
       const result = await countPages(snapshot);
       (self as unknown as Worker).postMessage({ id, ok: true, result });
     } else {
-      const result = await renderPdf(snapshot);
+      const result = await renderPdf(snapshot, e.data.encryption);
       (self as unknown as Worker).postMessage(
         { id, ok: true, result },
         [result.buffer],
