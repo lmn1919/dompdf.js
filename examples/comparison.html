@@ -1002,6 +1002,7 @@
   <!-- Library Scripts (dompdf.js is loaded locally, html2pdf.js via CDN) -->
   <script src="../dist/dompdf.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 
 <body>
@@ -2026,6 +2027,7 @@ window.<span class="token-function">dompdf</span>(element, options)
     // System States
     let activeTemplate = 'report';
     let customFontBytes = null;
+    let pdfJsReady = false;
     let generatedBlobs = {
       dompdf: null,
       html2pdf: null
@@ -2033,9 +2035,66 @@ window.<span class="token-function">dompdf</span>(element, options)
 
     // Initialize Page
     document.addEventListener("DOMContentLoaded", () => {
+      initPdfJs();
       switchTemplate('report');
       loadFont();
     });
+
+    function initPdfJs() {
+      if (typeof pdfjsLib === 'undefined') {
+        console.warn('pdf.js failed to load; blank PDF detection is unavailable.');
+        return;
+      }
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      pdfJsReady = true;
+    }
+
+    async function detectBlankPdf(blob) {
+      if (!pdfJsReady) return false;
+      try {
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+        const loadingTask = pdfjsLib.getDocument({ data: bytes });
+        const pdf = await loadingTask.promise;
+        if (!pdf.numPages) return true;
+
+        const page = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: 1.25 });
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.ceil(viewport.width));
+        canvas.height = Math.max(1, Math.ceil(viewport.height));
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) return false;
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        await page.render({ canvasContext: ctx, viewport }).promise;
+
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        let nonWhitePixels = 0;
+        for (let i = 0; i < imageData.length; i += 4) {
+          const r = imageData[i];
+          const g = imageData[i + 1];
+          const b = imageData[i + 2];
+          const a = imageData[i + 3];
+          const maxDiff = Math.max(
+            Math.abs(255 - r),
+            Math.abs(255 - g),
+            Math.abs(255 - b),
+          );
+          if (a > 8 && maxDiff > 12) {
+            nonWhitePixels++;
+          }
+        }
+
+        const totalPixels = canvas.width * canvas.height;
+        const nonWhiteRatio = totalPixels > 0 ? nonWhitePixels / totalPixels : 0;
+        return nonWhitePixels < 600 || nonWhiteRatio < 0.0008;
+      } catch (err) {
+        console.warn('Blank PDF detection failed:', err);
+        return false;
+      }
+    }
 
     // Switch Template
     function switchTemplate(type) {
@@ -2160,6 +2219,7 @@ window.<span class="token-function">dompdf</span>(element, options)
       const sourceElement = document.getElementById(`template-${activeTemplate}`);
       const startTime = performance.now();
       let blob = null;
+      let blankPdfSuspected = false;
 
       try {
         if (engine === 'dompdf') {
@@ -2240,6 +2300,7 @@ window.<span class="token-function">dompdf</span>(element, options)
             // Pass sourceElement directly: html2pdf will clone it internally
             // inside its own correctly positioned sandbox.
             blob = await html2pdf().from(sourceElement).set(opt).output('blob');
+            blankPdfSuspected = await detectBlankPdf(blob);
           } finally {
             // Restore visual separator on the screen
             if (sep) sep.style.display = 'block';
@@ -2254,7 +2315,8 @@ window.<span class="token-function">dompdf</span>(element, options)
         generatedBlobs[engine] = {
           blob: blob,
           time: duration,
-          size: blob.size
+          size: blob.size,
+          blankPdfSuspected: blankPdfSuspected
         };
 
         // Download the generated PDF to local disk with a library-specific filename
@@ -2300,8 +2362,12 @@ window.<span class="token-function">dompdf</span>(element, options)
         document.getElementById('quality-dompdf').innerText = '矢量文本 (可复制搜索)';
       } else {
         document.getElementById('speed-html2pdf').innerText = timeStr;
-        document.getElementById('size-html2pdf').innerText = sizeStr;
-        document.getElementById('quality-html2pdf').innerText = '图片像素 (不可复制)';
+        document.getElementById('size-html2pdf').innerText = data.blankPdfSuspected
+          ? `${sizeStr}（疑似空白pdf）`
+          : sizeStr;
+        document.getElementById('quality-html2pdf').innerText = data.blankPdfSuspected
+          ? '图片像素 (不可复制，疑似空白pdf)'
+          : '图片像素 (不可复制)';
       }
 
       // If both benchmarks are completed, calculate differences
