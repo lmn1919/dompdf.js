@@ -10,8 +10,11 @@ import {
   collectSnapshot,
   collectSnapshotData,
   encodeSnapshot,
+  pageConfigNeedsPerPageResolution,
   resolveRegion,
+  resolvePerPageHF,
   resolvePerPageHFText,
+  resolveStaticPageConfigHF,
   computePageBreaks,
   type ExportOptions,
   type PageConfigOptions,
@@ -27,6 +30,9 @@ export {
   collectSnapshotData,
   encodeSnapshot,
   computePageBreaks,
+  pageConfigNeedsPerPageResolution,
+  resolvePerPageHF,
+  resolveStaticPageConfigHF,
 } from './snapshot';
 export type { FontConfig, PageConfig, PageConfigOptions, PageRegionConfig } from './snapshot';
 
@@ -97,7 +103,7 @@ async function buildSnapshot(
 ): Promise<Uint8Array> {
   const data = await collectSnapshotData(root, options);
 
-  if (typeof options.pageConfig === 'function' && (options.pagination ?? false)) {
+  if (pageConfigNeedsPerPageResolution(options.pageConfig) && (options.pagination ?? false)) {
     // Phase 1: count pages with the sampled band heights.
     const prelim = encodeSnapshot(data, []);
     const countRes = await callWorker(prelim, 'countPages');
@@ -106,18 +112,11 @@ async function buildSnapshot(
     }
     const totalPages = countRes.result as number;
     // Phase 2: resolve per-page HF text (JS resolves placeholders).
-    const fn = options.pageConfig as (p: number, t: number) => PageConfigOptions | null;
-    const perPage: ResolvedPageHF[] = [];
-    for (let p = 0; p < totalPages; p++) {
-      const cfg = fn(p + 1, totalPages);
-      if (!cfg) {
-        perPage.push({ header: null, footer: null });
-      } else {
-        perPage.push({
-          header: cfg.header ? resolveRegion(cfg.header, false) : null,
-          footer: cfg.footer ? resolveRegion(cfg.footer, true) : null,
-        });
-      }
+    let perPage: ResolvedPageHF[] = [];
+    if (typeof options.pageConfig === 'function') {
+      perPage = resolvePerPageHF(options.pageConfig as (p: number, t: number) => PageConfigOptions | null, totalPages);
+    } else if (options.pageConfig) {
+      perPage = resolveStaticPageConfigHF(options.pageConfig, totalPages);
     }
     const resolved = resolvePerPageHFText(perPage, totalPages);
     return encodeSnapshot(data, resolved);
@@ -184,8 +183,10 @@ export async function inspect(
  *
  *   dompdf(root, options) -> Promise<Blob>
  *
- * `onJspdfReady` / `onJspdfFinish` are accepted for API compatibility but are
- * no-ops (this engine has no jsPDF instance). `compress` enables real DEFLATE
+ * Legacy clone/html2canvas/jsPDF options are accepted for upgrade compatibility
+ * and normalized inside `snapshot.ts`. Unsupported behaviors emit warnings
+ * instead of failing hard. `onJspdfReady` / `onJspdfFinish` are still no-ops
+ * because this engine has no jsPDF instance. `compress` enables real DEFLATE
  * compression of PDF streams (content streams, fonts, raw-RGB images).
  */
 const dompdfFn = (root: HTMLElement, options?: ExportOptions) => exportPDF(root, options);
