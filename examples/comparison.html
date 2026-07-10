@@ -1027,7 +1027,7 @@
         <span class="control-label">测试文档:</span>
         <select class="select-custom" id="template-select" onchange="switchTemplate(this.value)">
           <option value="report">英文财务年度报告 (2页/多矢量元素)</option>
-          <option value="invoice">中英文混合电子发票 (1页/多字体排版)</option>
+          <option value="text">纯文本长文示例 (仅限追加文本)</option>
         </select>
       </div>
 
@@ -1181,38 +1181,27 @@
           <span class="playground-title-desc">标准 A4 页面渲染 (794px × 1123px)</span>
         </div>
 
-        <!-- Dynamic Content Controller (Only visible when activeTemplate === 'report') -->
-        <div id="report-controls-panel"
+        <!-- Dynamic Content Controller (Only visible when activeTemplate === 'text') -->
+        <div id="text-controls-panel"
           style="display: flex; flex-wrap: wrap; gap: 6px 10px; margin-bottom: 12px; background: #f5f5f4; padding: 8px; border-radius: 8px; align-items: center; border: 1px solid var(--border-color);">
           <span
-            style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); white-space: nowrap;">内容编辑</span>
+            style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); white-space: nowrap;">文本追加</span>
           <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
             <button class="copy-btn"
               style="position: static; padding: 4px 8px; font-size: 0.7rem; cursor: pointer; border-radius: 6px;"
-              onclick="addSampleText()">+ 文本</button>
-            <button class="copy-btn"
-              style="position: static; padding: 4px 8px; font-size: 0.7rem; cursor: pointer; border-radius: 6px;"
-              onclick="addSampleTable()">+ 表格</button>
-            <button class="copy-btn"
-              style="position: static; padding: 4px 8px; font-size: 0.7rem; cursor: pointer; border-radius: 6px;"
-              onclick="addSampleChart()">+ 进度条</button>
+              onclick="addSampleText()">+ 文本段落</button>
           </div>
           <span style="width: 1px; height: 20px; background: var(--border-color);"></span>
           <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
-            <select id="batch-content-type"
-              style="padding: 3px 6px; font-size: 0.7rem; border-radius: 6px; border: 1px solid var(--border-color); background: #fff; cursor: pointer;">
-              <option value="mixed">混合内容</option>
-              <option value="text">仅文本</option>
-              <option value="table">仅表格</option>
-              <option value="chart">仅进度条</option>
-            </select>
             <input id="batch-count" type="number" min="1" max="500" value="10"
               style="width: 60px; padding: 3px 6px; font-size: 0.7rem; border-radius: 6px; border: 1px solid var(--border-color); text-align: center;" />
-            <span style="font-size: 0.65rem; color: var(--text-secondary);">条</span>
+            <span style="font-size: 0.65rem; color: var(--text-secondary);">段</span>
             <button class="copy-btn"
               style="position: static; padding: 4px 12px; font-size: 0.7rem; cursor: pointer; border-radius: 6px; background: var(--text-primary); border-color: var(--text-primary); color: #fff; font-weight: 600;"
-              onclick="addBatchContent()">批量插入</button>
+              onclick="addBatchContent()">批量追加文本</button>
           </div>
+          <span style="width: 1px; height: 20px; background: var(--border-color);"></span>
+          <span style="font-size: 0.68rem; color: var(--text-secondary);">仅“纯文本长文示例”支持追加，且只插入文本段落</span>
           <span style="width: 1px; height: 20px; background: var(--border-color);"></span>
           <button class="copy-btn"
             style="position: static; padding: 4px 8px; font-size: 0.7rem; cursor: pointer; border-radius: 6px; background: #fff; border-color: var(--border-color); color: var(--error); font-weight: 600;"
@@ -1704,9 +1693,55 @@
                     </tbody>
                   </table>
                 </div>
-                <!-- Dynamic Appended Content Container -->
-                <div id="dynamic-sample-content"></div>
               </div>
+            </div>
+
+            <!-- Template 2: Text-only Long-form Document -->
+            <div class="template-page print-box-shadow" id="template-text">
+              <div style="border-bottom: 2px solid #1c1917; padding-bottom: 1.25rem; margin-bottom: 1.75rem;">
+                <span style="color: var(--text-secondary); font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;">Text-only</span>
+                <h1 style="font-family: var(--font-serif); font-size: 2rem; font-weight: 600; color: #1c1917; margin-top: 0.35rem; line-height: 1.2;">Long-form Narrative Stress Test</h1>
+                <p style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.7; margin-top: 0.75rem;">
+                  该示例只包含标题、段落与少量强调文字，用于观察纯文本排版、分页与文本提取表现。
+                  下方控制区只会向本示例末尾追加文本内容，不会插入表格、图表或其他结构化模块。
+                </p>
+              </div>
+
+              <section divisionDisable style="margin-bottom: 1.25rem;">
+                <h2 style="font-family: var(--font-serif); font-size: 1.05rem; font-weight: 600; color: #1c1917; margin-bottom: 0.65rem;">Overview</h2>
+                <p style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.8; margin-bottom: 0.7rem;">
+                  A text-dominant export path is often the cleanest way to verify whether a PDF engine preserves reading order, line
+                  wrapping, selectable glyphs, and page-flow continuity across long passages. In contrast to charts or tables, a
+                  narrative article exposes width measurement drift and paragraph fragmentation much earlier.
+                </p>
+                <p style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.8;">
+                  This page keeps the structure intentionally simple so additional content can be appended repeatedly without changing the
+                  semantic shape of the document. Each inserted block is another paragraph-style section, making the pagination result
+                  easy to compare between engines.
+                </p>
+              </section>
+
+              <section divisionDisable style="margin-bottom: 1.25rem;">
+                <h2 style="font-family: var(--font-serif); font-size: 1.05rem; font-weight: 600; color: #1c1917; margin-bottom: 0.65rem;">Reading Flow</h2>
+                <p style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.8; margin-bottom: 0.7rem;">
+                  The content style here favors medium-length paragraphs, restrained spacing, and a neutral editorial rhythm. That makes
+                  it suitable for validating how line boxes continue near the right edge, whether paragraph spacing remains consistent,
+                  and whether exported text can be copied back in the same logical order.
+                </p>
+                <p style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.8;">
+                  Because no decorative SVG, cards, or tabular layouts are involved, the result isolates the text pipeline itself. If
+                  anything drifts, clips, or reflows unexpectedly, the issue is much easier to attribute.
+                </p>
+              </section>
+
+              <section divisionDisable>
+                <h2 style="font-family: var(--font-serif); font-size: 1.05rem; font-weight: 600; color: #1c1917; margin-bottom: 0.65rem;">Append Area</h2>
+                <p style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.8; margin-bottom: 0.7rem;">
+                  Use the controls above to append more paragraphs. Every added block is marked with <code>divisionDisable</code> so the
+                  renderer can keep each textual section intact when possible.
+                </p>
+                <div id="dynamic-sample-content"></div>
+              </section>
             </div>
 
             <!-- Template 2: Chinese/English E-Invoice (A4, 1 Page) -->
@@ -2009,14 +2044,15 @@ window.<span class="token-function">dompdf</span>(element, options)
       // Toggle visibility
       document.getElementById('template-report').classList.remove('active');
       document.getElementById('template-invoice').classList.remove('active');
+      document.getElementById('template-text').classList.remove('active');
 
       const element = document.getElementById(`template-${type}`);
       element.classList.add('active');
 
       // Toggle dynamic controls panel visibility
-      const ctrl = document.getElementById('report-controls-panel');
+      const ctrl = document.getElementById('text-controls-panel');
       if (ctrl) {
-        ctrl.style.display = (type === 'report') ? 'flex' : 'none';
+        ctrl.style.display = (type === 'text') ? 'flex' : 'none';
       }
 
       // Clear previous generated PDF states
@@ -2030,9 +2066,7 @@ window.<span class="token-function">dompdf</span>(element, options)
       resetMetricTexts();
       switchPreviewTab('preview');
       updateOptionsTip();
-      if (type === 'report') {
-        updatePageCounter();
-      }
+      updatePageCounter();
     }
 
     // Reset Metrics Panel UI
@@ -2370,9 +2404,14 @@ window.<span class="token-function">dompdf</span>(element, options)
         });
     }
 
+    function getDynamicContentContainer() {
+      if (activeTemplate !== 'text') return null;
+      return document.getElementById('dynamic-sample-content');
+    }
+
     // Dynamic Sample Content Addition Helper Functions
     function addSampleText() {
-      const container = document.getElementById('dynamic-sample-content');
+      const container = getDynamicContentContainer();
       if (!container) return;
 
       const count = container.querySelectorAll('.added-section').length + 1;
@@ -2396,113 +2435,18 @@ window.<span class="token-function">dompdf</span>(element, options)
       updatePageCounter();
     }
 
-    function addSampleTable() {
-      const container = document.getElementById('dynamic-sample-content');
-      if (!container) return;
-
-      const count = container.querySelectorAll('.added-table').length + 1;
-      const section = document.createElement('div');
-      section.className = 'added-table';
-      section.setAttribute('divisionDisable', '');
-      section.style.marginTop = '1.5rem';
-
-      section.innerHTML = `
-        <h3 style="font-size: 0.85rem; font-family: var(--font-serif); font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;">Data Table ${count}: Regional Compute SLA Metrics</h3>
-        <table style="width: 100%; border-collapse: collapse; font-size: 0.7rem; color: var(--text-primary); border: 1px solid var(--border-color);">
-          <thead>
-            <tr style="background: #f8fafc; border-bottom: 1px solid var(--border-color);">
-              <th style="padding: 6px; text-align: left; border: 1px solid var(--border-color); font-weight: 700;">Zone</th>
-              <th style="padding: 6px; text-align: right; border: 1px solid var(--border-color); font-weight: 700;">Load factor</th>
-              <th style="padding: 6px; text-align: right; border: 1px solid var(--border-color); font-weight: 700;">Fail Rate</th>
-              <th style="padding: 6px; text-align: center; border: 1px solid var(--border-color); font-weight: 700;">SLA</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td style="padding: 6px; border: 1px solid var(--border-color); font-weight: 600;">Zone-A North</td>
-              <td style="padding: 6px; text-align: right; border: 1px solid var(--border-color);">84.2%</td>
-              <td style="padding: 6px; text-align: right; border: 1px solid var(--border-color); color: var(--success);">0.01%</td>
-              <td style="padding: 6px; text-align: center; border: 1px solid var(--border-color); font-weight: 700; color: var(--success);">Optimal</td>
-            </tr>
-            <tr>
-              <td style="padding: 6px; border: 1px solid var(--border-color); font-weight: 600;">Zone-C East</td>
-              <td style="padding: 6px; text-align: right; border: 1px solid var(--border-color);">91.5%</td>
-              <td style="padding: 6px; text-align: right; border: 1px solid var(--border-color); color: #b45309;">0.08%</td>
-              <td style="padding: 6px; text-align: center; border: 1px solid var(--border-color); font-weight: 700; color: #b45309;">Warning</td>
-            </tr>
-          </tbody>
-        </table>
-      `;
-      container.appendChild(section);
-      updatePageCounter();
-    }
-
-    function addSampleChart() {
-      const container = document.getElementById('dynamic-sample-content');
-      if (!container) return;
-
-      const count = container.querySelectorAll('.added-chart').length + 1;
-      const section = document.createElement('div');
-      section.className = 'added-chart';
-      section.setAttribute('divisionDisable', '');
-      section.style.marginTop = '1.5rem';
-
-      section.innerHTML = `
-        <h3 style="font-size: 0.85rem; font-family: var(--font-serif); font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;">Visual Indicator ${count}: Load Distribution</h3>
-        <div style="border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; background: #fafaf9;">
-          <div style="margin-bottom: 8px;">
-            <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: #475569; margin-bottom: 3px;">
-              <span style="font-weight: 600;">Cluster Core load</span><span style="font-family: var(--font-mono);">88%</span>
-            </div>
-            <div style="height: 6px; background: #e7e5e4; border-radius: 3px; overflow: hidden;">
-              <div style="width: 88%; height: 100%; background: linear-gradient(90deg, #6366f1, #818cf8); border-radius: 3px;"></div>
-            </div>
-          </div>
-          <div>
-            <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: #475569; margin-bottom: 3px;">
-              <span style="font-weight: 600;">Memory consumption</span><span style="font-family: var(--font-mono);">64%</span>
-            </div>
-            <div style="height: 6px; background: #e7e5e4; border-radius: 3px; overflow: hidden;">
-              <div style="width: 64%; height: 100%; background: linear-gradient(90deg, #10b981, #34d399); border-radius: 3px;"></div>
-            </div>
-          </div>
-        </div>
-      `;
-      container.appendChild(section);
-      updatePageCounter();
-    }
-
     function addBatchContent() {
-      const container = document.getElementById('dynamic-sample-content');
+      const container = getDynamicContentContainer();
       if (!container) return;
 
-      const typeSelect = document.getElementById('batch-content-type');
       const countInput = document.getElementById('batch-count');
-      const type = typeSelect ? typeSelect.value : 'mixed';
       const count = Math.max(1, Math.min(500, parseInt(countInput ? countInput.value : 10, 10) || 1));
-
-      // Decide the sequence of item types for this batch.
-      const sequence = [];
-      for (let i = 0; i < count; i++) {
-        if (type === 'mixed') {
-          sequence.push(['text', 'table', 'chart'][i % 3]);
-        } else {
-          sequence.push(type);
-        }
-      }
 
       // Build all nodes into a DocumentFragment first, then append once.
       const fragment = document.createDocumentFragment();
-      const builders = {
-        text: buildSampleTextNode,
-        table: buildSampleTableNode,
-        chart: buildSampleChartNode
-      };
-
-      sequence.forEach((kind) => {
-        const builder = builders[kind];
-        if (builder) fragment.appendChild(builder());
-      });
+      for (let i = 0; i < count; i++) {
+        fragment.appendChild(buildSampleTextNode());
+      }
 
       container.appendChild(fragment);
       updatePageCounter();
@@ -2510,7 +2454,7 @@ window.<span class="token-function">dompdf</span>(element, options)
 
     // Factories used by addBatchContent so nodes can be built without touching the DOM one-by-one.
     function buildSampleTextNode() {
-      const container = document.getElementById('dynamic-sample-content');
+      const container = getDynamicContentContainer();
       const count = container ? container.querySelectorAll('.added-section').length + 1 : 1;
       const section = document.createElement('div');
       section.className = 'added-section';
@@ -2530,76 +2474,8 @@ window.<span class="token-function">dompdf</span>(element, options)
       return section;
     }
 
-    function buildSampleTableNode() {
-      const container = document.getElementById('dynamic-sample-content');
-      const count = container ? container.querySelectorAll('.added-table').length + 1 : 1;
-      const section = document.createElement('div');
-      section.className = 'added-table';
-      section.setAttribute('divisionDisable', '');
-      section.style.marginTop = '1.5rem';
-      section.innerHTML = `
-        <h3 style="font-size: 0.85rem; font-family: var(--font-serif); font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;">Data Table ${count}: Regional Compute SLA Metrics</h3>
-        <table style="width: 100%; border-collapse: collapse; font-size: 0.7rem; color: var(--text-primary); border: 1px solid var(--border-color);">
-          <thead>
-            <tr style="background: #f8fafc; border-bottom: 1px solid var(--border-color);">
-              <th style="padding: 6px; text-align: left; border: 1px solid var(--border-color); font-weight: 700;">Zone</th>
-              <th style="padding: 6px; text-align: right; border: 1px solid var(--border-color); font-weight: 700;">Load factor</th>
-              <th style="padding: 6px; text-align: right; border: 1px solid var(--border-color); font-weight: 700;">Fail Rate</th>
-              <th style="padding: 6px; text-align: center; border: 1px solid var(--border-color); font-weight: 700;">SLA</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td style="padding: 6px; border: 1px solid var(--border-color); font-weight: 600;">Zone-A North</td>
-              <td style="padding: 6px; text-align: right; border: 1px solid var(--border-color);">84.2%</td>
-              <td style="padding: 6px; text-align: right; border: 1px solid var(--border-color); color: var(--success);">0.01%</td>
-              <td style="padding: 6px; text-align: center; border: 1px solid var(--border-color); font-weight: 700; color: var(--success);">Optimal</td>
-            </tr>
-            <tr>
-              <td style="padding: 6px; border: 1px solid var(--border-color); font-weight: 600;">Zone-C East</td>
-              <td style="padding: 6px; text-align: right; border: 1px solid var(--border-color);">91.5%</td>
-              <td style="padding: 6px; text-align: right; border: 1px solid var(--border-color); color: var(--success);">0.03%</td>
-              <td style="padding: 6px; text-align: center; border: 1px solid var(--border-color); font-weight: 700; color: var(--success);">Optimal</td>
-            </tr>
-          </tbody>
-        </table>
-      `;
-      return section;
-    }
-
-    function buildSampleChartNode() {
-      const container = document.getElementById('dynamic-sample-content');
-      const count = container ? container.querySelectorAll('.added-chart').length + 1 : 1;
-      const section = document.createElement('div');
-      section.className = 'added-chart';
-      section.setAttribute('divisionDisable', '');
-      section.style.marginTop = '1.5rem';
-      section.innerHTML = `
-        <h3 style="font-size: 0.85rem; font-family: var(--font-serif); font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;">Visual Indicator ${count}: Load Distribution</h3>
-        <div style="border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; background: #fafaf9;">
-          <div style="margin-bottom: 8px;">
-            <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: #475569; margin-bottom: 3px;">
-              <span style="font-weight: 600;">Cluster Core load</span><span style="font-family: var(--font-mono);">88%</span>
-            </div>
-            <div style="height: 6px; background: #e7e5e4; border-radius: 3px; overflow: hidden;">
-              <div style="width: 88%; height: 100%; background: linear-gradient(90deg, #6366f1, #818cf8); border-radius: 3px;"></div>
-            </div>
-          </div>
-          <div>
-            <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: #475569; margin-bottom: 3px;">
-              <span style="font-weight: 600;">Memory consumption</span><span style="font-family: var(--font-mono);">64%</span>
-            </div>
-            <div style="height: 6px; background: #e7e5e4; border-radius: 3px; overflow: hidden;">
-              <div style="width: 64%; height: 100%; background: linear-gradient(90deg, #10b981, #34d399); border-radius: 3px;"></div>
-            </div>
-          </div>
-        </div>
-      `;
-      return section;
-    }
-
     function clearAddedSampleContent() {
-      const container = document.getElementById('dynamic-sample-content');
+      const container = getDynamicContentContainer();
       if (container) {
         container.innerHTML = '';
       }
@@ -2607,7 +2483,7 @@ window.<span class="token-function">dompdf</span>(element, options)
     }
 
     function updatePageCounter() {
-      const report = document.getElementById('template-report');
+      const report = document.getElementById(`template-${activeTemplate}`);
       const badge = document.getElementById('page-counter-badge');
       if (report && badge) {
         const height = report.scrollHeight;
