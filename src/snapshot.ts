@@ -33,13 +33,16 @@ export type ContentPosition =
   | 'leftTop' | 'leftBottom' | 'rightTop' | 'rightBottom'
   | [number, number];
 
-export interface PageConfigOptions {
-  header?: PageRegionConfig;
-  footer?: PageRegionConfig;
+interface ExcludedPagesConfig {
   /** Legacy object-form pageConfig field: skip header/footer on a page or pages. */
   excludePage?: number | number[];
   /** Explicit plural alias for object-form pageConfig exclusions. */
   excludePages?: number[];
+}
+
+export interface PageConfigOptions extends ExcludedPagesConfig {
+  header?: PageRegionConfig;
+  footer?: PageRegionConfig;
 }
 
 export interface PageRegionConfig {
@@ -52,6 +55,37 @@ export interface PageRegionConfig {
 }
 
 export type PageConfig = PageConfigOptions | ((pageNum: number, totalPages: number) => PageConfigOptions | null);
+
+export type WatermarkLayer = 'under' | 'over';
+
+interface BaseWatermarkOptions extends ExcludedPagesConfig {
+  angle?: number;
+  spacing?: [number, number];
+  offset?: [number, number];
+  layer?: WatermarkLayer;
+}
+
+export interface TextWatermarkOptions extends BaseWatermarkOptions {
+  text: string;
+  color?: string;
+  fontFamily?: string;
+  fontSize?: number;
+  fontWeight?: 400 | 700 | number;
+  italic?: boolean;
+}
+
+export interface ImageWatermarkOptions extends BaseWatermarkOptions {
+  imageUrl: string;
+  imageWidth?: number;
+  imageHeight?: number;
+  opacity?: number;
+}
+
+export type WatermarkOptions = TextWatermarkOptions | ImageWatermarkOptions;
+
+export type WatermarkConfig =
+  | WatermarkOptions
+  | ((pageNum: number, totalPages: number) => WatermarkOptions | null);
 
 /**
  * Default pageConfig applied when `pagination` is enabled but no `pageConfig`
@@ -96,15 +130,15 @@ function normalizePageNumber(value: number): number | null {
   return pageNum > 0 ? pageNum : null;
 }
 
-function normalizeExcludedPages(pageConfig: PageConfigOptions | null | undefined): number[] {
-  if (!pageConfig) return [];
+function normalizeExcludedPages(config: ExcludedPagesConfig | null | undefined): number[] {
+  if (!config) return [];
   const raw = [
-    ...(Array.isArray(pageConfig.excludePage)
-      ? pageConfig.excludePage
-      : pageConfig.excludePage == null
+    ...(Array.isArray(config.excludePage)
+      ? config.excludePage
+      : config.excludePage == null
         ? []
-        : [pageConfig.excludePage]),
-    ...(pageConfig.excludePages ?? []),
+        : [config.excludePage]),
+    ...(config.excludePages ?? []),
   ];
   const out: number[] = [];
   const seen = new Set<number>();
@@ -117,13 +151,22 @@ function normalizeExcludedPages(pageConfig: PageConfigOptions | null | undefined
   return out;
 }
 
+function configExcludesPage(config: ExcludedPagesConfig | null | undefined, pageNum: number): boolean {
+  return normalizeExcludedPages(config).includes(pageNum);
+}
+
 function pageConfigExcludesPage(pageConfig: PageConfigOptions | null | undefined, pageNum: number): boolean {
-  return normalizeExcludedPages(pageConfig).includes(pageNum);
+  return configExcludesPage(pageConfig, pageNum);
 }
 
 export function pageConfigNeedsPerPageResolution(pageConfig: PageConfig | undefined): boolean {
   return typeof pageConfig === 'function'
     || (typeof pageConfig === 'object' && pageConfig != null && normalizeExcludedPages(pageConfig).length > 0);
+}
+
+export function watermarkNeedsPerPageResolution(watermark: WatermarkConfig | undefined): boolean {
+  return typeof watermark === 'function'
+    || (typeof watermark === 'object' && watermark != null && normalizeExcludedPages(watermark).length > 0);
 }
 
 const warnedLegacyOptions = new Set<string>();
@@ -275,6 +318,8 @@ export interface ExportOptions {
   foreignObjectRendering?: boolean;
   /** Header/footer config (object = all pages, function = per-page). */
   pageConfig?: PageConfig;
+  /** Repeated page watermark (object = all pages, function = per-page). */
+  watermark?: WatermarkConfig;
   /** jsPDF instance init hook (accepted, no-op — no jsPDF in this engine). */
   onJspdfReady?: (jspdf: unknown) => void;
   /** jsPDF instance finish hook (accepted, no-op). */
@@ -1662,6 +1707,40 @@ interface ResolvedHF {
   padding: [number, number, number, number];
 }
 
+interface ResolvedWatermarkBase {
+  kind: 0 | 1;
+  angleDeg: number;
+  spacing: [number, number];
+  offset: [number, number];
+  layer: number;
+}
+
+interface ResolvedTextWatermark extends ResolvedWatermarkBase {
+  kind: 0;
+  text: string;
+  color: [number, number, number, number];
+  fontFamily: string;
+  fontSizePx: number;
+  fontWeight: number;
+  italic: number;
+}
+
+interface ResolvedImageWatermark extends ResolvedWatermarkBase {
+  kind: 1;
+  imageId: number;
+  imageWidthPx: number;
+  imageHeightPx: number;
+  opacity: number;
+}
+
+type ResolvedWatermark = ResolvedTextWatermark | ResolvedImageWatermark;
+
+interface WatermarkImageAsset {
+  imageId: number;
+  width: number;
+  height: number;
+}
+
 function resolveRegion(
   region: PageRegionConfig | undefined,
   isFooter: boolean,
@@ -1688,6 +1767,107 @@ function resolvePlaceholder(content: string, page: number, total: number): strin
     .replace(/\$\{totalPages\}/g, String(total));
 }
 
+function clampResolvedNumber(value: number | undefined, min: number, max: number, fallback: number): number {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, value as number));
+}
+
+function isTextWatermark(watermark: WatermarkOptions): watermark is TextWatermarkOptions {
+  return typeof (watermark as TextWatermarkOptions).text === 'string';
+}
+
+function isResolvedTextWatermark(watermark: ResolvedWatermark): watermark is ResolvedTextWatermark {
+  return watermark.kind === 0;
+}
+
+async function collectWatermarkImageAsset(
+  imageUrl: string,
+  images: CollectedImage[],
+  cache: Map<string, WatermarkImageAsset>,
+): Promise<WatermarkImageAsset | null> {
+  const url = imageUrl.trim();
+  if (!url) return null;
+  const cached = cache.get(url);
+  if (cached) return cached;
+  try {
+    let img: HTMLImageElement;
+    try {
+      img = await loadImageFromUrl(url, 'anonymous');
+    } catch {
+      img = await loadImageFromUrl(url);
+    }
+    if (!img.complete || img.naturalWidth === 0) {
+      await img.decode().catch(() => null);
+    }
+    const width = Math.max(1, Math.round(img.naturalWidth || img.width || 0));
+    const height = Math.max(1, Math.round(img.naturalHeight || img.height || 0));
+    if (!width || !height) return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    ctx.drawImage(img, 0, 0, width, height);
+    const rgba = canvasToRawRgba(canvas);
+    if (!rgba) return null;
+    const imageId = images.length + 1;
+    images.push({
+      id: imageId,
+      bytes: rgba.bytes,
+      width: rgba.width,
+      height: rgba.height,
+      format: IMG_RAW_RGBA,
+    });
+    const asset = { imageId, width, height };
+    cache.set(url, asset);
+    return asset;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveWatermark(
+  watermark: WatermarkOptions | undefined,
+  images: CollectedImage[] = [],
+  imageCache: Map<string, WatermarkImageAsset> = new Map(),
+): Promise<ResolvedWatermark | null> {
+  if (!watermark) return null;
+  const base = {
+    angleDeg: clampResolvedNumber(watermark.angle, -180, 180, 35),
+    spacing: watermark.spacing ?? [160, 120] as [number, number],
+    offset: watermark.offset ?? [36, 36] as [number, number],
+    layer: watermark.layer === 'over' ? 1 : 0,
+  };
+  if (isTextWatermark(watermark)) {
+    const text = watermark.text;
+    if (!text.trim()) return null;
+    return {
+      kind: 0,
+      text,
+      color: parseColor(watermark.color ?? 'rgba(0, 0, 0, 0.12)'),
+      fontFamily: watermark.fontFamily?.trim() || 'Helvetica',
+      fontSizePx: watermark.fontSize ?? 28,
+      fontWeight: watermark.fontWeight ?? 400,
+      italic: watermark.italic ? 1 : 0,
+      ...base,
+    };
+  }
+  const asset = await collectWatermarkImageAsset(watermark.imageUrl, images, imageCache);
+  if (!asset) return null;
+  const imageWidthPx = watermark.imageWidth
+    ?? (watermark.imageHeight ? (asset.width * watermark.imageHeight) / asset.height : asset.width);
+  const imageHeightPx = watermark.imageHeight
+    ?? (watermark.imageWidth ? (asset.height * watermark.imageWidth) / asset.width : asset.height);
+  return {
+    kind: 1,
+    imageId: asset.imageId,
+    imageWidthPx: clampResolvedNumber(imageWidthPx, 1, 4096, asset.width),
+    imageHeightPx: clampResolvedNumber(imageHeightPx, 1, 4096, asset.height),
+    opacity: clampResolvedNumber(watermark.opacity, 0, 1, 0.12),
+    ...base,
+  };
+}
+
 export async function collectSnapshot(
   root: HTMLElement,
   options: ExportOptions = {},
@@ -1712,7 +1892,6 @@ export async function collectSnapshotData(
   if (normalizedOptions.encryption) {
     console.warn('dom2pdf: encryption is accepted but not yet implemented.');
   }
-
   const [fmtW, fmtH] = resolvePageSize(normalizedOptions.format);
   const pageWidthPt = normalizedOptions.pageWidthPt ?? fmtW;
   const pageHeightPt = normalizedOptions.pageHeightPt ?? fmtH;
@@ -2566,7 +2745,13 @@ function buildInlineRunsWithLangFont(
     precision, pagination, compress, backgroundColor: normalizedOptions.backgroundColor ?? null,
     headerHPx, footerHPx,
     staticHeader, staticFooter,
+    staticWatermark: typeof normalizedOptions.watermark === 'function'
+      ? null
+      : watermarkNeedsPerPageResolution(normalizedOptions.watermark)
+        ? null
+        : await resolveWatermark(normalizedOptions.watermark, images),
     perPageHF: [],
+    perPageWatermark: [],
     fonts, nodes, images,
   };
 }
@@ -2575,10 +2760,11 @@ function buildInlineRunsWithLangFont(
 export function encodeSnapshot(
   data: EncodeArgs,
   perPageHF: ResolvedPageHF[],
+  perPageWatermark: (ResolvedWatermark | null)[] = [],
 ): Uint8Array {
   // Convert ResolvedPageHF[] to the [header, footer] pair shape encode() expects.
   const pairs: (ResolvedHF | null)[][] = perPageHF.map((hf) => [hf.header, hf.footer]);
-  return encode({ ...data, perPageHF: pairs });
+  return encode({ ...data, perPageHF: pairs, perPageWatermark });
 }
 
 export interface EncodeArgs {
@@ -2593,7 +2779,9 @@ export interface EncodeArgs {
   footerHPx: number;
   staticHeader: ResolvedHF | null;
   staticFooter: ResolvedHF | null;
+  staticWatermark: ResolvedWatermark | null;
   perPageHF: (ResolvedHF | null)[][]; // each: [header|null, footer|null]
+  perPageWatermark: (ResolvedWatermark | null)[];
   fonts: CollectedFont[];
   nodes: NodeRec[];
   images: CollectedImage[];
@@ -2622,10 +2810,44 @@ function writeOptHF(w: BinWriter, hf: ResolvedHF | null) {
   }
 }
 
+function writeWatermark(w: BinWriter, watermark: ResolvedWatermark) {
+  w.u8(watermark.kind);
+  w.f32(watermark.angleDeg);
+  w.f32(watermark.spacing[0]); w.f32(watermark.spacing[1]);
+  w.f32(watermark.offset[0]); w.f32(watermark.offset[1]);
+  w.u8(watermark.layer);
+  if (watermark.kind === 0) {
+    const tlen = BinWriter.utf8Len(watermark.text);
+    const famLen = BinWriter.utf8Len(watermark.fontFamily);
+    w.u16(tlen);
+    w.utf8(watermark.text);
+    w.f32(watermark.color[0]); w.f32(watermark.color[1]); w.f32(watermark.color[2]); w.f32(watermark.color[3]);
+    w.u16(famLen);
+    w.utf8(watermark.fontFamily);
+    w.f32(watermark.fontSizePx);
+    w.u16(watermark.fontWeight);
+    w.u8(watermark.italic);
+  } else {
+    w.u32(watermark.imageId);
+    w.f32(watermark.imageWidthPx);
+    w.f32(watermark.imageHeightPx);
+    w.f32(watermark.opacity);
+  }
+}
+
+function writeOptWatermark(w: BinWriter, watermark: ResolvedWatermark | null) {
+  if (watermark) {
+    w.u8(1);
+    writeWatermark(w, watermark);
+  } else {
+    w.u8(0);
+  }
+}
+
 function encode(a: EncodeArgs): Uint8Array {
   const w = new BinWriter();
   w.bytes(new Uint8Array([0x44, 0x32, 0x50, 0x31])); // "D2P1"
-  w.u32(8); // version 8 (adds compress flag in config block)
+  w.u32(10); // version 10 (adds image watermark support)
   w.f32(a.pageWidthPt);
   w.f32(a.pageHeightPt);
   w.f32(a.mTop);
@@ -2650,6 +2872,7 @@ function encode(a: EncodeArgs): Uint8Array {
     writeOptHF(w, a.staticFooter);
   }
   w.u8(a.compress ? 1 : 0);
+  writeOptWatermark(w, a.staticWatermark);
 
   // Fonts block
   w.u32(a.fonts.length);
@@ -2669,6 +2892,12 @@ function encode(a: EncodeArgs): Uint8Array {
   for (const pair of a.perPageHF) {
     writeOptHF(w, pair[0]);
     writeOptHF(w, pair[1]);
+  }
+
+  // Per-page watermark block
+  w.u32(a.perPageWatermark.length);
+  for (const watermark of a.perPageWatermark) {
+    writeOptWatermark(w, watermark);
   }
 
   // Nodes
@@ -2850,6 +3079,10 @@ export interface ResolvedPageHF {
   footer: ResolvedHF | null;
 }
 
+export interface ResolvedPageWatermark {
+  watermark: ResolvedWatermark | null;
+}
+
 /** Resolve per-page HF for a function-form pageConfig given totalPages. */
 export function resolvePerPageHF(
   pageConfig: (pageNum: number, totalPages: number) => PageConfigOptions | null,
@@ -2909,5 +3142,56 @@ export function resolvePerPageHFText(
   }));
 }
 
-export { resolveRegion, resolvePlaceholder, normalizeExcludedPages };
-export type { ResolvedHF };
+/** Resolve per-page watermark for a function-form config given totalPages. */
+export async function resolvePerPageWatermark(
+  watermarkConfig: (pageNum: number, totalPages: number) => WatermarkOptions | null,
+  totalPages: number,
+  images: CollectedImage[] = [],
+  imageCache: Map<string, WatermarkImageAsset> = new Map(),
+): Promise<ResolvedPageWatermark[]> {
+  const out: ResolvedPageWatermark[] = [];
+  for (let p = 0; p < totalPages; p++) {
+    const pageNum = p + 1;
+    const config = watermarkConfig(pageNum, totalPages);
+    if (!config || configExcludesPage(config, pageNum)) {
+      out.push({ watermark: null });
+      continue;
+    }
+    out.push({ watermark: await resolveWatermark(config, images, imageCache) });
+  }
+  return out;
+}
+
+/** Resolve per-page watermark for object-form config with excludePage(s) support. */
+export async function resolveStaticWatermarkPages(
+  watermark: WatermarkOptions,
+  totalPages: number,
+  images: CollectedImage[] = [],
+  imageCache: Map<string, WatermarkImageAsset> = new Map(),
+): Promise<ResolvedPageWatermark[]> {
+  const out: ResolvedPageWatermark[] = [];
+  for (let p = 0; p < totalPages; p++) {
+    const pageNum = p + 1;
+    out.push({
+      watermark: configExcludesPage(watermark, pageNum) ? null : await resolveWatermark(watermark, images, imageCache),
+    });
+  }
+  return out;
+}
+
+/** Replace placeholders in resolved watermark text (function-form: JS resolves). */
+export function resolvePerPageWatermarkText(
+  perPage: ResolvedPageWatermark[],
+  totalPages: number,
+): (ResolvedWatermark | null)[] {
+  return perPage.map((entry, p) => (
+    entry.watermark
+      ? isResolvedTextWatermark(entry.watermark)
+        ? { ...entry.watermark, text: resolvePlaceholder(entry.watermark.text, p, totalPages) }
+        : entry.watermark
+      : null
+  ));
+}
+
+export { resolveRegion, resolvePlaceholder, normalizeExcludedPages, resolveWatermark };
+export type { ResolvedHF, ResolvedWatermark };

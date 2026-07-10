@@ -14,7 +14,7 @@ use crate::font::{
     encode_cid_with_fallback, encode_winansi, text_width_units, CidFont, EncodedFontKind, FontCtx,
 };
 use crate::pdf::PdfWriter;
-use crate::snapshot::{BoxShadow, HFSpec, Image, Node, Snapshot};
+use crate::snapshot::{BoxShadow, HFSpec, Image, Node, Snapshot, WatermarkSpec};
 
 pub const PX_TO_PT: f32 = 0.75;
 const ASCENT: f32 = 0.8; // approx Helvetica ascent / em, for baseline placement
@@ -701,6 +701,8 @@ pub fn paginate(
                 ));
             }
         }
+        let mut image_ids: Vec<u32> = Vec::new();
+        draw_watermark(snap, &fontctx, i, total, page_h_pt, 0, &mut content, &mut image_ids);
         content.push_str(&format!(
             "{} {} {} {} re W n\n",
             f(cx),
@@ -708,7 +710,6 @@ pub fn paginate(
             f(cw),
             f(ch)
         ));
-        let mut image_ids: Vec<u32> = Vec::new();
         for &r in roots.iter() {
             draw_node(
                 snap,
@@ -728,6 +729,7 @@ pub fn paginate(
 
         // Header / footer (drawn outside the content clip).
         draw_header_footer(snap, &fontctx, i, total, &geo, page_h_pt, &mut content);
+        draw_watermark(snap, &fontctx, i, total, page_h_pt, 1, &mut content, &mut image_ids);
 
         pages.push(PagePlan {
             content,
@@ -1276,6 +1278,19 @@ fn collect_used_cid_gids(snap: &Snapshot, fontctx: &FontCtx, total: u32) {
             let content = resolve_placeholders(&f.content, page, total);
             collect_used_cid_run(fontctx, "Helvetica", 400, 0, &content);
         }
+        if let Some(watermark) = resolve_page_watermark(snap, page) {
+            if watermark.kind != 0 {
+                continue;
+            }
+            let content = resolve_placeholders(&watermark.text, page, total);
+            collect_used_cid_run(
+                fontctx,
+                &watermark.family,
+                watermark.weight,
+                watermark.italic,
+                &content,
+            );
+        }
     }
 
     fontctx.prepare_subset_maps();
@@ -1605,6 +1620,165 @@ fn draw_hf_region(
     out.push_str("ET\n");
 }
 
+fn resolve_page_watermark<'a>(snap: &'a Snapshot, page: u32) -> Option<&'a WatermarkSpec> {
+    if !snap.per_page_watermark.is_empty() {
+        let i = (page as usize).min(snap.per_page_watermark.len() - 1);
+        snap.per_page_watermark[i].as_ref()
+    } else {
+        snap.config.static_watermark.as_ref()
+    }
+}
+
+fn draw_watermark(
+    snap: &Snapshot,
+    fontctx: &FontCtx,
+    page: u32,
+    total: u32,
+    page_h_pt: f32,
+    layer: u8,
+    out: &mut String,
+    image_ids: &mut Vec<u32>,
+) {
+    let spec = match resolve_page_watermark(snap, page) {
+        Some(spec) if spec.layer == layer => spec,
+        _ => return,
+    };
+    let angle = spec.angle_deg.to_radians();
+    let a = angle.cos();
+    let b = angle.sin();
+    let c = -b;
+    let d = a;
+    let start_x = spec.offset[0] * PX_TO_PT - snap.page_width_pt;
+    let start_y = spec.offset[1] * PX_TO_PT - page_h_pt;
+    let end_x = snap.page_width_pt * 2.0;
+    let end_y = page_h_pt * 2.0;
+
+    match spec.kind {
+        0 => {
+            let content = resolve_placeholders(&spec.text, page, total);
+            let normalized = normalize_text_for_pdf(&content, false);
+            if normalized.is_empty() {
+                return;
+            }
+            let fs_pt = spec.font_size_px.max(1.0) * PX_TO_PT;
+            let color = spec.color;
+            let family = if spec.family.is_empty() { "Helvetica" } else { &spec.family };
+            let cid_primary = select_cid_font(fontctx, family, spec.weight, spec.italic, &normalized);
+            let (latin_bytes, text_w_pt, cid_runs) = if let Some(cf) = cid_primary {
+                let primary_idx = (cf.key - 2) as usize;
+                let runs = encode_cid_with_fallback(fontctx, primary_idx, &normalized, false);
+                let width_1000: u32 = runs.iter().map(|run| run.width_1000).sum();
+                (Vec::new(), (width_1000 as f32 / 1000.0) * fs_pt, Some(runs))
+            } else {
+                let bytes = encode_winansi(&normalized);
+                let width = (text_width_units(&bytes) as f32 / 1000.0) * fs_pt;
+                (bytes, width, None)
+            };
+            if text_w_pt <= 0.0 {
+                return;
+            }
+            let step_x = (spec.spacing[0].max(24.0) * PX_TO_PT).max(text_w_pt * 0.5);
+            let step_y = (spec.spacing[1].max(24.0) * PX_TO_PT).max(fs_pt * 1.5);
+
+            out.push_str("q\n");
+            if color[3] > 0.001 && color[3] < 0.999 {
+                out.push_str(&format!("/{} gs\n", opacity_resource_name(opacity_key(color[3]))));
+            }
+            out.push_str(&format!("{} {} {} rg\n", f(color[0]), f(color[1]), f(color[2])));
+
+            let mut y = start_y;
+            while y <= end_y {
+                let mut x = start_x;
+                while x <= end_x {
+                    out.push_str("BT\n");
+                    if let Some(runs) = &cid_runs {
+                        let mut pen_pt = 0.0_f32;
+                        for run in runs {
+                            let font_op = match run.kind {
+                                EncodedFontKind::Cid(font_idx) => {
+                                    format!("/F{} {} Tf\n", fontctx.cid[font_idx].key, f(fs_pt))
+                                }
+                                EncodedFontKind::Latin => {
+                                    format!("{} {} Tf\n", latin_font_token(spec.weight, spec.italic), f(fs_pt))
+                                }
+                            };
+                            out.push_str(&font_op);
+                            out.push_str(&format!(
+                                "{} {} {} {} {} {} Tm\n",
+                                f(a),
+                                f(b),
+                                f(c),
+                                f(d),
+                                f(x + pen_pt),
+                                f(y)
+                            ));
+                            out.push_str(&format!("<{}> Tj\n", hex(&run.bytes)));
+                            pen_pt += (run.width_1000 as f32 / 1000.0) * fs_pt;
+                        }
+                    } else {
+                        out.push_str(&format!("{} {} Tf\n", latin_font_token(spec.weight, spec.italic), f(fs_pt)));
+                        out.push_str(&format!(
+                            "{} {} {} {} {} {} Tm\n",
+                            f(a),
+                            f(b),
+                            f(c),
+                            f(d),
+                            f(x),
+                            f(y)
+                        ));
+                        out.push_str(&format!("<{}> Tj\n", hex(&latin_bytes)));
+                    }
+                    out.push_str("ET\n");
+                    x += step_x;
+                }
+                y += step_y;
+            }
+            out.push_str("Q\n");
+        }
+        1 => {
+            if spec.image_width_px <= 0.0 || spec.image_height_px <= 0.0 {
+                return;
+            }
+            if find_image(snap, spec.image_id).is_none() {
+                return;
+            }
+            let draw_w_pt = spec.image_width_px.max(1.0) * PX_TO_PT;
+            let draw_h_pt = spec.image_height_px.max(1.0) * PX_TO_PT;
+            let step_x = (spec.spacing[0].max(24.0) * PX_TO_PT).max(draw_w_pt * 0.5);
+            let step_y = (spec.spacing[1].max(24.0) * PX_TO_PT).max(draw_h_pt * 0.5);
+            let opacity = spec.opacity.clamp(0.0, 1.0);
+
+            out.push_str("q\n");
+            if opacity > 0.001 && opacity < 0.999 {
+                out.push_str(&format!("/{} gs\n", opacity_resource_name(opacity_key(opacity))));
+            }
+            let mut y = start_y;
+            while y <= end_y {
+                let mut x = start_x;
+                while x <= end_x {
+                    out.push_str(&format!(
+                        "q {} {} {} {} {} {} cm /Im{} Do Q\n",
+                        f(a * draw_w_pt),
+                        f(b * draw_w_pt),
+                        f(c * draw_h_pt),
+                        f(d * draw_h_pt),
+                        f(x),
+                        f(y),
+                        spec.image_id
+                    ));
+                    x += step_x;
+                }
+                y += step_y;
+            }
+            out.push_str("Q\n");
+            if !image_ids.contains(&spec.image_id) {
+                image_ids.push(spec.image_id);
+            }
+        }
+        _ => {}
+    }
+}
+
 fn draw_header_footer(
     snap: &Snapshot,
     fontctx: &FontCtx,
@@ -1675,7 +1849,11 @@ fn build_tounicode(cf: &crate::font::CidFont) -> Vec<u8> {
 }
 
 /// Assemble the full PDF document from the snapshot and page plans.
-pub fn build_pdf(snap: &Snapshot, pages: &[PagePlan], fontctx: &FontCtx) -> Vec<u8> {
+pub fn build_pdf(
+    snap: &Snapshot,
+    pages: &[PagePlan],
+    fontctx: &FontCtx,
+) -> Vec<u8> {
     DEBUG_LOG.with(|d| {
         d.borrow_mut().push_str("\n--- DEBUG LOG END ---\n");
     });
@@ -1696,7 +1874,7 @@ pub fn build_pdf(snap: &Snapshot, pages: &[PagePlan], fontctx: &FontCtx) -> Vec<
     let image_ids_first = w.alloc(image_count);
     let alpha_image_count = snap.images.iter().filter(|img| img.format == 2).count() as u32;
     let alpha_image_ids_first = w.alloc(alpha_image_count);
-    let opacity_keys: std::collections::BTreeSet<u16> = snap
+    let mut opacity_keys: std::collections::BTreeSet<u16> = snap
         .nodes
         .iter()
         .flat_map(|n| {
@@ -1737,6 +1915,30 @@ pub fn build_pdf(snap: &Snapshot, pages: &[PagePlan], fontctx: &FontCtx) -> Vec<
             keys
         })
         .collect();
+    if let Some(watermark) = &snap.config.static_watermark {
+        let opacity = if watermark.kind == 0 {
+            watermark.color[3]
+        } else {
+            watermark.opacity
+        };
+        let key = opacity_key(opacity);
+        if key < 1000 && key > 0 {
+            opacity_keys.insert(key);
+        }
+    }
+    for watermark in &snap.per_page_watermark {
+        if let Some(watermark) = watermark {
+            let opacity = if watermark.kind == 0 {
+                watermark.color[3]
+            } else {
+                watermark.opacity
+            };
+            let key = opacity_key(opacity);
+            if key < 1000 && key > 0 {
+                opacity_keys.insert(key);
+            }
+        }
+    }
     let opacity_count = opacity_keys.len() as u32;
     let opacity_first_id = w.alloc(opacity_count);
 
