@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>dompdf.js Markdown 多主题编辑器示例</title>
+    <style>
+      @font-face {
+        font-family: "SourceHanSansSC-Regular";
+        src: url("./SourceHanSansSC-Regular.ttf") format("truetype");
+        font-weight: 400;
+        font-style: normal;
+      }
+
+      :root {
+        color-scheme: light;
+        --app-bg: #f3f5f8;
+        --panel-bg: rgba(255, 255, 255, 0.9);
+        --panel-border: rgba(148, 163, 184, 0.28);
+        --panel-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
+        --text-primary: #172033;
+        --text-secondary: #52607a;
+        --text-muted: #7a869d;
+        --accent: #2956f2;
+        --accent-soft: rgba(41, 86, 242, 0.1);
+        --danger: #c03648;
+        --editor-bg: #fbfcfe;
+        --code-bg: #f2f5fa;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at top, rgba(255, 255, 255, 0.85), transparent 28%),
+          var(--app-bg);
+        color: var(--text-primary);
+        font-family:
+          "SourceHanSansSC-Regular",
+          "Segoe UI",
+          system-ui,
+          -apple-system,
+          sans-serif;
+      }
+
+      button,
+      select,
+      textarea {
+        font: inherit;
+      }
+
+      .app-shell {
+        max-width: 1600px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+
+      .toolbar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 18px;
+        padding: 14px 18px;
+        border: 1px solid var(--panel-border);
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.82);
+        backdrop-filter: blur(12px);
+        box-shadow: var(--panel-shadow);
+      }
+
+      .toolbar-title {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        min-width: 280px;
+      }
+
+      .toolbar-title strong {
+        font-size: 18px;
+        line-height: 1.2;
+      }
+
+      .toolbar-title span,
+      .status,
+      .hint {
+        color: var(--text-secondary);
+        font-size: 12px;
+      }
+
+      .toolbar-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .toolbar-group label {
+        font-size: 12px;
+        color: var(--text-secondary);
+      }
+
+      select,
+      button {
+        height: 38px;
+        border: 1px solid var(--panel-border);
+        border-radius: 12px;
+        background: #ffffff;
+        color: var(--text-primary);
+        padding: 0 12px;
+      }
+
+      select {
+        min-width: 140px;
+      }
+
+      button {
+        cursor: pointer;
+        font-weight: 600;
+        transition:
+          background-color 120ms ease,
+          border-color 120ms ease,
+          color 120ms ease,
+          transform 120ms ease;
+      }
+
+      button:hover {
+        border-color: rgba(41, 86, 242, 0.36);
+        color: var(--accent);
+        transform: translateY(-1px);
+      }
+
+      button.primary {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: #ffffff;
+      }
+
+      button.primary:hover {
+        color: #ffffff;
+        background: #2147cc;
+      }
+
+      button:disabled {
+        cursor: progress;
+        opacity: 0.7;
+        transform: none;
+      }
+
+      .toolbar-spacer {
+        flex: 1;
+      }
+
+      .workspace {
+        display: grid;
+        grid-template-columns: minmax(360px, 0.92fr) minmax(520px, 1.08fr);
+        gap: 18px;
+        align-items: start;
+      }
+
+      .panel {
+        border: 1px solid var(--panel-border);
+        border-radius: 24px;
+        background: var(--panel-bg);
+        box-shadow: var(--panel-shadow);
+        overflow: hidden;
+      }
+
+      .panel-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        padding: 16px 18px;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+        background: rgba(255, 255, 255, 0.76);
+      }
+
+      .panel-header strong {
+        display: block;
+        font-size: 15px;
+      }
+
+      .stats {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .stat {
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(148, 163, 184, 0.12);
+        color: var(--text-secondary);
+        font-size: 12px;
+        white-space: nowrap;
+      }
+
+      .editor-panel textarea {
+        display: block;
+        width: 100%;
+        min-height: calc(100vh - 220px);
+        padding: 20px 22px 26px;
+        border: 0;
+        resize: vertical;
+        background: var(--editor-bg);
+        color: var(--text-primary);
+        line-height: 1.72;
+        tab-size: 2;
+      }
+
+      .preview-stage {
+        padding: 22px;
+        background:
+          linear-gradient(180deg, rgba(226, 232, 240, 0.36), rgba(226, 232, 240, 0.18)),
+          #edf2f8;
+      }
+
+      .sheet-wrap {
+        overflow: auto;
+        padding-bottom: 6px;
+      }
+
+      .preview-sheet {
+        width: 794px;
+        min-height: 1123px;
+        margin: 0 auto;
+        padding: 56px 64px 68px;
+        border-radius: 26px;
+        box-shadow: 0 26px 60px rgba(15, 23, 42, 0.14);
+        transition:
+          background-color 140ms ease,
+          color 140ms ease,
+          border-color 140ms ease;
+      }
+
+      .preview-sheet[data-theme="paper"] {
+        --doc-bg: #fffdf8;
+        --doc-text: #182230;
+        --doc-muted: #5c697e;
+        --doc-line: rgba(148, 163, 184, 0.32);
+        --doc-accent: #2a5bd7;
+        --doc-code-bg: #f1f4f8;
+        --doc-quote-bg: rgba(42, 91, 215, 0.08);
+        background: var(--doc-bg);
+        color: var(--doc-text);
+      }
+
+      .preview-sheet[data-theme="midnight"] {
+        --doc-bg: #0f172a;
+        --doc-text: #e8edf8;
+        --doc-muted: #b4c0d6;
+        --doc-line: rgba(148, 163, 184, 0.24);
+        --doc-accent: #7aa2ff;
+        --doc-code-bg: #162033;
+        --doc-quote-bg: rgba(122, 162, 255, 0.12);
+        background: var(--doc-bg);
+        color: var(--doc-text);
+      }
+
+      .preview-sheet[data-theme="slate"] {
+        --doc-bg: #f7fafc;
+        --doc-text: #0f172a;
+        --doc-muted: #516071;
+        --doc-line: rgba(100, 116, 139, 0.24);
+        --doc-accent: #0f766e;
+        --doc-code-bg: #ecf5f4;
+        --doc-quote-bg: rgba(15, 118, 110, 0.08);
+        background: var(--doc-bg);
+        color: var(--doc-text);
+      }
+
+      .preview-sheet[data-theme="sepia"] {
+        --doc-bg: #fbf6ec;
+        --doc-text: #2d2218;
+        --doc-muted: #6d5c48;
+        --doc-line: rgba(120, 98, 72, 0.24);
+        --doc-accent: #9b5d2c;
+        --doc-code-bg: #f4ede1;
+        --doc-quote-bg: rgba(155, 93, 44, 0.08);
+        background: var(--doc-bg);
+        color: var(--doc-text);
+      }
+
+      .markdown-body {
+        color: inherit;
+        font-size: 15px;
+        line-height: 1.8;
+      }
+
+      .markdown-body > :first-child {
+        margin-top: 0;
+      }
+
+      .markdown-body h1,
+      .markdown-body h2,
+      .markdown-body h3,
+      .markdown-body h4 {
+        margin: 1.5em 0 0.55em;
+        line-height: 1.3;
+      }
+
+      .markdown-body h1 {
+        font-size: 2.2rem;
+        letter-spacing: -0.03em;
+      }
+
+      .markdown-body h2 {
+        padding-bottom: 0.38em;
+        border-bottom: 1px solid var(--doc-line);
+        font-size: 1.45rem;
+      }
+
+      .markdown-body h3 {
+        font-size: 1.1rem;
+      }
+
+      .markdown-body p,
+      .markdown-body ul,
+      .markdown-body ol,
+      .markdown-body pre,
+      .markdown-body table,
+      .markdown-body blockquote {
+        margin: 0.95em 0;
+      }
+
+      .markdown-body a {
+        color: var(--doc-accent);
+        text-decoration: none;
+      }
+
+      .markdown-body strong {
+        font-weight: 700;
+      }
+
+      .markdown-body hr {
+        border: 0;
+        border-top: 1px solid var(--doc-line);
+        margin: 1.5em 0;
+      }
+
+      .markdown-body ul,
+      .markdown-body ol {
+        padding-left: 1.4em;
+      }
+
+      .markdown-body li + li {
+        margin-top: 0.32em;
+      }
+
+      .markdown-body input[type="checkbox"] {
+        margin-right: 0.45em;
+      }
+
+      .markdown-body code {
+        padding: 0.12em 0.36em;
+        border-radius: 6px;
+        background: var(--doc-code-bg);
+        font-family: "JetBrains Mono", Consolas, monospace;
+        font-size: 0.9em;
+      }
+
+      .markdown-body pre {
+        overflow: auto;
+        padding: 14px 16px;
+        border-radius: 16px;
+        background: var(--doc-code-bg);
+      }
+
+      .markdown-body pre code {
+        padding: 0;
+        background: transparent;
+      }
+
+      .markdown-body blockquote {
+        padding: 14px 16px;
+        border-left: 4px solid var(--doc-accent);
+        border-radius: 12px;
+        background: var(--doc-quote-bg);
+        color: var(--doc-muted);
+      }
+
+      .markdown-body table {
+        width: 100%;
+        border-collapse: collapse;
+        overflow: hidden;
+        border: 1px solid var(--doc-line);
+        border-radius: 16px;
+      }
+
+      .markdown-body th,
+      .markdown-body td {
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--doc-line);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .markdown-body thead th {
+        font-size: 12px;
+        color: var(--doc-muted);
+        background: rgba(148, 163, 184, 0.08);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .markdown-body tbody tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .markdown-body img {
+        max-width: 100%;
+        border-radius: 18px;
+      }
+
+      .empty-state {
+        display: none;
+        padding: 26px;
+        border: 1px dashed rgba(148, 163, 184, 0.32);
+        border-radius: 18px;
+        color: var(--text-muted);
+        text-align: center;
+      }
+
+      .preview-sheet.is-empty .empty-state {
+        display: block;
+      }
+
+      .preview-sheet.is-empty .markdown-body {
+        display: none;
+      }
+
+      .danger {
+        color: var(--danger);
+      }
+
+      @media (max-width: 1180px) {
+        .workspace {
+          grid-template-columns: 1fr;
+        }
+
+        .editor-panel textarea {
+          min-height: 360px;
+        }
+      }
+
+      @media (max-width: 860px) {
+        .app-shell {
+          padding: 14px;
+        }
+
+        .toolbar,
+        .preview-stage {
+          padding: 14px;
+        }
+
+        .panel-header {
+          padding: 14px;
+        }
+
+        .preview-sheet {
+          padding: 40px 28px 48px;
+          border-radius: 20px;
+        }
+      }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.7/dist/purify.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js"></script>
+    <script src="../dist/dompdf.js"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="toolbar">
+        <div class="toolbar-title">
+          <strong>Markdown 多主题编辑器</strong>
+          <span>左侧实时编辑 Markdown，右侧同步渲染成 HTML，并可直接导出为 PDF。</span>
+        </div>
+        <div class="toolbar-group">
+          <label for="theme-select">主题</label>
+          <select id="theme-select">
+            <option value="paper">Paper Light</option>
+            <option value="midnight">Midnight Blue</option>
+            <option value="slate">Slate Editorial</option>
+            <option value="sepia">Sepia Notebook</option>
+          </select>
+        </div>
+        <div class="toolbar-group">
+          <label for="sample-select">示例</label>
+          <select id="sample-select">
+            <option value="product">产品周报</option>
+            <option value="proposal">方案提案</option>
+            <option value="notes">会议纪要</option>
+          </select>
+          <button id="load-sample-btn">载入示例</button>
+        </div>
+        <div class="toolbar-spacer"></div>
+        <div class="toolbar-group">
+          <button id="copy-html-btn">复制 HTML</button>
+          <button id="export-pdf-btn" class="primary">导出 PDF</button>
+        </div>
+        <span id="status" class="status">初始化中...</span>
+      </header>
+
+      <main class="workspace">
+        <section class="panel editor-panel">
+          <div class="panel-header">
+            <div>
+              <strong>Markdown 输入</strong>
+              <span class="hint">支持标题、列表、引用、任务列表、代码块和表格。</span>
+            </div>
+            <div class="stats">
+              <span class="stat" id="char-count">0 字符</span>
+              <span class="stat" id="word-count">0 词</span>
+              <span class="stat" id="line-count">0 行</span>
+            </div>
+          </div>
+          <textarea id="markdown-input" spellcheck="false"></textarea>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <strong>HTML 预览</strong>
+              <span class="hint">导出 PDF 时将直接使用这张 A4 纸张里的渲染结果。</span>
+            </div>
+            <div class="stats">
+              <span class="stat" id="theme-indicator">主题: Paper Light</span>
+              <span class="stat" id="page-count">约 1.0 页</span>
+            </div>
+          </div>
+          <div class="preview-stage">
+            <div class="sheet-wrap">
+              <div id="preview-sheet" class="preview-sheet" data-theme="paper">
+                <div class="empty-state">输入 Markdown 后，这里会实时渲染成 HTML。</div>
+                <article id="markdown-preview" class="markdown-body"></article>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      (function () {
+        var dompdfApi = window.dompdf;
+        var markedApi = window.marked;
+        var purifier = window.DOMPurify;
+        var statusEl = document.getElementById("status");
+        var editorEl = document.getElementById("markdown-input");
+        var previewEl = document.getElementById("markdown-preview");
+        var previewSheetEl = document.getElementById("preview-sheet");
+        var themeSelectEl = document.getElementById("theme-select");
+        var sampleSelectEl = document.getElementById("sample-select");
+        var exportBtnEl = document.getElementById("export-pdf-btn");
+        var copyHtmlBtnEl = document.getElementById("copy-html-btn");
+        var charCountEl = document.getElementById("char-count");
+        var wordCountEl = document.getElementById("word-count");
+        var lineCountEl = document.getElementById("line-count");
+        var pageCountEl = document.getElementById("page-count");
+        var themeIndicatorEl = document.getElementById("theme-indicator");
+        var renderTimer = 0;
+        var sharedFontConfig = {
+          fontFamily: "SourceHanSansSC-Regular",
+          fontStyle: "normal",
+          fontWeight: 400,
+        };
+        var activeTheme = themeSelectEl.value;
+        var themeLabels = {
+          paper: "Paper Light",
+          midnight: "Midnight Blue",
+          slate: "Slate Editorial",
+          sepia: "Sepia Notebook",
+        };
+        var samples = {
+          product: [
+            "# 产品周报 / Product Weekly Update",
+            "",
+            "> 本示例用于验证 Markdown 实时渲染、主题切换，以及导出 PDF 后的文本复制与分页效果。",
+            "",
+            "## 本周结论",
+            "",
+            "- 新版本注册转化率提升 **12.6%**",
+            "- 客服首响时间从 `7m 24s` 降到 `4m 10s`",
+            "- 文档站迁移已完成，剩余导出链路压测",
+            "",
+            "## 关键事项",
+            "",
+            "1. 完成富文本转 Markdown 的字段映射。",
+            "2. 把 PDF 页眉页脚统一成可配置模板。",
+            "3. 校验中文字体在深色主题下的导出表现。",
+            "",
+            "## 任务列表",
+            "",
+            "- [x] 接入实时预览",
+            "- [x] 支持多主题样式切换",
+            "- [ ] 增加更多业务模板",
+            "",
+            "## 代码片段",
+            "",
+            "```ts",
+            "const blob = await window.dompdf(previewRoot, {",
+            "  format: 'a4',",
+            "  pagination: true,",
+            "  useCORS: true",
+            "});",
+            "```",
+            "",
+            "## 对比表",
+            "",
+            "| 指标 | 当前值 | 环比 |",
+            "| --- | ---: | ---: |",
+            "| WAU | 124,500 | +8.4% |",
+            "| 续费率 | 71.2% | +2.1% |",
+            "| 平均导出耗时 | 428ms | -16.0% |",
+            "",
+            "## 备注",
+            "",
+            "当 Markdown 被渲染成 HTML 后，右侧预览区就是最终导出的 DOM 来源。这样可以更直接地比较“屏幕所见”和“PDF 所得”。",
+          ].join("\n"),
+          proposal: [
+            "# AIGC 知识库导出方案提案",
+            "",
+            "## 背景",
+            "",
+            "我们需要一套前端完成的导出方案，让用户在浏览器里编辑内容后，直接生成可搜索、可复制的 PDF，而不是位图截图。",
+            "",
+            "## 目标",
+            "",
+            "- 保留结构化标题层级",
+            "- 支持深浅主题切换",
+            "- 让导出的 PDF 与 HTML 版式尽量一致",
+            "",
+            "## 方案概览",
+            "",
+            "### 1. 编辑层",
+            "",
+            "使用 Markdown 作为输入格式，降低富文本编辑复杂度。",
+            "",
+            "### 2. 渲染层",
+            "",
+            "通过 `marked` 将 Markdown 渲染为 HTML，再使用 `DOMPurify` 对输出做清洗。",
+            "",
+            "### 3. 导出层",
+            "",
+            "使用 `dompdf.js` 直接读取预览 DOM，输出矢量文本为主的 PDF。",
+            "",
+            "## 风险",
+            "",
+            "> 代码高亮、复杂内联 HTML 和 Mermaid 一类扩展语法不在本示例覆盖范围内。",
+            "",
+            "## 下一步",
+            "",
+            "1. 抽出主题配置对象",
+            "2. 增加文档保存能力",
+            "3. 接入业务数据源和模板中心",
+          ].join("\n"),
+          notes: [
+            "# 项目评审会纪要",
+            "",
+            "**时间：** 2026-07-10 14:00",
+            "",
+            "**参会人：** 产品、前端、引擎、设计",
+            "",
+            "## 结论摘要",
+            "",
+            "本周先交付一个可运行的 Markdown 编辑器示例，重点验证三件事：",
+            "",
+            "- 实时预览是否稳定",
+            "- 多主题样式是否能同步进 PDF",
+            "- 中文与英文混排是否仍可复制搜索",
+            "",
+            "## 决策记录",
+            "",
+            "| 决策项 | 结果 |",
+            "| --- | --- |",
+            "| 示例页面形态 | 独立 demo 页面 |",
+            "| Markdown 解析 | 使用成熟解析库 |",
+            "| PDF 导出源 | 直接使用预览 DOM |",
+            "",
+            "## 待办",
+            "",
+            "- [x] 建立页面骨架",
+            "- [x] 实现 Markdown -> HTML",
+            "- [x] 接入主题变量",
+            "- [ ] 增加自动保存",
+            "",
+            "## 讨论片段",
+            "",
+            "```md",
+            "> 用户更关心“页面里看到的东西”能不能稳定进 PDF，",
+            "> 所以导出源应该就是预览节点本身。",
+            "```",
+          ].join("\n"),
+        };
+
+        if (!dompdfApi) {
+          setStatus("未检测到 dist/dompdf.js，请先执行 npm run build。", true);
+          exportBtnEl.disabled = true;
+          copyHtmlBtnEl.disabled = true;
+          return;
+        }
+
+        if (!markedApi || typeof markedApi.parse !== "function" || !purifier) {
+          setStatus("Markdown 依赖加载失败，请检查 CDN 连接。", true);
+          exportBtnEl.disabled = true;
+          copyHtmlBtnEl.disabled = true;
+          return;
+        }
+
+        markedApi.setOptions({
+          gfm: true,
+          breaks: true,
+        });
+
+        function setStatus(message, isError) {
+          statusEl.textContent = message;
+          statusEl.className = isError ? "status danger" : "status";
+        }
+
+        function countWords(text) {
+          var matches = text.trim().match(/[A-Za-z0-9_]+/g);
+          return matches ? matches.length : 0;
+        }
+
+        function updateStats(text) {
+          var normalized = text || "";
+          charCountEl.textContent = normalized.length + " 字符";
+          wordCountEl.textContent = countWords(normalized) + " 词";
+          lineCountEl.textContent = normalized.split(/\r?\n/).length + " 行";
+          themeIndicatorEl.textContent = "主题: " + themeLabels[activeTheme];
+          pageCountEl.textContent =
+            "约 " + Math.max(1, previewSheetEl.scrollHeight / 1123).toFixed(1) + " 页";
+        }
+
+        function sanitizeHtml(html) {
+          return purifier.sanitize(html, {
+            USE_PROFILES: { html: true },
+          });
+        }
+
+        function renderMarkdownNow() {
+          var markdown = editorEl.value;
+          var html = markdown.trim() ? markedApi.parse(markdown) : "";
+          previewEl.innerHTML = sanitizeHtml(html);
+          previewSheetEl.classList.toggle("is-empty", !markdown.trim());
+          updateStats(markdown);
+          setStatus("实时预览已更新。");
+        }
+
+        function scheduleRender() {
+          clearTimeout(renderTimer);
+          renderTimer = setTimeout(renderMarkdownNow, 90);
+        }
+
+        function applyTheme(theme) {
+          activeTheme = theme;
+          previewSheetEl.setAttribute("data-theme", theme);
+          themeIndicatorEl.textContent = "主题: " + themeLabels[theme];
+          updateStats(editorEl.value);
+        }
+
+        function currentExportOptions() {
+          var previewStyle = window.getComputedStyle(previewSheetEl);
+          return {
+            format: "a4",
+            pagination: true,
+            marginPt: 0,
+            useCORS: true,
+            backgroundColor: previewStyle.backgroundColor || "#ffffff",
+            fontConfig: sharedFontConfig.fontBytes ? sharedFontConfig : undefined,
+            pageConfig: {
+              excludePages: [1],
+              header: {
+                content: "Markdown Editor Demo · " + themeLabels[activeTheme],
+                height: 42,
+                contentPosition: "center",
+                contentColor: previewStyle.color || "#334155",
+                contentFontSize: 11,
+                padding: [0, 0, 0, 0],
+              },
+              footer: {
+                content: "第 ${currentPage} 页 / 共 ${totalPages} 页",
+                height: 38,
+                contentPosition: "center",
+                contentColor: previewStyle.color || "#475569",
+                contentFontSize: 10,
+                padding: [0, 0, 0, 0],
+              },
+            },
+          };
+        }
+
+        function withBusy(button, task) {
+          var originalText = button.textContent;
+          button.disabled = true;
+          return Promise.resolve()
+            .then(task)
+            .finally(function () {
+              button.disabled = false;
+              button.textContent = originalText;
+            });
+        }
+
+        function clonePreviewSheet() {
+          var clone = previewSheetEl.cloneNode(true);
+          clone.style.position = "absolute";
+          clone.style.left = "-9999px";
+          clone.style.top = "-9999px";
+          clone.style.display = "block";
+          clone.style.margin = "0";
+          document.body.appendChild(clone);
+          return clone;
+        }
+
+        function downloadBlob(blob, filename) {
+          var url = URL.createObjectURL(blob);
+          var anchor = document.createElement("a");
+          anchor.href = url;
+          anchor.download = filename;
+          document.body.appendChild(anchor);
+          anchor.click();
+          anchor.remove();
+          setTimeout(function () {
+            URL.revokeObjectURL(url);
+          }, 2000);
+        }
+
+        function exportPdf() {
+          if (!editorEl.value.trim()) {
+            setStatus("请先输入一些 Markdown 内容。", true);
+            return Promise.resolve();
+          }
+          return withBusy(exportBtnEl, function () {
+            exportBtnEl.textContent = "导出中...";
+            setStatus("正在将 HTML 预览导出为 PDF...");
+            var clone = clonePreviewSheet();
+            return dompdfApi(clone, currentExportOptions())
+              .then(function (blob) {
+                downloadBlob(blob, "markdown-editor-demo.pdf");
+                setStatus("PDF 导出完成。");
+              })
+              .finally(function () {
+                if (clone.parentNode) {
+                  clone.parentNode.removeChild(clone);
+                }
+              });
+          }).catch(function (error) {
+            setStatus("PDF 导出失败: " + error.message, true);
+            console.error(error);
+          });
+        }
+
+        function copyHtml() {
+          return withBusy(copyHtmlBtnEl, function () {
+            copyHtmlBtnEl.textContent = "复制中...";
+            return navigator.clipboard
+              .writeText(previewEl.innerHTML)
+              .then(function () {
+                setStatus("已复制当前渲染后的 HTML。");
+              });
+          }).catch(function (error) {
+            setStatus("复制 HTML 失败: " + error.message, true);
+            console.error(error);
+          });
+        }
+
+        function loadSample(sampleKey) {
+          var sample = samples[sampleKey];
+          if (!sample) {
+            return;
+          }
+          editorEl.value = sample;
+          renderMarkdownNow();
+          setStatus("已载入示例内容。");
+        }
+
+        function loadFont() {
+          return fetch("./SourceHanSansSC-Regular.ttf")
+            .then(function (response) {
+              if (!response.ok) {
+                throw new Error("HTTP " + response.status);
+              }
+              return response.arrayBuffer();
+            })
+            .then(function (buffer) {
+              sharedFontConfig.fontBytes = new Uint8Array(buffer);
+              setStatus("已就绪，中文字体已加载。");
+            })
+            .catch(function (error) {
+              setStatus("已就绪，但中文字体加载失败: " + error.message, true);
+            });
+        }
+
+        themeSelectEl.addEventListener("change", function () {
+          applyTheme(themeSelectEl.value);
+        });
+        editorEl.addEventListener("input", scheduleRender);
+        document
+          .getElementById("load-sample-btn")
+          .addEventListener("click", function () {
+            loadSample(sampleSelectEl.value);
+          });
+        exportBtnEl.addEventListener("click", exportPdf);
+        copyHtmlBtnEl.addEventListener("click", copyHtml);
+
+        applyTheme(activeTheme);
+        loadSample(sampleSelectEl.value);
+        loadFont();
+      })();
+    </script>
+  </body>
+</html>
