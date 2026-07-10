@@ -2384,8 +2384,9 @@ function buildInlineRunsWithLangFont(
   // browser's collapse model hides internal row borders behind a spanning cell.
   async function visit(el: HTMLElement, parentId: number, forcedBg?: [number, number, number, number]): Promise<void> {
     if (ignoreElements && ignoreElements(el)) return;
-    const id = nodes.length;
     const cs = getComputedStyle(el);
+    if (cs.display === 'none') return;
+    const id = nodes.length;
     const isImg = el.tagName === 'IMG' && imgToId.has(el);
     // For images, reuse the box frozen at conversion time instead of
     // re-measuring now — see the comment by imgRectAtConvert above.
