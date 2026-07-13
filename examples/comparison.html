@@ -699,7 +699,7 @@
 
     /* Document Container inside drafting desk */
     .scaled-container-helper {
-      transform: scale(0.7);
+      /* transform: scale(0.7); */
       transform-origin: top center;
       margin-bottom: -340px;
     }
@@ -2569,12 +2569,12 @@ window.<span class="token-function">dompdf</span>(element, options)
       section.setAttribute('divisionDisable', '');
       section.style.marginTop = '1.5rem';
       section.innerHTML = `
-        <h3 style="font-size: 0.85rem; font-family: var(--font-serif); font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;">Section ${count}: Operational Analysis Briefing</h3>
-        <p style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 0.5rem;">
+        <h3 style="font-size: 1rem; font-family: var(--font-serif); font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;">Section ${count}: Operational Analysis Briefing</h3>
+        <p style="font-size: 0.95rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 0.5rem;">
           Our continuous optimization framework has yielded additional efficiency gains in cluster scheduling and cache validation overhead. 
           By deploying standard vector engines across our edge networks, latency variability has been reduced by 18.4% globally.
         </p>
-        <p style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.6;">
+        <p style="font-size: 0.95rem; color: var(--text-secondary); line-height: 1.6;">
           Operational capacity planning models forecast steady growth in storage metrics. We recommend increasing infrastructure allocations
           to offset localized demand anomalies.
         </p>
