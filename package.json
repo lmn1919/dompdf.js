@@ -1,13 +1,37 @@
 {
-  "name": "dompdf",
+  "title": "dompdf.js",
+  "name": "dompdf.js",
   "version": "0.1.0",
   "description": "Pure-frontend DOM-to-PDF engine (WASM-backed, no jsPDF).",
   "main": "dist/dompdf.js",
   "module": "dist/esm/dompdf.esm.js",
   "types": "dist/types/index.d.ts",
   "browser": "dist/dompdf.js",
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md",
+    "README_CN.md"
+  ],
+  "keywords": [
+    "pdf",
+    "dom-to-pdf",
+    "wasm",
+    "webassembly",
+    "typescript",
+    "browser",
+    "frontend",
+    "rendering"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "bugs": {
+    "url": "https://github.com/lmn1919/dompdf.js/issues"
+  },
   "exports": {
     ".": {
+      "types": "./dist/types/index.d.ts",
       "import": "./dist/esm/dompdf.esm.js",
       "require": "./dist/dompdf.js",
       "browser": "./dist/dompdf.js"
@@ -22,6 +46,8 @@
     "build:minify": "npm run build",
     "dev": "rollup -c rollup.config.mjs -w",
     "serve": "npx --yes serve . -l 8080",
+    "verify": "npm run build:wasm && node scripts/verify.mjs",
+    "test": "npm run verify",
     "pdf-diff:mvp": "npm run build && node scripts/pdf-diff-mvp.mjs",
     "pdf-diff:run": "npm run build && node scripts/pdf-diff/run.mjs",
     "pdf-diff:all": "npm run build && node scripts/pdf-diff/run-all.mjs",
@@ -38,7 +64,7 @@
   "homepage": "https://github.com/lmn1919/dompdf.js",
   "repository": {
     "type": "git",
-    "url": "git@github.com:lmn1919/dompdf.js.git"
+    "url": "https://github.com/lmn1919/dompdf.js.git"
   },
   "devDependencies": {
     "@napi-rs/canvas": "^1.0.0",
