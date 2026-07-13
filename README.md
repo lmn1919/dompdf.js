@@ -2,413 +2,193 @@
 
 [English](./README.md) | [中文](./README_CN.md)
 
-Pure-frontend DOM-to-PDF engine (WASM-backed, no jsPDF). This library allows you to generate editable, non-image, printable vector PDFs directly in the user's browser from web pages or DOM elements. It supports pagination and can generate PDF files with thousands of pages.
+`dompdf.js` is a pure-frontend DOM-to-PDF engine powered by Rust, WebAssembly, and TypeScript. It renders vector PDFs directly in the browser without depending on jsPDF, and is designed for long documents, editable text, custom fonts, and pagination-heavy layouts.
 
-**Live Demo:** [Online Demo](https://dompdfjs.lisky.com.cn)
-**Legacy API Migration:** [docs/migration-compat.md](./docs/migration-compat.md)
+**Live demo:** [dompdfjs.lisky.com.cn](https://dompdfjs.lisky.com.cn)  
+**Migration notes:** [docs/migration-compat.md](./docs/migration-compat.md)
 
-## 🚀 Version Comparison: New vs Old
+## Highlights
 
-### New Version (v0.1.0+) - Current
-**Technology Stack:** Rust + WebAssembly + TypeScript + Worker
-- **Core Engine:** Pure Rust WASM module for PDF generation
-- **Architecture:** Main thread collects DOM snapshot → Worker processes → WASM renders PDF
-- **Output:** True vector PDF (not image-based)
-- **Performance:** Faster rendering, smaller file sizes
-- **Features:** Advanced typography, proper text selection, Unicode support
+- Rust + WASM rendering pipeline
+- Vector PDF output with selectable text
+- Pagination support for large documents
+- Custom font embedding with Unicode text
+- Header/footer rendering
+- PDF compression and encryption
+- Browser-only architecture, no server required
 
-### Old Version (Legacy)
-**Technology Stack:** html2canvas + jsPDF + JavaScript
-- **Core Engine:** Modified html2canvas canvas-renderer + jsPDF
-- **Architecture:** DOM → Canvas image → PDF with embedded images
-- **Output:** Image-based PDF (lower quality, larger files)
-- **Performance:** Slower due to canvas rendering
-- **Features:** Limited text support, basic functionality
+## Installation
 
-### Key Improvements in New Version
-| Feature | Old Version | New Version | Benefit |
-|---------|------------|-------------|---------|
-| **PDF Quality** | Image-based (raster) | Vector-based | Sharper text, smaller files, editable content |
-| **Performance** | Canvas rendering bottleneck | WASM optimized | 2-5x faster rendering |
-| **File Size** | Large (embedded images) | Compact (vector graphics) | 60-80% smaller PDFs |
-| **Text Support** | Basic English fonts | Full Unicode + custom fonts | Proper international text rendering |
-| **Architecture** | Monolithic JavaScript | Modular (Worker + WASM) | Better parallelism, non-blocking UI |
-| **Memory Usage** | High (canvas buffers) | Optimized (binary snapshots) | Lower memory footprint |
+The repository name is `dompdf.js`, but the current npm package name is `dompdf`.
 
-## 📄 PDF Generation Example
-![PDF Generation Example](./examples/test.jpg)
+### npm
 
-## 🛠️ How It Works
-
-This script follows a modern pipeline architecture:
-
-1. **DOM Snapshot Collection** (Main Thread): Walks the DOM tree, computes styles, and captures element geometries
-2. **Worker Processing**: Transfers snapshot to a Web Worker for background processing
-3. **WASM Rendering**: Rust-compiled WebAssembly module generates PDF bytes
-4. **PDF Delivery**: Returns PDF as Blob for download or display
-
-### Advantages
-1. **Pure Client-side**: No server-side rendering required
-2. **Vector PDFs**: Generates true PDF files, not image-based ones
-3. **High Quality**: Editable text, proper typography, scalable graphics
-4. **Small File Size**: Vector graphics are compact
-5. **Unlimited Pages**: No canvas height limitations
-6. **Non-blocking**: Worker-based architecture keeps UI responsive
-
-### Limitations
-1. **DOM-based**: May not be 100% pixel-perfect compared to browser rendering
-2. **CSS Support**: Some advanced CSS properties may not be fully supported
-3. **Complex Layouts**: Very complex nested layouts may have rendering differences
-
-## ✨ Features
-
-| Feature | Status | Description |
-|---------|--------|-------------|
-| **Pagination** | ✅ | Supports PDF pagination rendering, capable of generating PDF files with thousands of pages |
-| **Text Rendering** | ✅ | Supports Unicode text, font families, sizes, styles, colors, line heights, and text alignment |
-| **Image Rendering** | ✅ | Supports web images, base64 images, SVG images with proper scaling |
-| **Borders** | ✅ | Supports border width, color, style, and radius |
-| **Backgrounds** | ✅ | Supports background colors, images, and gradients |
-| **Canvas** | ✅ | Supports rendering HTML canvas elements |
-| **SVG** | ✅ | Supports rendering SVG elements |
-| **Gradients** | ✅ | Supports linear and radial gradients |
-| **Custom Fonts** | ✅ | Supports embedding custom TTF/OTF fonts |
-| **PDF Encryption** | ✅ | Supports password protection and permission controls |
-| **Page Headers/Footers** | ✅ | Configurable headers and footers with dynamic content |
-| **Precise Pagination Control** | ✅ | `divisionDisable` and `pageBreak` attributes for layout control |
-| **Transparent Backgrounds** | ✅ | Option to generate PDFs with transparent backgrounds |
-| **PDF Compression** | ✅ | Optional PDF compression for smaller file sizes |
-
-## 📦 Installation
-
-### NPM
 ```bash
-npm install dompdf.js --save
+npm install dompdf
 ```
 
 ### CDN
+
 ```html
-<script src="https://cdn.jsdelivr.net/npm/dompdf.js@latest/dist/dompdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompdf@latest/dist/dompdf.min.js"></script>
 ```
 
-### Basic Usage
-```js
-import dompdf from 'dompdf.js';
-
-dompdf(document.querySelector('#capture'), options)
-    .then((blob) => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'example.pdf';
-        document.body.appendChild(a);
-        a.click();
-    })
-    .catch((err) => {
-        console.error(err);
-    });
-```
-
-## 📄 PDF Pagination Rendering
-
-By default, dompdf renders the entire document onto a single page. Enable pagination by setting `pagination: true`.
-
-**Important:** Set the DOM node width to match the page width in pixels. For A4 (210mm × 297mm), set width to 794px. See [page sizes reference](./page_sizes.md).
+## Quick Start
 
 ```js
-import dompdf from 'dompdf.js';
+import dompdf from 'dompdf';
 
-dompdf(document.querySelector('#capture'), {
-    pagination: true,
-    format: 'a4',
-    pageConfig: {
-        header: {
-            content: 'Document Header',
-            height: 50,
-            contentColor: '#333333',
-            contentFontSize: 12,
-            contentPosition: 'center',
-            padding: [0, 0, 0, 0]
-        },
-        footer: {
-            content: 'Page ${currentPage} of ${totalPages}',
-            height: 50,
-            contentColor: '#333333',
-            contentFontSize: 12,
-            contentPosition: 'center',
-            padding: [0, 0, 0, 0]
-        }
-    }
-}).then((blob) => {
-    // Download the PDF
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'document.pdf';
-    a.click();
+const element = document.querySelector('#capture');
+const blob = await dompdf(element, {
+  format: 'a4',
+  pagination: true,
 });
+
+const url = URL.createObjectURL(blob);
+const a = document.createElement('a');
+a.href = url;
+a.download = 'example.pdf';
+a.click();
+URL.revokeObjectURL(url);
 ```
 
-### Precise Pagination Control
+## How It Works
 
-#### `divisionDisable` Attribute
-Prevent a container from being split across pages:
-```html
-<div divisionDisable>
-    This entire container will move to the next page if it doesn't fit.
-</div>
-```
+1. The main thread walks the DOM and records a snapshot.
+2. A Web Worker receives the snapshot and prepares render data.
+3. A Rust/WASM module writes PDF bytes.
+4. The browser returns the result as a `Blob`.
 
-#### `pageBreak` Attribute
-Force an element to start on a new page:
-```html
-<div pageBreak>
-    This content starts on the next page.
-</div>
-```
+This architecture avoids canvas screenshot bottlenecks and keeps the UI responsive during export.
 
-## ⚙️ Options Parameters
+## Supported Capabilities
 
-| Parameter | Required | Default | Type | Description |
-|-----------|----------|---------|------|-------------|
-| `useCORS` | No | `false` | `boolean` | Allow cross-origin resources (requires server CORS configuration) |
-| `backgroundColor` | No | Auto/White | `string \| null` | Override page background color; pass `null` for transparent background |
-| `fontConfig` | No | - | `object \| Array` | Custom font configuration (see below) |
-| `encryption` | No | Empty | `object` | PDF encryption: `userPassword`, `ownerPassword`, `userPermissions` |
-| `precision` | No | `16` | `number` | Element position precision (higher = more accurate but larger files) |
-| `compress` | No | `false` | `boolean` | Enable PDF compression |
-| `putOnlyUsedFonts` | No | `false` | `boolean` | Embed only actually used font glyphs |
-| `pagination` | No | `false` | `boolean` | Enable pagination rendering |
-| `format` | No | `'a4'` | `string` | Page size: `a0-a10`, `b0-b10`, `c0-c10`, `letter`, `legal`, etc. |
-| `pageConfig` | No | See below | `object \| Function` | Header/footer configuration |
-| `onJspdfReady` | No | - | `Function(jspdf: jsPDF)` | Callback when jsPDF instance is ready |
-| `onJspdfFinish` | No | - | `Function(jspdf: jsPDF)` | Callback when PDF generation completes |
+| Capability | Status | Notes |
+| --- | --- | --- |
+| Pagination | Stable | Supports multi-page output and large documents |
+| Text rendering | Stable | Unicode text, custom fonts, alignment, line height |
+| Images | Stable | Raster images, SVG, data URLs |
+| Backgrounds and borders | Stable | Background color, gradients, border radius |
+| Header/footer | Stable | Object form and per-page callback form |
+| Compression | Stable | Real DEFLATE compression in the WASM writer |
+| Encryption | Stable | User/owner password and permission flags |
+| Legacy jsPDF hooks | Compatibility only | `onJspdfReady` / `onJspdfFinish` are accepted but are no-ops |
 
-### `pageConfig` Fields
+## Pagination Notes
 
-| Parameter | Default | Type | Description |
-|-----------|---------|------|-------------|
-| `header` | See below | `object` | Header settings |
-| `footer` | See below | `object` | Footer settings |
-| `excludePage` | - | `number \| number[]` | Skip header/footer on one or more pages when using object-form `pageConfig` |
-| `excludePages` | - | `number[]` | Alias of `excludePage` for object-form `pageConfig` |
+Enable pagination with `pagination: true`. For best results, set the DOM container width to match the target page width in CSS pixels. A4 width at 96 DPI is `794px`.
 
-### Excluding Specific Pages
-
-Object-form `pageConfig` can skip header/footer on selected pages:
+See [page_sizes.md](./page_sizes.md) for common page sizes and pixel references.
 
 ```js
-pageConfig: {
-    excludePages: [1],
+await dompdf(document.querySelector('#capture'), {
+  pagination: true,
+  format: 'a4',
+  pageConfig: {
     header: {
-        content: 'Document Title',
-        height: 50,
-        contentColor: '#333333',
-        contentFontSize: 12,
-        contentPosition: 'center'
+      content: 'Document Header',
+      height: 50,
+      contentFontSize: 12,
+      contentPosition: 'center',
     },
     footer: {
-        content: 'Page ${currentPage} of ${totalPages}',
-        height: 50,
-        contentColor: '#333333',
-        contentFontSize: 12,
-        contentPosition: 'center'
-    }
-}
-```
-
-### Per-Page Header/Footer Control
-
-`pageConfig` can be a function for per-page control:
-
-```js
-pageConfig: (pageNum, totalPages) => {
-    // No header/footer on cover page
-    if (pageNum === 1) return null;
-    // No header/footer on last page
-    if (pageNum === totalPages) return null;
-    // Normal header/footer on other pages
-    return {
-        header: {
-            content: 'Document Title',
-            height: 50,
-            contentColor: '#333333',
-            contentFontSize: 12,
-            contentPosition: 'center'
-        },
-        footer: {
-            content: 'Page ${currentPage} of ${totalPages}',
-            height: 50,
-            contentColor: '#333333',
-            contentFontSize: 12,
-            contentPosition: 'center'
-        }
-    };
-}
-```
-
-### `pageConfigOptions` Fields
-
-| Parameter | Default | Type | Description |
-|-----------|---------|------|-------------|
-| `content` | Header: empty<br>Footer: `${currentPage}/${totalPages}` | `string \| Function` | Text content with `${currentPage}` and `${totalPages}` placeholders |
-| `height` | `50` | `number` | Region height in pixels |
-| `contentPosition` | `'center'` | `string \| [number, number]` | Text position: `center`, `centerLeft`, `centerRight`, etc. or `[x, y]` coordinates |
-| `contentColor` | `'#333333'` | `string` | Text color |
-| `contentFontSize` | `16` | `number` | Text font size in pixels |
-| `padding` | `[0, 24, 0, 24]` | `[number, number, number, number]` | Top/right/bottom/left padding in pixels |
-
-### Font Configuration (`fontConfig`)
-
-| Field | Required | Default | Type | Description |
-|-------|----------|---------|------|-------------|
-| `fontFamily` | Yes | `''` | `string` | Font family name (must match embedded font) |
-| `fontBase64` | Yes | `''` | `string` | TTF font as Base64 string |
-| `fontUrl` | No | `''` | `string` | URL to load font from |
-| `fontStyle` | Yes | `''` | `string` | `normal` or `italic` |
-| `fontWeight` | Yes | `''` | `number` | `400` (normal) or `700` (bold) |
-| `iconFont` | No | `false` | `boolean` | Set to `true` for icon fonts |
-| `fontBytes` | No | - | `Uint8Array` | Pre-decoded TTF bytes (alternative to fontBase64) |
-
-## 🔣 Font Support & International Text
-
-Since PDFs natively support only basic Latin characters, custom fonts are required for other languages.
-
-### Recommended Chinese Font
-Use [Source Han Sans SC](https://github.com/lmn1919/dompdf.js/blob/main/examples/SourceHanSansSC-Normal-Min-normal.js) for Chinese text support.
-
-### Font Conversion
-Convert TTF fonts to Base64 using the [font converter](https://github.com/lmn1919/dompdf.js/tree/main/fontconverter).
-
-**Note:** Embedding fonts increases PDF file size. Use font subsetting tools like `Fontmin` to reduce size.
-
-### Example Font Configuration
-```js
-import dompdf from 'dompdf.js';
-import SourceHanSansSC from './SourceHanSansSC-Normal-Min-normal.js';
-
-dompdf(document.querySelector('#capture'), {
-    fontConfig: {
-        fontFamily: 'SourceHanSansSC-Regular',
-        fontBase64: SourceHanSansSC,
-        fontStyle: 'normal',
-        fontWeight: 400
-    }
-}).then(blob => {
-    // Download PDF
+      content: 'Page ${currentPage} / ${totalPages}',
+      height: 50,
+      contentFontSize: 12,
+      contentPosition: 'center',
+    },
+  },
 });
 ```
 
-## 🚀 Advanced Usage
+### Fine-grained page control
 
-### Multiple Fonts
+- `divisionDisable`: keep a block together on one page
+- `pageBreak`: force a new page before an element
+- `excludePage` / `excludePages`: skip header/footer on selected pages
+
+## Font Configuration
+
+For non-Latin text, embed a font explicitly.
+
 ```js
-fontConfig: [
-    {
-        fontFamily: 'SourceHanSansSC-Regular',
-        fontBase64: SourceHanSansSC,
-        fontStyle: 'normal',
-        fontWeight: 400
-    },
-    {
-        fontFamily: 'SourceHanSansSC-Bold',
-        fontBase64: SourceHanSansSCBold,
-        fontStyle: 'normal',
-        fontWeight: 700
-    }
-]
+import dompdf from 'dompdf';
+
+const fontBuffer = await fetch('/fonts/SourceHanSansSC-Regular.ttf').then((res) =>
+  res.arrayBuffer(),
+);
+
+await dompdf(document.querySelector('#capture'), {
+  fontConfig: {
+    fontFamily: 'SourceHanSansSC-Regular',
+    fontBytes: new Uint8Array(fontBuffer),
+    fontStyle: 'normal',
+    fontWeight: 400,
+  },
+});
 ```
 
-### PDF Encryption
-```js
-encryption: {
-    userPassword: 'user123',
-    ownerPassword: 'owner123',
-    userPermissions: ['print', 'copy'] // Optional: 'print', 'modify', 'copy', 'annot-forms'
-}
-```
+The repo ships an example font file at [`examples/SourceHanSansSC-Regular.ttf`](./examples/SourceHanSansSC-Regular.ttf) for local demos and verification.
 
-### Transparent Background
-```js
-backgroundColor: null // Generates PDF with transparent background
-```
+## Important Compatibility Notes
 
-## 🔧 Building from Source
+This project intentionally keeps a small set of legacy options for upgrade compatibility. A few of them are accepted but not implemented in the new rendering architecture:
 
-### Prerequisites
+- `onJspdfReady`
+- `onJspdfFinish`
+- jsPDF instance mutation patterns from the legacy pipeline
+
+See [docs/migration-compat.md](./docs/migration-compat.md) for migration guidance.
+
+## Local Development
+
+### Requirements
+
 - Node.js 18+
-- Rust toolchain (for WASM compilation)
-- Cargo (Rust package manager)
+- Rust toolchain
+- `wasm32-unknown-unknown` target
 
-### Build Commands
+### Common commands
+
 ```bash
-# Install dependencies
 npm install
-
-# Build WASM module
-npm run build:wasm
-
-# Inline WASM into JavaScript
-npm run inline:wasm
-
-# Build the library
 npm run build
-
-# Development mode with watch
-npm run dev
-
-# Serve examples
+npm test
 npm run serve
 ```
 
-## 📁 Project Structure
+`npm test` builds the WASM module and runs the smoke verification script in [`scripts/verify.mjs`](./scripts/verify.mjs).
 
-```
+## Examples
+
+- [`examples/index.html`](./examples/index.html): feature-focused playground
+- [`examples/comparison.html`](./examples/comparison.html): compare dompdf.js with other client-side generators
+- [`examples/markdown-editor.html`](./examples/markdown-editor.html): Markdown editor with live preview and PDF export
+
+## Project Structure
+
+```text
 dompdf.js/
-├── src/                    # TypeScript source code
-│   ├── index.ts           # Main entry point
-│   ├── snapshot.ts        # DOM snapshot collector
-│   ├── format.ts          # Binary format encoder
-│   ├── wasm-glue.ts       # WASM integration
-│   └── worker.ts          # Web Worker implementation
-├── wasm/                  # Rust WASM module
-│   ├── src/
-│   │   ├── lib.rs        # WASM entry point
-│   │   ├── pdf.rs        # PDF generation
-│   │   ├── font.rs       # Font handling
-│   │   └── snapshot.rs   # Snapshot parsing
-│   └── Cargo.toml        # Rust dependencies
-├── examples/              # Demo and test files
-├── dist/                  # Built output
-└── scripts/              # Build and utility scripts
+├── src/                  # TypeScript entry and snapshot pipeline
+├── wasm/                 # Rust PDF writer
+├── dist/                 # Published build output
+├── examples/             # Local demos
+├── docs/                 # Design notes and migration docs
+└── scripts/              # Build and verification scripts
 ```
 
-## 🤝 Contributing
+## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Please read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening a pull request.
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+## Security
 
-## 📄 License
+Please report vulnerabilities according to [SECURITY.md](./SECURITY.md).
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## Changelog
 
-## 🙏 Acknowledgments
+Recent project changes are tracked in [CHANGELOG.md](./CHANGELOG.md).
 
-- Inspired by the original dompdf.js project
-- Built with Rust and WebAssembly for performance
-- Thanks to all contributors and users
+## License
 
-## 📞 Support
-
-- **Issues:** [GitHub Issues](https://github.com/lmn1919/dompdf.js/issues)
-- **Documentation:** [Read the docs](./docs/)
-- **Demo:** [Live Demo](https://dompdfjs.lisky.com.cn)
-
----
-
-**Note:** This is a complete rewrite of the original dompdf.js with modern architecture and improved performance. For migration from the old version, see the version comparison section above.
+This project is licensed under the [MIT License](./LICENSE).
