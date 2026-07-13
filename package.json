@@ -6,6 +6,7 @@
   "main": "dist/dompdf.js",
   "module": "dist/esm/dompdf.esm.js",
   "types": "dist/types/index.d.ts",
+  "typings": "dist/types/index.d.ts",
   "browser": "dist/dompdf.js",
   "files": [
     "dist",
@@ -54,7 +55,12 @@
     "pdf-diff:fix": "node scripts/pdf-diff/fix-loop.mjs",
     "pdf-diff:agent": "node scripts/pdf-diff/agent.mjs",
     "pdf-diff:mcp": "node scripts/pdf-diff/mcp-server.mjs",
-    "playwright:install": "playwright install chromium"
+    "playwright:install": "playwright install chromium",
+    "release": "standard-version",
+    "release:major": "standard-version --release-as major",
+    "release:minor": "standard-version --release-as minor",
+    "release:patch": "standard-version --release-as patch",
+    "release:as": "standard-version --release-as"
   },
   "author": {
     "name": "lfc",
@@ -78,6 +84,7 @@
     "pngjs": "^7.0.0",
     "rimraf": "^5.0.5",
     "rollup": "^4.0.0",
+    "standard-version": "^8.0.2",
     "tslib": "^2.8.1",
     "typescript": "^5.3.0"
   }
