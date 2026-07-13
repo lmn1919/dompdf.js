@@ -6,7 +6,7 @@ import path from 'node:path';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, '..');
-const wasmPath = path.join(root, 'wasm/pkg/dompdf_wasm.wasm');
+const wasmPath = path.join(root, 'wasm/pkg/dom2pdf_wasm.wasm');
 const wasmBytes = readFileSync(wasmPath);
 
 // ---- minimal binary encoder (mirrors src/format.ts) ----
@@ -55,14 +55,14 @@ function writeOptHF(w, hf) {
 }
 
 /**
- * Build a v3 snapshot.
+ * Build a v10 snapshot.
  * opts: { pagination, header, footer, fontBytes?, fontFamily?, chinese? }
  */
 function buildSnapshot(opts = {}) {
   const w = new Bin();
   // header
   w.bytes(Buffer.from('D2P1'));
-  w.u32(3); // version 3
+  w.u32(10); // version 10
   w.f32(595.28); // pageWidthPt
   w.f32(841.89); // pageHeightPt
   w.f32(36); w.f32(36); w.f32(36); w.f32(36); // margins
@@ -79,6 +79,8 @@ function buildSnapshot(opts = {}) {
   const hasStatic = opts.header || opts.footer;
   w.u8(hasStatic ? 1 : 0);
   if (hasStatic) { writeOptHF(w, opts.header || null); writeOptHF(w, opts.footer || null); }
+  w.u8(0); // compress disabled
+  w.u8(0); // no static watermark
 
   // fonts block
   const fonts = opts.fontBytes ? [{
@@ -92,6 +94,8 @@ function buildSnapshot(opts = {}) {
   }
 
   // per-page HF block (empty for object form)
+  w.u32(0);
+  // per-page watermark block (empty for object form)
   w.u32(0);
 
   // nodes
@@ -116,7 +120,7 @@ function buildSnapshot(opts = {}) {
   w.u16(w.utf8Len(fam)); w.utf8(fam);
   w.f32(16); w.u16(400); w.u8(0);
   w.f32(0); w.f32(0); w.f32(0); w.f32(1);
-  w.f32(20); w.u8(0); w.f32(0); w.f32(0);
+  w.f32(20); w.u8(0); w.f32(0); w.f32(0); w.u8(0);
   w.u32(tlen); w.utf8(text);
   w.u32(1);
   w.f32(10); w.f32(10); w.f32(200); w.f32(20);
@@ -131,7 +135,7 @@ function buildSnapshot(opts = {}) {
   // image 1
   w.u32(1); // imageCount
   const jpeg = Buffer.from('FAKEJPEGBYTES', 'latin1');
-  w.u32(1); w.u32(100); w.u32(50); w.u32(jpeg.length); w.bytes(jpeg);
+  w.u32(1); w.u32(100); w.u32(50); w.u8(0); w.u32(jpeg.length); w.bytes(jpeg);
 
   return w.result();
 }
