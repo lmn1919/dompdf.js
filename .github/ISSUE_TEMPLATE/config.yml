@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security report
+    url: mailto:lfc191910@gmail.com
+    about: Please use private email for vulnerability reports.
