@@ -13,6 +13,7 @@
 use crate::font::{
     encode_cid_with_fallback, encode_winansi, text_width_units, CidFont, EncodedFontKind, FontCtx,
 };
+use crate::encrypt::PdfSecurity;
 use crate::pdf::PdfWriter;
 use crate::snapshot::{BoxShadow, HFSpec, Image, Node, Snapshot, WatermarkSpec};
 
@@ -1853,12 +1854,19 @@ pub fn build_pdf(
     snap: &Snapshot,
     pages: &[PagePlan],
     fontctx: &FontCtx,
+    security: Option<&PdfSecurity>,
 ) -> Vec<u8> {
     DEBUG_LOG.with(|d| {
         d.borrow_mut().push_str("\n--- DEBUG LOG END ---\n");
     });
-    let mut w = PdfWriter::new();
+    let mut w = match security {
+        Some(security) => PdfWriter::with_security(security.clone()),
+        None => PdfWriter::new(),
+    };
     w.header();
+    if security.is_some() {
+        w.reserve_encrypt_obj();
+    }
     let compress = snap.config.compress;
 
     let catalog_id = w.alloc(1);
@@ -2193,6 +2201,7 @@ pub fn build_pdf(
         &format!("<< /Type /Catalog /Pages {} 0 R >>", pages_id),
     );
 
+    w.write_encrypt_obj();
     w.finish(catalog_id);
     w.into_bytes()
 }
