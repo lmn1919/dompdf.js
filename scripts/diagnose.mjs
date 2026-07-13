@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const wasmPath = resolve(__dirname, '../wasm/pkg/dompdf_wasm.wasm');
+const wasmPath = resolve(__dirname, '../wasm/pkg/dom2pdf_wasm.wasm');
 const fontPath = resolve(__dirname, '../examples/SourceHanSansSC-Regular.ttf');
 const sharedFontBytes = new Uint8Array(readFileSync(fontPath));
 const sharedFonts = [{
