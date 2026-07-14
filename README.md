@@ -19,24 +19,24 @@
 
 ## Installation
 
-The repository name is `dompdf.js`, but the current npm package name is `dompdf`.
+The repository and npm package are both named `dompdf.js`.
 
 ### npm
 
 ```bash
-npm install dompdf
+npm install dompdf.js
 ```
 
 ### CDN
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/dompdf@latest/dist/dompdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompdf.js@latest/dist/dompdf.min.js"></script>
 ```
 
 ## Quick Start
 
 ```js
-import dompdf from 'dompdf';
+import dompdf from 'dompdf.js';
 
 const element = document.querySelector('#capture');
 const blob = await dompdf(element, {
@@ -112,7 +112,7 @@ await dompdf(document.querySelector('#capture'), {
 For non-Latin text, embed a font explicitly.
 
 ```js
-import dompdf from 'dompdf';
+import dompdf from 'dompdf.js';
 
 const fontBuffer = await fetch('/fonts/SourceHanSansSC-Regular.ttf').then((res) =>
   res.arrayBuffer(),

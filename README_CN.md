@@ -19,24 +19,24 @@
 
 ## 安装
 
-仓库名是 `dompdf.js`，当前 npm 包名是 `dompdf`。
+仓库名和 npm 包名均为 `dompdf.js`。
 
 ### npm
 
 ```bash
-npm install dompdf
+npm install dompdf.js
 ```
 
 ### CDN
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/dompdf@latest/dist/dompdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompdf.js@latest/dist/dompdf.min.js"></script>
 ```
 
 ## 快速开始
 
 ```js
-import dompdf from 'dompdf';
+import dompdf from 'dompdf.js';
 
 const element = document.querySelector('#capture');
 const blob = await dompdf(element, {
@@ -112,7 +112,7 @@ await dompdf(document.querySelector('#capture'), {
 非拉丁文本建议显式嵌入字体。
 
 ```js
-import dompdf from 'dompdf';
+import dompdf from 'dompdf.js';
 
 const fontBuffer = await fetch('/fonts/SourceHanSansSC-Regular.ttf').then((res) =>
   res.arrayBuffer(),
