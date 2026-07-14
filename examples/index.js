@@ -202,13 +202,58 @@
     return benchmarkBuildPromise;
   }
 
+  function ensureDemoReady() {
+    return readyPromise.then(function () {
+      if (!sharedFontConfig.fontBytes) {
+        throw new Error('中文字体尚未加载完成，请稍后重试');
+      }
+    });
+  }
+
   /* ========================= Tab Switching ========================= */
+  // Markdown 编辑器依赖 CDN 资源(Vditor / marked / DOMPurify)，判断是否都已就绪
+  function markdownDepsReady() {
+    return !!(window.Vditor && window.marked && window.DOMPurify);
+  }
+
+  // 轻量提示条(侧栏状态条被隐藏，改用居中 toast 反馈)
+  var miniToastTimer = null;
+  function showMiniToast(text) {
+    var el = document.getElementById('mini-toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'mini-toast';
+      el.className = 'mini-toast';
+      document.body.appendChild(el);
+    }
+    el.textContent = text;
+    // 强制回流后再加类，保证过渡动画生效
+    void el.offsetWidth;
+    el.classList.add('is-visible');
+    if (miniToastTimer) clearTimeout(miniToastTimer);
+    miniToastTimer = setTimeout(function () {
+      el.classList.remove('is-visible');
+    }, 2600);
+  }
+
   window.switchTab = function (tab) {
+    // Markdown 资源未加载完成时不跳转，给出提示
+    if (tab === 'markdown' && !markdownDepsReady()) {
+      showMiniToast('Markdown 编辑器资源尚未加载完成，请稍候…');
+      return;
+    }
+
     activeTab = tab;
     document.getElementById('tab-btn-basic').classList.toggle('active', tab === 'basic');
     document.getElementById('tab-btn-markdown').classList.toggle('active', tab === 'markdown');
     document.getElementById('panel-basic').classList.toggle('active', tab === 'basic');
     document.getElementById('panel-markdown').classList.toggle('active', tab === 'markdown');
+
+    // "生成页数" 基准控制仅对综合测试页有意义，Markdown 编辑器下隐藏
+    var benchSection = document.getElementById('sidebar-benchmark-section');
+    if (benchSection) {
+      benchSection.style.display = tab === 'basic' ? '' : 'none';
+    }
 
     if (tab === 'markdown' && !vditor) {
       initMarkdownEditor();
@@ -637,6 +682,21 @@
   }
 
   /* ========================= Busy State ========================= */
+  // PDF 生成/对比按钮：字体就绪前禁用，避免在字体未加载时触发导出
+  var EXPORT_BTN_IDS = ['btn-export-dompdf', 'btn-export-html2pdf', 'btn-compare'];
+  function setExportButtonsEnabled(enabled) {
+    for (var i = 0; i < EXPORT_BTN_IDS.length; i++) {
+      var btn = document.getElementById(EXPORT_BTN_IDS[i]);
+      if (!btn) continue;
+      btn.disabled = !enabled;
+      if (enabled) {
+        btn.removeAttribute('title');
+      } else {
+        btn.title = '中文字体加载中，请稍候…';
+      }
+    }
+  }
+
   function withBusy(fn) {
     var btns = document.querySelectorAll('.action-btn');
     for (var i = 0; i < btns.length; i++) btns[i].disabled = true;
@@ -650,7 +710,8 @@
     withBusy(function () {
       setStatusLoading('运行 dompdf.js...');
       var target = null;
-      return ensureBenchmarkSampleReady()
+      return ensureDemoReady()
+        .then(function () { return ensureBenchmarkSampleReady(); })
         .then(function () {
           setStatusLoading('运行 dompdf.js...');
           target = getExportTarget();
@@ -673,7 +734,8 @@
     withBusy(function () {
       setStatusLoading('运行 html2pdf.js...');
       var target = null;
-      return ensureBenchmarkSampleReady()
+      return ensureDemoReady()
+        .then(function () { return ensureBenchmarkSampleReady(); })
         .then(function () {
           setStatusLoading('运行 html2pdf.js...');
           target = getHtml2PdfTarget();
@@ -706,7 +768,8 @@
       setStatusLoading('正在对比 dompdf.js...');
       var target = null;
       var htmlTarget = null;
-      return ensureBenchmarkSampleReady()
+      return ensureDemoReady()
+        .then(function () { return ensureBenchmarkSampleReady(); })
         .then(function () {
           setStatusLoading('正在对比 dompdf.js...');
           target = getExportTarget();
@@ -1075,6 +1138,8 @@
     return;
   }
 
+  setStatusLoading('正在加载字体与编辑器资源...');
+  setExportButtonsEnabled(false); // 字体就绪前禁用导出/对比按钮
   updateBenchmarkUi();
   buildRecordsTable();
   buildLongList();
@@ -1095,6 +1160,8 @@
       setStatus('字体加载警告: ' + err.message, true);
     })
     .finally(function () {
+      // 字体字节就绪才放开导出按钮；失败则保持禁用
+      setExportButtonsEnabled(!!sharedFontConfig.fontBytes);
       readyResolve({
         status: statusTextEl.textContent,
         hasFontBytes: !!sharedFontConfig.fontBytes
