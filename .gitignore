@@ -41,3 +41,5 @@ tests/reftests.js
 diagnose-output.txt
 diagnose-stderr.txt
 scripts/diagnose-*.pdf
+
+deploy/
