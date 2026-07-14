@@ -42,6 +42,11 @@ const element = document.querySelector('#capture');
 const blob = await dompdf(element, {
   format: 'a4',
   pagination: true,
+  onProgress(progress) {
+    if (progress.stage === 'rendering' && progress.currentPage && progress.totalPages) {
+      console.log(`正在生成 ${progress.currentPage}/${progress.totalPages}`);
+    }
+  },
 });
 
 const url = URL.createObjectURL(blob);
@@ -70,6 +75,7 @@ URL.revokeObjectURL(url);
 | 图片 | 稳定 | 支持位图、SVG、data URL |
 | 背景与边框 | 稳定 | 支持背景色、渐变、圆角边框 |
 | 页眉页脚 | 稳定 | 支持对象配置和按页回调 |
+| 进度回调 | 稳定 | `onProgress` 可上报采集、总页数计算和按页生成进度 |
 | 压缩 | 稳定 | WASM 写 PDF 时进行真实 DEFLATE 压缩 |
 | 加密 | 稳定 | 支持用户/所有者密码和权限控制 |
 | 旧版 jsPDF 钩子 | 仅兼容 | `onJspdfReady` / `onJspdfFinish` 会被接受，但实际不生效 |
@@ -84,6 +90,14 @@ URL.revokeObjectURL(url);
 await dompdf(document.querySelector('#capture'), {
   pagination: true,
   format: 'a4',
+  onProgress(progress) {
+    if (progress.stage === 'countingPages' && progress.totalPages) {
+      console.log(`总页数：${progress.totalPages}`);
+    }
+    if (progress.stage === 'rendering' && progress.currentPage && progress.totalPages) {
+      console.log(`正在生成第 ${progress.currentPage}/${progress.totalPages} 页`);
+    }
+  },
   pageConfig: {
     header: {
       content: '文档页眉',

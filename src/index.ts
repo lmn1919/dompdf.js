@@ -20,6 +20,8 @@ import {
   resolveStaticPageConfigHF,
   resolveStaticWatermarkPages,
   computePageBreaks,
+  type ExportProgress,
+  type ExportProgressStage,
   type ExportOptions,
   type PageConfigOptions,
   type ResolvedPageHF,
@@ -29,7 +31,7 @@ import {
 // module is bundled separately and wrapped in a Blob URL, no extra chunk file.
 import Dom2pdfWorker from './worker?worker&inline';
 
-export type { ExportOptions } from './snapshot';
+export type { ExportOptions, ExportProgress, ExportProgressStage } from './snapshot';
 export {
   collectSnapshot,
   collectSnapshotData,
@@ -68,25 +70,54 @@ type DompdfApi = ((
 
 let worker: Worker | null = null;
 let seq = 0;
-const pending = new Map<number, (res: WorkerResponse) => void>();
+const pending = new Map<number, PendingRequest>();
 
-interface WorkerResponse {
+interface WorkerResultResponse {
+  type: 'result';
   id: number;
   ok: boolean;
   result?: Uint8Array | string | number;
   error?: string;
 }
 
+interface WorkerProgressResponse {
+  type: 'progress';
+  id: number;
+  progress: ExportProgress;
+}
+
+type WorkerMessage = WorkerResultResponse | WorkerProgressResponse;
+
+interface PendingRequest {
+  resolve: (res: WorkerResultResponse) => void;
+  onProgress?: (progress: ExportProgress) => void;
+}
+
+interface BuildSnapshotResult {
+  snapshot: Uint8Array;
+  totalPages: number;
+}
+
+function emitProgress(
+  onProgress: ExportOptions['onProgress'] | undefined,
+  progress: ExportProgress,
+): void {
+  onProgress?.(progress);
+}
+
 function getWorker(): Worker {
   if (!worker) {
     worker = new Dom2pdfWorker();
-    worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
-      const res = e.data;
-      const resolve = pending.get(res.id);
-      if (resolve) {
-        pending.delete(res.id);
-        resolve(res);
+    worker.onmessage = (e: MessageEvent<WorkerMessage>) => {
+      const msg = e.data;
+      const request = pending.get(msg.id);
+      if (!request) return;
+      if (msg.type === 'progress') {
+        request.onProgress?.(msg.progress);
+        return;
       }
+      pending.delete(msg.id);
+      request.resolve(msg);
     };
     worker.onerror = (e) => {
       console.error('dompdf worker error', e);
@@ -98,10 +129,13 @@ function getWorker(): Worker {
 function callWorker(
   snapshot: Uint8Array,
   op: 'render' | 'inspect' | 'countPages',
-): Promise<WorkerResponse> {
+  options?: {
+    onProgress?: (progress: ExportProgress) => void;
+  },
+): Promise<WorkerResultResponse> {
   const id = ++seq;
   return new Promise((resolve) => {
-    pending.set(id, resolve);
+    pending.set(id, { resolve, onProgress: options?.onProgress });
     // Transfer the snapshot buffer (we don't need it on the main thread after).
     const transfer = snapshot.buffer.byteLength > 0 ? [snapshot.buffer] : [];
     getWorker().postMessage({ id, op, snapshot }, transfer);
@@ -115,25 +149,36 @@ function callWorker(
 async function buildSnapshot(
   root: HTMLElement,
   options: ExportOptions,
-): Promise<Uint8Array> {
+): Promise<BuildSnapshotResult> {
+  emitProgress(options.onProgress, { stage: 'collecting' });
   const data = await collectSnapshotData(root, options);
   const pagination = options.pagination ?? false;
   const needsPerPageHF = pageConfigNeedsPerPageResolution(options.pageConfig);
   const needsPerPageWatermark = watermarkNeedsPerPageResolution(options.watermark);
-
-  if (!needsPerPageHF && !needsPerPageWatermark) {
-    return encodeSnapshot(data, []);
-  }
+  const needsTotalPages = pagination && (
+    needsPerPageHF
+    || needsPerPageWatermark
+    || typeof options.onProgress === 'function'
+  );
 
   let totalPages = 1;
-  if (pagination) {
+  if (needsTotalPages) {
+    emitProgress(options.onProgress, { stage: 'countingPages' });
     // Phase 1: count pages with the sampled band heights.
     const prelim = encodeSnapshot(data, [], []);
     const countRes = await callWorker(prelim, 'countPages');
-    if (!countRes.ok || typeof countRes.result !== 'number') {
+    if (!countRes.ok || typeof countRes.result !== 'number' || countRes.result < 1) {
       throw new Error(countRes.error || 'count_pages failed');
     }
     totalPages = countRes.result as number;
+    emitProgress(options.onProgress, { stage: 'countingPages', totalPages });
+  }
+
+  if (!needsPerPageHF && !needsPerPageWatermark) {
+    return {
+      snapshot: encodeSnapshot(data, []),
+      totalPages: pagination ? totalPages : 1,
+    };
   }
 
   // Phase 2: resolve per-page HF / watermark text (JS resolves placeholders).
@@ -159,7 +204,10 @@ async function buildSnapshot(
     perPageWatermark = resolvePerPageWatermarkText(resolved, totalPages);
   }
 
-  return encodeSnapshot(data, perPageHF, perPageWatermark);
+  return {
+    snapshot: encodeSnapshot(data, perPageHF, perPageWatermark),
+    totalPages: pagination ? totalPages : 1,
+  };
 }
 
 /** Collect a snapshot and render it to PDF bytes (off main thread). */
@@ -168,11 +216,25 @@ export async function renderToBytes(
   options?: ExportOptions,
 ): Promise<Uint8Array> {
   const resolvedOptions = options ?? {};
-  const snapshot = await buildSnapshot(root, resolvedOptions);
-  const res = await callWorker(snapshot, 'render');
+  const { snapshot, totalPages } = await buildSnapshot(root, resolvedOptions);
+  emitProgress(resolvedOptions.onProgress, {
+    stage: 'rendering',
+    totalPages,
+  });
+  const res = await callWorker(snapshot, 'render', {
+    onProgress: (progress) => emitProgress(resolvedOptions.onProgress, {
+      ...progress,
+      totalPages: progress.totalPages ?? totalPages,
+    }),
+  });
   if (!res.ok || !res.result || typeof res.result === 'string') {
     throw new Error(res.error || 'render failed');
   }
+  emitProgress(resolvedOptions.onProgress, {
+    stage: 'done',
+    totalPages,
+    currentPage: totalPages,
+  });
   return res.result as Uint8Array;
 }
 
@@ -209,7 +271,7 @@ export async function inspect(
   root: HTMLElement,
   options?: ExportOptions,
 ): Promise<string> {
-  const snapshot = await buildSnapshot(root, options ?? {});
+  const { snapshot } = await buildSnapshot(root, options ?? {});
   const res = await callWorker(snapshot, 'inspect');
   if (!res.ok || typeof res.result !== 'string') throw new Error(res.error || 'inspect failed');
   return res.result as string;

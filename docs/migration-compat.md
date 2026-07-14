@@ -24,6 +24,7 @@ These APIs are available and have working behavior in the current branch:
 - `backgroundColor`
 - `compress`
 - `putOnlyUsedFonts`
+- `onProgress`
 
 ## Signature-compatible with warnings
 
@@ -70,11 +71,15 @@ should be migrated to the new engine model:
 2. Watch runtime warnings to see which options are only signature-compatible.
 3. Replace old `jsPDF`-specific customization with current export hooks or
    post-processing code around the generated `Blob` / bytes.
-4. Prefer `fontConfig` / `langFontConfig` for multilingual text and keep
+4. Use `onProgress` for export lifecycle feedback such as DOM collection,
+   total page counting, and current render page.
+5. Prefer `fontConfig` / `langFontConfig` for multilingual text and keep
    object-form `pageConfig` for common header/footer cases.
 
 ## Notes
 
 - The new engine generates vector-first PDFs instead of canvas-based image PDFs.
 - Some old option names still exist only to avoid breaking upgrades.
+- `onProgress` is the new, working export callback and is separate from the
+  legacy no-op `onJspdfReady` / `onJspdfFinish` compatibility hooks.
 - This document should be updated whenever compatibility status changes.

@@ -140,7 +140,11 @@ function buildSnapshot(opts = {}) {
   return w.result();
 }
 
-const { instance } = await WebAssembly.instantiate(wasmBytes, {});
+const { instance } = await WebAssembly.instantiate(wasmBytes, {
+  env: {
+    report_progress() {},
+  },
+});
 const ex = instance.exports;
 
 function render(snap) {

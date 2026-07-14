@@ -6,6 +6,7 @@
  * 这样打包后的 JS 库是单文件，可直接通过 CDN/UMD 引入。
  */
 import { WASM_BASE64, WASM_BYTE_LENGTH } from './wasm-base64';
+import type { ExportProgress } from './snapshot';
 
 export interface WasmExports {
   memory: WebAssembly.Memory;
@@ -22,6 +23,7 @@ export interface WasmExports {
 
 let instance: WebAssembly.Instance | null = null;
 let initPromise: Promise<WebAssembly.Instance> | null = null;
+let activeProgressReporter: ((progress: ExportProgress) => void) | null = null;
 
 function exports(): WasmExports {
   if (!instance) throw new Error('wasm not initialized');
@@ -67,7 +69,18 @@ export function initWasm(): Promise<WebAssembly.Instance> {
       // 用 WebAssembly.Module + WebAssembly.Instance 显式两步避免重载歧义。
       // TS 5.7+ Uint8Array.buffer 是 ArrayBufferLike，需断言为 BufferSource。
       const module = await WebAssembly.compile(bytes as unknown as BufferSource);
-      instance = await WebAssembly.instantiate(module, {});
+      instance = await WebAssembly.instantiate(module, {
+        env: {
+          report_progress(currentPage: number, totalPages: number): void {
+            if (!activeProgressReporter) return;
+            activeProgressReporter({
+              stage: 'rendering',
+              currentPage: Math.max(1, Math.trunc(currentPage)),
+              totalPages: Math.max(1, Math.trunc(totalPages)),
+            });
+          },
+        },
+      });
       return instance;
     })();
   }
@@ -83,27 +96,33 @@ function copyIn(wasm: WasmExports, data: Uint8Array): number {
 export async function renderPdf(
   snapshot: Uint8Array,
   encryption?: Uint8Array,
+  onProgress?: (progress: ExportProgress) => void,
 ): Promise<Uint8Array> {
   await initWasm();
   const wasm = exports();
   const inPtr = copyIn(wasm, snapshot);
   const encPtr = encryption ? copyIn(wasm, encryption) : 0;
   const encLen = encryption?.length ?? 0;
-  const outPtr = encryption
-    ? wasm.render_pdf_encrypted(inPtr, snapshot.length, encPtr, encLen)
-    : wasm.render_pdf(inPtr, snapshot.length);
-  const outLen = wasm.render_pdf_len();
-  wasm.dealloc(inPtr, snapshot.length);
-  if (encPtr !== 0) wasm.dealloc(encPtr, encLen);
-  if (outPtr === 0 || outLen === 0) {
-    if (outPtr !== 0) wasm.free_pdf(outPtr, outLen);
-    throw new Error('render_pdf failed: invalid snapshot or internal error');
+  activeProgressReporter = onProgress ?? null;
+  try {
+    const outPtr = encryption
+      ? wasm.render_pdf_encrypted(inPtr, snapshot.length, encPtr, encLen)
+      : wasm.render_pdf(inPtr, snapshot.length);
+    const outLen = wasm.render_pdf_len();
+    if (outPtr === 0 || outLen === 0) {
+      if (outPtr !== 0) wasm.free_pdf(outPtr, outLen);
+      throw new Error('render_pdf failed: invalid snapshot or internal error');
+    }
+    // Copy out before freeing (memory may have grown during render; read fresh buffer).
+    const out = new Uint8Array(outLen);
+    out.set(new Uint8Array(wasm.memory.buffer, outPtr, outLen));
+    wasm.free_pdf(outPtr, outLen);
+    return out;
+  } finally {
+    activeProgressReporter = null;
+    wasm.dealloc(inPtr, snapshot.length);
+    if (encPtr !== 0) wasm.dealloc(encPtr, encLen);
   }
-  // Copy out before freeing (memory may have grown during render; read fresh buffer).
-  const out = new Uint8Array(outLen);
-  out.set(new Uint8Array(wasm.memory.buffer, outPtr, outLen));
-  wasm.free_pdf(outPtr, outLen);
-  return out;
 }
 
 export async function inspectSnapshot(snapshot: Uint8Array): Promise<string> {

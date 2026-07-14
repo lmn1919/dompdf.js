@@ -24,6 +24,7 @@
 - `backgroundColor`
 - `compress`
 - `putOnlyUsedFonts`
+- `onProgress`
 
 ## 兼容签名，但会给出 warning
 
@@ -67,10 +68,12 @@
 1. 先升级版本，保留现有旧参数。
 2. 观察运行时 warning，确认哪些参数目前只是兼容签名。
 3. 将旧版依赖 `jsPDF` 的定制逻辑逐步迁移到当前的导出前后处理流程。
-4. 多语言文本优先使用 `fontConfig` / `langFontConfig`，常见页眉页脚场景优先使用对象形式 `pageConfig`。
+4. 导出过程中的状态反馈统一迁移到 `onProgress`，可获取页面采集、总页数和当前生成页。
+5. 多语言文本优先使用 `fontConfig` / `langFontConfig`，常见页眉页脚场景优先使用对象形式 `pageConfig`。
 
 ## 备注
 
 - 当前引擎输出的是以矢量文本为主的 PDF，而不是旧版基于 canvas 的图片式 PDF。
 - 一些旧参数目前保留只是为了避免升级时直接中断。
+- `onProgress` 是新的正式导出回调，与 `onJspdfReady` / `onJspdfFinish` 这类兼容签名钩子不同，它具备真实行为。
 - 后续每次兼容状态变化，都应同步更新这份文档。

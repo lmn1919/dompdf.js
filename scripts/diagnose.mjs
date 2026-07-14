@@ -52,7 +52,11 @@ class BinWriter {
 // ---- WASM loader ----
 const wasmBytes = readFileSync(wasmPath);
 const wasmModule = await WebAssembly.compile(wasmBytes);
-const instance = await WebAssembly.instantiate(wasmModule, {});
+const instance = await WebAssembly.instantiate(wasmModule, {
+  env: {
+    report_progress() {},
+  },
+});
 const ex = instance.exports;
 
 function renderPdf(snapshot) {
