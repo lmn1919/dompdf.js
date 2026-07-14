@@ -2184,6 +2184,7 @@ pub fn build_pdf(
             cid = cid,
         );
         w.indirect(pid, &body);
+        crate::emit_render_progress(i + 1, page_count);
         kids.push_str(&format!("{} 0 R ", pid));
     }
 

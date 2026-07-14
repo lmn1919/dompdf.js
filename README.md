@@ -42,6 +42,11 @@ const element = document.querySelector('#capture');
 const blob = await dompdf(element, {
   format: 'a4',
   pagination: true,
+  onProgress(progress) {
+    if (progress.stage === 'rendering' && progress.currentPage && progress.totalPages) {
+      console.log(`Rendering ${progress.currentPage}/${progress.totalPages}`);
+    }
+  },
 });
 
 const url = URL.createObjectURL(blob);
@@ -70,6 +75,7 @@ This architecture avoids canvas screenshot bottlenecks and keeps the UI responsi
 | Images | Stable | Raster images, SVG, data URLs |
 | Backgrounds and borders | Stable | Background color, gradients, border radius |
 | Header/footer | Stable | Object form and per-page callback form |
+| Progress callbacks | Stable | `onProgress` reports collection, page counting, and render progress |
 | Compression | Stable | Real DEFLATE compression in the WASM writer |
 | Encryption | Stable | User/owner password and permission flags |
 | Legacy jsPDF hooks | Compatibility only | `onJspdfReady` / `onJspdfFinish` are accepted but are no-ops |
@@ -84,6 +90,14 @@ See [page_sizes.md](./page_sizes.md) for common page sizes and pixel references.
 await dompdf(document.querySelector('#capture'), {
   pagination: true,
   format: 'a4',
+  onProgress(progress) {
+    if (progress.stage === 'countingPages' && progress.totalPages) {
+      console.log(`Total pages: ${progress.totalPages}`);
+    }
+    if (progress.stage === 'rendering' && progress.currentPage && progress.totalPages) {
+      console.log(`Rendering page ${progress.currentPage}/${progress.totalPages}`);
+    }
+  },
   pageConfig: {
     header: {
       content: 'Document Header',

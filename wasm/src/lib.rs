@@ -25,6 +25,20 @@ static OUT_LEN: AtomicUsize = AtomicUsize::new(0);
 static INSPECT_LEN: AtomicUsize = AtomicUsize::new(0);
 static mut INSPECT_PTR: usize = 0;
 
+#[link(wasm_import_module = "env")]
+unsafe extern "C" {
+    fn report_progress(current_page: u32, total_pages: u32);
+}
+
+pub fn emit_render_progress(current_page: u32, total_pages: u32) {
+    if total_pages == 0 || current_page == 0 {
+        return;
+    }
+    unsafe {
+        report_progress(current_page, total_pages);
+    }
+}
+
 /// Allocate `n` bytes (uninitialized) in WASM memory and return the pointer.
 #[no_mangle]
 pub extern "C" fn alloc(n: usize) -> *mut u8 {

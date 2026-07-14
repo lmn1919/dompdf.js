@@ -89,6 +89,18 @@ export type WatermarkConfig =
   | WatermarkOptions
   | ((pageNum: number, totalPages: number) => WatermarkOptions | null);
 
+export type ExportProgressStage =
+  | 'collecting'
+  | 'countingPages'
+  | 'rendering'
+  | 'done';
+
+export interface ExportProgress {
+  stage: ExportProgressStage;
+  totalPages?: number;
+  currentPage?: number;
+}
+
 export interface PdfEncryptionOptions {
   userPassword?: string;
   ownerPassword?: string;
@@ -330,6 +342,8 @@ export interface ExportOptions {
   pageConfig?: PageConfig;
   /** Repeated page watermark (object = all pages, function = per-page). */
   watermark?: WatermarkConfig;
+  /** Export progress callback with stage and page-level status. */
+  onProgress?: (progress: ExportProgress) => void;
   /** jsPDF instance init hook (accepted, no-op — no jsPDF in this engine). */
   onJspdfReady?: (jspdf: unknown) => void;
   /** jsPDF instance finish hook (accepted, no-op). */
