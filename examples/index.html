@@ -1,2064 +1,735 @@
-<!doctype html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>dompdf.js 对比示例页</title>
-    <style>
-      @font-face {
-        font-family: "SourceHanSansSC-Regular";
-        src: url("./SourceHanSansSC-Regular.ttf") format("truetype");
-        font-weight: 400;
-        font-style: normal;
-      }
 
-      :root {
-        --ink: #20262e;
-        --muted: #66717f;
-        --line: #ddd6ca;
-        --line-strong: #c6bcad;
-        --accent: #245d70;
-        --accent-soft: #e8f0f2;
-        --success: #2f6b4f;
-        --warning: #8c6338;
-        --surface: #fffdfa;
-        --surface-soft: #f6f1e8;
-        --bg: #f3eee6;
-        --shadow: 0 18px 40px rgba(32, 38, 46, 0.08);
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      body {
-        margin: 0;
-        background:
-          radial-gradient(circle at top, rgba(255, 255, 255, 0.72), transparent 28%),
-          var(--bg);
-        color: var(--ink);
-        font-family:
-          system-ui,
-          -apple-system,
-          "Segoe UI",
-          Roboto,
-          sans-serif;
-      }
-
-      .toolbar {
-        position: sticky;
-        top: 0;
-        z-index: 10;
-        display: flex;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 12px;
-        padding: 14px 20px;
-        border-bottom: 1px solid rgba(198, 188, 173, 0.8);
-        background: rgba(255, 253, 250, 0.92);
-        backdrop-filter: blur(10px);
-      }
-
-      .toolbar-title {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-      }
-
-      .toolbar-title strong {
-        font-size: 17px;
-        font-weight: 700;
-        letter-spacing: 0.01em;
-      }
-
-      .toolbar-title span,
-      .status {
-        color: var(--muted);
-        font-size: 12px;
-      }
-
-      .spacer {
-        flex: 1;
-      }
-
-      .toolbar-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-      }
-
-      button {
-        border: 1px solid var(--line);
-        border-radius: 999px;
-        background: rgba(255, 253, 250, 0.92);
-        color: var(--ink);
-        padding: 9px 14px;
-        font-size: 12px;
-        font-weight: 600;
-        cursor: pointer;
-        transition:
-          border-color 120ms ease,
-          color 120ms ease,
-          background-color 120ms ease;
-      }
-
-      button:hover {
-        border-color: var(--accent);
-        color: var(--accent);
-        background: #ffffff;
-      }
-
-      button:disabled {
-        opacity: 0.55;
-        cursor: progress;
-      }
-
-      main {
-        padding: 32px 18px 80px;
-      }
-
-      .compare-shell {
-        width: 100%;
-        max-width: 794px;
-        margin: 0 auto 18px;
-      }
-
-      .compare-panel {
-        padding: 20px 22px;
-        border: 1px solid var(--line);
-        border-radius: 24px;
-        background: var(--surface);
-        box-shadow: var(--shadow);
-      }
-
-      .compare-panel h2 {
-        margin: 6px 0 10px;
-        font-size: 24px;
-        line-height: 1.25;
-      }
-
-      .compare-panel p {
-        margin: 0;
-        color: #334155;
-      }
-
-      .compare-header {
-        display: grid;
-        grid-template-columns: minmax(0, 1.8fr) minmax(220px, 1fr);
-        gap: 18px;
-        align-items: flex-start;
-      }
-
-      .compare-summary {
-        padding: 12px 14px;
-        border: 1px solid rgba(36, 93, 112, 0.14);
-        border-radius: 16px;
-        background: var(--accent-soft);
-        color: var(--accent);
-        font-size: 13px;
-        line-height: 1.6;
-      }
-
-      .compare-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 14px;
-        margin-top: 18px;
-      }
-
-      .compare-card {
-        padding: 16px;
-        border: 1px solid var(--line);
-        border-radius: 16px;
-        background: #fffcf7;
-      }
-
-      .compare-card[data-state="pending"] {
-        border-color: rgba(36, 93, 112, 0.3);
-        background: var(--accent-soft);
-      }
-
-      .compare-card[data-state="success"] {
-        border-color: rgba(47, 107, 79, 0.28);
-        background: rgba(236, 247, 240, 0.9);
-      }
-
-      .compare-card[data-state="error"] {
-        border-color: rgba(179, 84, 84, 0.28);
-        background: rgba(252, 243, 241, 0.95);
-      }
-
-      .compare-engine {
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        color: #5f6b75;
-      }
-
-      .compare-metric-label {
-        margin-top: 14px;
-        font-size: 12px;
-        color: #64748b;
-      }
-
-      .compare-primary {
-        display: block;
-        margin-top: 6px;
-        font-size: 24px;
-        line-height: 1.1;
-      }
-
-      .compare-secondary {
-        display: block;
-        margin-top: 8px;
-        font-size: 14px;
-        color: #39424c;
-      }
-
-      .compare-note {
-        display: block;
-        margin-top: 12px;
-        color: #6d7681;
-        font-size: 12px;
-        line-height: 1.5;
-      }
-
-      .compare-card code {
-        font-size: 12px;
-      }
-
-      .doc {
-        width: 100%;
-        max-width: 794px;
-        margin: 0 auto;
-        padding: 36px 48px 52px;
-        border: 1px solid var(--line);
-        border-radius: 28px;
-        background: var(--surface);
-        box-shadow: var(--shadow);
-        line-height: 1.72;
-      }
-
-      .doc h1 {
-        margin: 0;
-        font-size: 42px;
-        line-height: 1.12;
-        letter-spacing: -0.03em;
-      }
-
-      .doc h2 {
-        margin: 42px 0 14px;
-        padding-bottom: 10px;
-        border-bottom: 1px solid var(--line);
-        font-size: 24px;
-        line-height: 1.3;
-      }
-
-      .doc h3 {
-        margin: 0 0 10px;
-        font-size: 16px;
-      }
-
-      .doc p {
-        margin: 10px 0;
-      }
-
-      .doc code {
-        padding: 1px 5px;
-        border-radius: 4px;
-        background: #f1ece3;
-        font-size: 13px;
-      }
-
-      .hero {
-        display: grid;
-        grid-template-columns: minmax(0, 1.9fr) minmax(240px, 1fr);
-        gap: 24px;
-        margin-bottom: 30px;
-        padding-bottom: 26px;
-        border-bottom: 1px solid var(--line);
-      }
-
-      .eyebrow {
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        color: var(--accent);
-      }
-
-      .lede {
-        max-width: 44em;
-        color: #3f4752;
-        font-size: 16px;
-      }
-
-      .tag-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        margin-top: 20px;
-      }
-
-      .tag {
-        display: inline-block;
-        padding: 6px 10px;
-        border: 1px solid rgba(36, 93, 112, 0.12);
-        border-radius: 999px;
-        background: var(--surface-soft);
-        color: #36515d;
-        font-size: 12px;
-        font-weight: 600;
-      }
-
-      .hero-panel {
-        padding: 18px 20px;
-        border: 1px solid var(--line);
-        border-radius: 20px;
-        background: var(--surface-soft);
-      }
-
-      .hero-panel .label {
-        font-size: 12px;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        color: var(--muted);
-      }
-
-      .hero-panel .value {
-        margin-top: 10px;
-        font-size: 28px;
-        font-weight: 700;
-        line-height: 1.18;
-      }
-
-      .hero-panel ul {
-        margin: 18px 0 0;
-        padding-left: 18px;
-        color: #40505b;
-      }
-
-      .metric-grid,
-      .feature-grid,
-      .rich-grid {
-        display: grid;
-        gap: 14px;
-      }
-
-      .metric-grid {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        margin-bottom: 34px;
-      }
-
-      .metric-card {
-        padding: 16px;
-        border: 1px solid var(--line);
-        border-radius: 18px;
-        background: #fffdf9;
-      }
-
-      .metric-card .metric-label {
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
-        color: #6d7380;
-      }
-
-      .metric-card strong {
-        display: block;
-        margin-top: 6px;
-        font-size: 28px;
-        line-height: 1.2;
-      }
-
-      .metric-card span {
-        display: inline-block;
-        margin-top: 10px;
-        font-size: 13px;
-        font-weight: 600;
-      }
-
-      .positive {
-        color: var(--success);
-      }
-
-      .neutral {
-        color: var(--warning);
-      }
-
-      .summary-grid {
-        display: grid;
-        grid-template-columns: minmax(0, 2fr) minmax(240px, 1fr);
-        gap: 16px;
-      }
-
-      .card,
-      .note-card,
-      .rail-card,
-      .rich-card,
-      .timeline-card,
-      .division-box {
-        border: 1px solid var(--line);
-        border-radius: 20px;
-        background: #fffdfa;
-      }
-
-      .note-card,
-      .rail-card,
-      .rich-card,
-      .timeline-card {
-        padding: 18px 20px;
-      }
-
-      .compact-list {
-        margin: 10px 0 0;
-        padding-left: 18px;
-      }
-
-      .card {
-        display: grid;
-        grid-template-columns: 220px minmax(0, 1fr);
-        gap: 18px;
-        align-items: center;
-        padding: 16px;
-        background: var(--surface-soft);
-      }
-
-      .card img {
-        width: 220px;
-        height: 140px;
-        flex: none;
-        border-radius: 14px;
-        object-fit: cover;
-        background: #d7e5ea;
-      }
-
-      .badge-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-top: 12px;
-      }
-
-      .badge {
-        padding: 4px 8px;
-        border-radius: 999px;
-        background: #ede7dd;
-        color: #5f5447;
-        font-size: 12px;
-        font-weight: 700;
-      }
-
-      .feature-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        margin: 14px 0 18px;
-      }
-
-      .feature-card {
-        position: relative;
-        min-height: 160px;
-        overflow: hidden;
-        border: 1px solid var(--line);
-        border-radius: 20px;
-        color: #0f172a;
-      }
-
-      .feature-card::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-      }
-
-      .feature-card > div {
-        position: relative;
-        z-index: 1;
-        padding: 20px 22px;
-      }
-
-      .feature-card .feature-tag {
-        display: inline-block;
-        padding: 4px 10px;
-        border-radius: 999px;
-        background: rgba(255, 253, 250, 0.86);
-        font-size: 12px;
-        font-weight: 700;
-      }
-
-      .gradient-card {
-        background: #e7eef2;
-      }
-
-      .gradient-card::before {
-        background-image: linear-gradient(
-          180deg,
-          rgba(255, 255, 255, 0.42) 0%,
-          rgba(169, 198, 208, 0.42) 52%,
-          rgba(124, 156, 170, 0.58) 100%
-        );
-      }
-
-      .radial-card {
-        background: #e3ecec;
-      }
-
-      .radial-card::before {
-        background-image: radial-gradient(
-          circle at 30% 30%,
-          rgba(255, 255, 255, 0.92),
-          rgba(181, 209, 214, 0.76) 35%,
-          rgba(95, 131, 140, 0.9) 100%
-        );
-      }
-
-      .opacity-panel {
-        padding: 20px 22px;
-        border: 1px solid var(--line);
-        border-radius: 20px;
-        background: var(--surface-soft);
-      }
-
-      .opacity-stack {
-        position: relative;
-        height: 180px;
-        margin-top: 12px;
-        overflow: hidden;
-        border-radius: 18px;
-        background: linear-gradient(135deg, #e4e8e6 0%, #cbd7d2 100%);
-      }
-
-      .opacity-base {
-        position: absolute;
-        inset: 0;
-        padding: 18px;
-        display: flex;
-        align-items: flex-end;
-        font-weight: 700;
-        background: radial-gradient(
-          circle at top left,
-          rgba(255, 255, 255, 0.88),
-          rgba(148, 163, 184, 0.4) 45%,
-          rgba(51, 65, 85, 0.18) 100%
-        );
-      }
-
-      .opacity-float {
-        position: absolute;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 18px;
-        font-weight: 700;
-        color: #27343a;
-      }
-
-      .opacity-a {
-        top: 20px;
-        left: 28px;
-        width: 210px;
-        height: 92px;
-        background: #4f9dbc;
-        opacity: 0.72;
-      }
-
-      .opacity-b {
-        right: 28px;
-        bottom: 22px;
-        width: 220px;
-        height: 104px;
-        background: #d2a05e;
-        opacity: 0.48;
-      }
-
-      .table-shell {
-        overflow: hidden;
-        border: 1px solid var(--line);
-        border-radius: 20px;
-      }
-
-      table {
-        width: 100%;
-        border-collapse: collapse;
-      }
-
-      th,
-      td {
-        padding: 12px 14px;
-        border-bottom: 1px solid var(--line);
-        text-align: left;
-        vertical-align: top;
-      }
-
-      thead th {
-        background: #f4efe7;
-        color: #4d5965;
-        font-size: 12px;
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
-      }
-
-      tbody tr:nth-child(even) td {
-        background: #fffcf7;
-      }
-
-      tbody tr:last-child td {
-        border-bottom: 0;
-      }
-
-      .cn-copy {
-        font-family: "SourceHanSansSC-Regular", sans-serif;
-      }
-
-      .callout {
-        margin: 16px 0 0;
-        padding: 18px 20px;
-        border-left: 4px solid #7d9ba6;
-        border-radius: 14px;
-        background: #edf2f3;
-        color: #34505b;
-      }
-
-      .two-column {
-        display: grid;
-        grid-template-columns: minmax(0, 1.75fr) minmax(220px, 0.95fr);
-        gap: 16px;
-      }
-
-      .stack {
-        display: flex;
-        flex-direction: column;
-        gap: 14px;
-      }
-
-      .progress-row + .progress-row {
-        margin-top: 12px;
-      }
-
-      .progress-meta {
-        display: flex;
-        justify-content: space-between;
-        gap: 12px;
-        margin-bottom: 6px;
-        font-size: 13px;
-        color: #46525d;
-      }
-
-      .progress-track {
-        height: 10px;
-        overflow: hidden;
-        border-radius: 999px;
-        background: #e6dfd5;
-      }
-
-      .progress-fill {
-        height: 100%;
-        border-radius: 999px;
-      }
-
-      .fill-a {
-        width: 84%;
-        background: linear-gradient(90deg, #2d6677, #5c8a97);
-      }
-
-      .fill-b {
-        width: 76%;
-        background: linear-gradient(90deg, #5b6a87, #8994ad);
-      }
-
-      .fill-c {
-        width: 68%;
-        background: linear-gradient(90deg, #aa7e4d, #d0b07a);
-      }
-
-      .clip-box {
-        position: relative;
-        height: 90px;
-        overflow: hidden;
-        padding: 10px 14px;
-        border: 1px dashed #bcae98;
-        border-radius: 14px;
-        background: #faf4ea;
-      }
-
-      .spill {
-        margin-top: 18px;
-        padding: 24px;
-        border-radius: 8px;
-        background: #ecd08f;
-      }
-
-      .division-box {
-        min-height: 150px;
-        padding: 18px;
-        background: linear-gradient(180deg, #fffdfa, #f6f1e8);
-      }
-
-      .rich-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .definition-list {
-        margin: 0;
-      }
-
-      .definition-list > div + div {
-        margin-top: 12px;
-      }
-
-      .definition-list dt {
-        font-weight: 700;
-      }
-
-      .definition-list dd {
-        margin: 4px 0 0;
-        color: #5c6673;
-      }
-
-      .report-code {
-        margin: 0;
-        padding: 14px 16px;
-        overflow: hidden;
-        border-radius: 14px;
-        background: #18202b;
-        color: #edf1f4;
-        white-space: pre-wrap;
-        word-break: break-word;
-      }
-
-      .report-code code {
-        padding: 0;
-        background: transparent;
-        color: inherit;
-      }
-
-      .doc ol {
-        padding-left: 22px;
-      }
-
-      .doc ol li {
-        margin: 3px 0;
-      }
-
-      .timeline-card {
-        margin-top: 16px;
-      }
-
-      .timeline {
-        position: relative;
-        margin-top: 12px;
-      }
-
-      .timeline::before {
-        content: "";
-        position: absolute;
-        top: 8px;
-        bottom: 8px;
-        left: 5px;
-        width: 2px;
-        background: #cbd5e1;
-      }
-
-      .timeline-item {
-        position: relative;
-        display: flex;
-        gap: 14px;
-      }
-
-      .timeline-item + .timeline-item {
-        margin-top: 14px;
-      }
-
-      .timeline-dot {
-        position: relative;
-        z-index: 1;
-        flex: none;
-        width: 12px;
-        height: 12px;
-        margin-top: 6px;
-        border: 2px solid #2563eb;
-        border-radius: 999px;
-        background: #ffffff;
-      }
-
-      .timeline-item p {
-        margin: 4px 0 0;
-        color: #58616d;
-      }
-
-      body.dompdf-overlay #document * {
-        outline: 1px solid rgba(37, 99, 235, 0.35);
-      }
-
-      .dompdf-pagebreak {
-        position: absolute;
-        left: 0;
-        right: 0;
-        height: 0;
-        border-top: 1px dashed #ef4444;
-        z-index: 5;
-        pointer-events: none;
-      }
-
-      .dompdf-pagebreak::after {
-        content: "page break";
-        position: absolute;
-        top: -14px;
-        right: 0;
-        padding: 0 4px;
-        background: #ffffff;
-        color: #ef4444;
-        font-size: 10px;
-      }
-
-      .math-block {
-        margin-top: 28px;
-        padding: 18px 22px;
-        background: #faf6f0;
-        border: 1px solid var(--line);
-        border-radius: 18px;
-      }
-
-      .math-block h3 {
-        margin: 0 0 12px;
-        font-size: 18px;
-        color: #2e3842;
-      }
-
-      .math-block p {
-        margin: 6px 0;
-        color: #46515d;
-        line-height: 1.7;
-      }
-
-      .math-block .equation {
-        margin: 6px 0 14px;
-        padding: 10px 14px;
-        background: #fffdfa;
-        border-left: 3px solid #567784;
-        border-radius: 4px;
-        font-family:
-          "Cambria Math", "Latin Modern Math", "STIX Two Math",
-          "Times New Roman", serif;
-        font-size: 16px;
-        color: #20262e;
-        line-height: 1.9;
-      }
-
-      .math-block .cases {
-        display: inline-block;
-        vertical-align: middle;
-        border-left: 1px solid #94a3b8;
-        padding-left: 8px;
-        margin-left: 4px;
-      }
-
-      .math-block .cases span {
-        display: block;
-        line-height: 1.5;
-      }
-
-      @media (max-width: 860px) {
-        .compare-header,
-        .hero,
-        .summary-grid,
-        .two-column {
-          grid-template-columns: 1fr;
-          display: grid;
-        }
-
-        .compare-grid,
-        .metric-grid,
-        .feature-grid,
-        .rich-grid {
-          grid-template-columns: 1fr;
-        }
-
-        .doc {
-          padding: 24px 20px 34px;
-        }
-
-        .card {
-          grid-template-columns: 1fr;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <header class="toolbar">
-      <div class="toolbar-title">
-        <strong>dompdf.js / html2pdf.js 对比页</strong>
-        <span
-          >同一份页面内容，分别导出成两份 PDF，对比速度和文件体积</span
-        >
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>dompdf.js Studio</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+
+  <!-- Vditor styles (for Markdown tab) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vditor/dist/index.css" />
+  <link rel="stylesheet" href="./index.css" />
+
+  <!-- Library Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.7/dist/purify.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js"></script>
+  <script src="../dist/dompdf.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vditor/dist/index.min.js"></script>
+</head>
+
+<body>
+  <div class="app-shell">
+    <!-- ===== Sidebar ===== -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-brand">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="16" y1="13" x2="8" y2="13" />
+            <line x1="16" y1="17" x2="8" y2="17" />
+          </svg>
+          <span>dompdf.js <span class="brand-studio">Studio</span></span>
+        </div>
+
+        <div class="sidebar-status-wrap">
+          <div class="sidebar-status" style="display: none;">
+            <span id="status-dot" class="status-dot loading"></span>
+            <span id="status-text">引用中...</span>
+          </div>
+          <a class="sidebar-github-link" href="https://github.com/lmn1919/dompdf.js" target="_blank" rel="noreferrer"
+            aria-label="查看 dompdf.js GitHub 仓库" title="GitHub">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path
+                d="M12 2C6.477 2 2 6.589 2 12.25c0 4.528 2.865 8.369 6.839 9.724.5.096.682-.222.682-.494 0-.244-.009-.89-.014-1.747-2.782.617-3.369-1.37-3.369-1.37-.454-1.18-1.108-1.494-1.108-1.494-.907-.634.069-.621.069-.621 1.003.072 1.531 1.054 1.531 1.054.891 1.564 2.338 1.112 2.907.85.091-.664.349-1.112.635-1.367-2.221-.259-4.555-1.14-4.555-5.073 0-1.121.39-2.038 1.029-2.757-.103-.26-.446-1.303.098-2.717 0 0 .84-.276 2.75 1.053A9.32 9.32 0 0 1 12 6.872c.85.004 1.706.118 2.505.347 1.909-1.329 2.748-1.053 2.748-1.053.546 1.414.203 2.457.1 2.717.64.719 1.028 1.636 1.028 2.757 0 3.943-2.338 4.811-4.566 5.065.359.318.678.944.678 1.903 0 1.374-.012 2.482-.012 2.82 0 .275.18.595.688.493C19.138 20.616 22 16.776 22 12.25 22 6.589 17.523 2 12 2Z" />
+            </svg>
+          </a>
+        </div>
       </div>
-      <div class="spacer"></div>
-      <div class="toolbar-actions">
-        <button id="btn-export-dompdf">导出 dompdf.js</button>
-        <button id="btn-export-html2pdf">导出 html2pdf.js</button>
-        <button id="btn-compare">开始对比</button>
-        <button id="btn-inspect">查看结构</button>
-        <button id="btn-overlay">分页线</button>
+
+      <div class="sidebar-scrollable">
+        <!-- Export Actions -->
+        <div class="sidebar-section">
+          <div class="action-btn-group">
+            <div class="action-btn-row">
+              <button class="action-btn action-btn-dompdf" id="btn-export-dompdf" onclick="exportDompdf()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                导出 dompdf.js
+              </button>
+              <button class="action-btn action-btn-html2pdf" id="btn-export-html2pdf" onclick="exportHtml2pdf()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                导出 html2pdf.js
+              </button>
+            </div>
+            <button class="action-btn action-btn-compare" id="btn-compare" onclick="runCompare()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+              </svg>
+              一键性能对比
+            </button>
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">生成页数</div>
+          <div class="benchmark-control-group">
+            <div class="benchmark-mode-switch" role="tablist" aria-label="基准模式">
+              <button class="benchmark-mode-btn active" id="benchmark-mode-light"
+                onclick="setBenchmarkMode('light')">12页</button>
+              <button class="benchmark-mode-btn" id="benchmark-mode-heavy"
+                onclick="setBenchmarkMode('heavy')">500页</button>
+              <button class="benchmark-mode-btn" id="benchmark-mode-extreme"
+                onclick="setBenchmarkMode('extreme')">10000页</button>
+            </div>
+            <label class="benchmark-toggle-row" for="benchmark-compress-toggle">
+              <span class="benchmark-toggle-copy">
+                <strong>dompdf 压缩</strong>
+                <span id="benchmark-compress-label">开启</span>
+              </span>
+              <input type="checkbox" id="benchmark-compress-toggle" onchange="toggleBenchmarkCompress(this.checked)" checked />
+            </label>
+            <div class="benchmark-meta" id="benchmark-meta">当前模式：12页 · 1 组短文本 · 压缩开启</div>
+          </div>
+        </div>
+
+        <!-- Benchmark Metrics -->
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">对比结果</div>
+          <div class="metric-row-flat">
+            <span class="metric-row-label">dompdf.js 耗时</span>
+            <span class="metric-row-value dompdf-color" id="speed-dompdf">--</span>
+          </div>
+          <div class="metric-row-flat">
+            <span class="metric-row-label">html2pdf.js 耗时</span>
+            <span class="metric-row-value html2pdf-color" id="speed-html2pdf">--</span>
+          </div>
+          <div class="metric-bar-wrapper" style="margin: 6px 0 2px;">
+            <div class="metric-bar dompdf-bar" id="speed-bar-dompdf" style="width: 0%"></div>
+            <div class="metric-bar html2pdf-bar" id="speed-bar-html2pdf" style="width: 0%"></div>
+          </div>
+          <div class="metric-delta" id="speed-delta"></div>
+
+          <div class="metric-row-flat" style="margin-top: 10px;">
+            <span class="metric-row-label">dompdf.js 体积</span>
+            <span class="metric-row-value dompdf-color" id="size-dompdf">--</span>
+          </div>
+          <div class="metric-row-flat">
+            <span class="metric-row-label">html2pdf.js 体积</span>
+            <span class="metric-row-value html2pdf-color" id="size-html2pdf">--</span>
+          </div>
+          <div class="metric-bar-wrapper" style="margin: 6px 0 2px;">
+            <div class="metric-bar dompdf-bar" id="size-bar-dompdf" style="width: 0%"></div>
+            <div class="metric-bar html2pdf-bar" id="size-bar-html2pdf" style="width: 0%"></div>
+          </div>
+          <div class="metric-delta" id="size-delta"></div>
+        </div>
       </div>
-      <span id="status" class="status"></span>
-    </header>
 
-    <main>
-      <section class="compare-shell" aria-label="PDF engine comparison">
-        <div class="compare-panel">
-          <div class="compare-header">
-            <div>
-              <div class="eyebrow">Browser-Side Export Benchmark</div>
-              <h2>用同一份页面内容，比较两种前端导出方式</h2>
-              <p>
-                当前页面里的
-                <code>#document</code>
-                会作为同一个导出对象。这里记录两边的生成耗时和 PDF Blob 大小，
-                便于直观看到
-                <code>dompdf.js</code>
-                与
-                <code>html2pdf.js</code>
-                在浏览器端导出时的差异。
-              </p>
-            </div>
-            <div id="compare-summary" class="compare-summary">
-              点击
-              <code>开始对比</code>
-              后会顺序跑两次导出。结果受当前机器性能、浏览器环境和页面内容影响。
-            </div>
-          </div>
-          <div class="compare-grid">
-            <section
-              id="compare-card-dompdf"
-              class="compare-card"
-              data-state="idle"
-            >
-              <div class="compare-engine">dompdf.js</div>
-              <div class="compare-metric-label">导出耗时</div>
-              <strong id="metric-dompdf-duration" class="compare-primary"
-                >未运行</strong
-              >
-              <div class="compare-metric-label">文件体积</div>
-              <span id="metric-dompdf-size" class="compare-secondary">-</span>
-              <span id="metric-dompdf-note" class="compare-note"
-                >默认输出以矢量文本为主，图片作为对象嵌入。</span
-              >
-            </section>
-            <section
-              id="compare-card-html2pdf"
-              class="compare-card"
-              data-state="idle"
-            >
-              <div class="compare-engine">html2pdf.js</div>
-              <div class="compare-metric-label">导出耗时</div>
-              <strong id="metric-html2pdf-duration" class="compare-primary"
-                >未运行</strong
-              >
-              <div class="compare-metric-label">文件体积</div>
-              <span id="metric-html2pdf-size" class="compare-secondary">-</span>
-              <span id="metric-html2pdf-note" class="compare-note"
-                >通过 <code>html2canvas + jsPDF</code> 生成以位图为主的页面。</span
-              >
-            </section>
-            <section class="compare-card" data-state="idle">
-              <div class="compare-engine">Scope</div>
-              <div class="compare-metric-label">导出对象</div>
-              <strong class="compare-primary">#document</strong>
-              <div class="compare-metric-label">页面样本</div>
-              <span class="compare-secondary"
-                >图片、渐变、透明度、分页、中文和数学符号</span
-              >
-              <span class="compare-note"
-                >比较的是同一份实时 DOM，不是两套不同模板。</span
-              >
-            </section>
-          </div>
-        </div>
-      </section>
-      <article id="document" class="doc">
-        <section class="hero">
-          <div>
-            <div class="eyebrow">Single Page Demo</div>
-            <h1>一页内容，两种导出结果</h1>
-            <p class="lede">
-              这不是一张单独的宣传页，而是一张可以直接拿来导出的测试页。浏览器先渲染同一份
-              DOM，随后分别由
-              <code>dompdf.js</code>
-              和
-              <code>html2pdf.js</code>
-              生成 PDF，用来观察速度、文件体积以及常见布局样本的输出表现。
-            </p>
-            <div class="tag-row">
-              <span class="tag">同一份 DOM</span>
-              <span class="tag">浏览器端导出</span>
-              <span class="tag">速度对比</span>
-              <span class="tag">文件大小</span>
-              <span class="tag">分页样本</span>
-            </div>
-          </div>
-          <aside class="hero-panel">
-            <div class="label">This Page Includes</div>
-            <div class="value">图片、表格、文本、分页和一些边界样本</div>
-            <ul>
-              <li>同一份页面内容，避免样本口径不一致</li>
-              <li>导出前后都能在浏览器里直接查看</li>
-              <li>保留图片、透明度、表格和分页验证</li>
-              <li>适合作为日常回归页面反复使用</li>
-            </ul>
-          </aside>
-        </section>
-
-        <section class="metric-grid" aria-label="Top metrics">
-          <div class="metric-card">
-            <div class="metric-label">页面宽度</div>
-            <strong>794px</strong>
-            <span class="neutral">按 A4 内容宽度组织</span>
-          </div>
-          <div class="metric-card">
-            <div class="metric-label">导出对象</div>
-            <strong>#document</strong>
-            <span class="positive">两边都只导这一块</span>
-          </div>
-          <div class="metric-card">
-            <div class="metric-label">样本类型</div>
-            <strong>多类型混排</strong>
-            <span class="neutral">图片、表格、长文、公式</span>
-          </div>
-          <div class="metric-card">
-            <div class="metric-label">观察重点</div>
-            <strong>速度 / 体积</strong>
-            <span class="positive">外加肉眼看版面是否跑偏</span>
-          </div>
-        </section>
-
-        <h2>这页主要拿来测什么</h2>
-        <div class="summary-grid">
-          <div>
-            <p>
-              这页有两个目的。第一，是把
-              <code>dompdf.js</code>
-              和
-              <code>html2pdf.js</code>
-              放在同一份 DOM 上做最直接的导出对比；第二，是把项目里常见的视觉和分页样本集中在一个页面里，方便回归时复用。
-            </p>
-            <p>
-              所以这里不是只放一段介绍文字，而是故意混合了图片、表格、渐变、透明度、长列表、强制分页和
-              <code>divisionDisable</code>
-              这种更容易出问题的内容。
-            </p>
-          </div>
-          <aside class="note-card">
-            <h3>适合什么时候打开这页</h3>
-            <ul class="compact-list">
-              <li>刚改完导出逻辑，想快速看有没有明显回归。</li>
-              <li>需要比较两种方案在真实 DOM 上的速度和文件体积。</li>
-              <li>想用一张页面同时覆盖中文、分页和复杂样式。</li>
-            </ul>
-          </aside>
-        </div>
-
-        <h2>图片和背景样本</h2>
-        <div class="card">
-          <img id="sample-img" alt="generated chart" />
-          <div>
-            <h3>Canvas 生成的图表图片</h3>
-            <p>
-              这里的图片由浏览器端 canvas 动态生成，再以 JPEG 形式进入 PDF。
-              它能比较直接地暴露图片尺寸、压缩和嵌入后的表现。
-            </p>
-            <div class="badge-row">
-              <span class="badge">WAU +12%</span>
-              <span class="badge">Retention +6%</span>
-              <span class="badge">Latency -18%</span>
-            </div>
-          </div>
-        </div>
-        <div class="feature-grid">
-          <section class="feature-card gradient-card">
-            <div>
-              <span class="feature-tag">linear-gradient</span>
-              <h3>线性渐变</h3>
-              <p>用来观察背景采样后是否还能保住层次，不会直接糊成一块纯色。</p>
-            </div>
-          </section>
-          <section class="feature-card radial-card">
-            <div>
-              <span class="feature-tag">radial-gradient</span>
-              <h3>径向渐变</h3>
-              <p>这里比线性渐变更容易暴露采样偏差和色带问题。</p>
-            </div>
-          </section>
-        </div>
-
-        <h2>透明度和裁切</h2>
-        <section class="opacity-panel">
-          <h3>透明度叠层</h3>
-          <p>下方两块半透明色块主要看透明度是否正确，叠放顺序有没有错。</p>
-          <div class="opacity-stack">
-            <div class="opacity-base">Base Layer</div>
-            <div class="opacity-float opacity-a">Opacity 0.72</div>
-            <div class="opacity-float opacity-b">Opacity 0.48</div>
-          </div>
-        </section>
-        <div class="clip-box">
-          <p>
-            这个容器带了
-            <code>overflow: hidden</code>
-            和圆角，溢出的子内容不应该泄漏到裁剪区域之外。
-          </p>
-          <div class="spill">
-            I am a child that overflows the clipped parent.
-          </div>
-        </div>
-
-        <h2>布局、表格和文本复制</h2>
-        <div class="two-column">
-          <div class="stack">
-            <section class="rail-card">
-              <h3>导出入口说明</h3>
-              <p>
-                这页默认直接引用
-                <code>dist/dompdf.js</code>
-                作为浏览器端入口，不依赖额外的 playground。对比时两边都只针对当前页面里的
-                <code>#document</code>
-                导出。
-              </p>
-            </section>
-            <section class="rail-card">
-              <h3>这块最容易看出的问题</h3>
-              <div class="progress-row">
-                <div class="progress-meta">
-                  <span>Snapshot fidelity</span><strong>84%</strong>
-                </div>
-                <div class="progress-track">
-                  <div class="progress-fill fill-a"></div>
-                </div>
-              </div>
-              <div class="progress-row">
-                <div class="progress-meta">
-                  <span>Pagination stability</span><strong>76%</strong>
-                </div>
-                <div class="progress-track">
-                  <div class="progress-fill fill-b"></div>
-                </div>
-              </div>
-              <div class="progress-row">
-                <div class="progress-meta">
-                  <span>Typography coverage</span><strong>68%</strong>
-                </div>
-                <div class="progress-track">
-                  <div class="progress-fill fill-c"></div>
-                </div>
-              </div>
-            </section>
-          </div>
-          <aside class="rail-card">
-            <h3>为什么这里放表格</h3>
-            <p>
-              表格和中英混排通常能比较快地暴露复制顺序、列宽、字距和背景色这些细碎问题，所以这里刻意保留了一块比较完整的表格样本。
-            </p>
-          </aside>
-        </div>
-        <div class="table-shell">
-          <table aria-label="copyable bilingual table">
+      <!-- Footer Tabs & Panels -->
+      <div class="sidebar-footer-tabs">
+        <button class="sidebar-footer-tab active" id="footer-tab-specs"
+          onclick="switchFooterTab('specs')">引擎技术规格</button>
+        <button class="sidebar-footer-tab" id="footer-tab-code" onclick="switchFooterTab('code')">快速接入代码</button>
+      </div>
+      <div class="sidebar-footer-panels">
+        <div class="footer-panel active" id="footer-panel-specs">
+          <table class="specs-mini-table">
             <thead>
               <tr>
-                <th class="cn-copy">字段</th>
-                <th class="cn-copy">内容</th>
-                <th class="cn-copy">结构特征</th>
-                <th class="cn-copy">复制预期</th>
+                <th>对比项</th>
+                <th>dompdf.js</th>
+                <th>html2pdf</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td class="cn-copy">项目名称</td>
-                <td class="cn-copy">城市更新试点 2026 / Urban Renewal Pilot</td>
-                <td class="cn-copy">中英混排 + 年份数字</td>
-                <td class="cn-copy">中英文都应可选中并按原顺序复制</td>
+                <td>技术机制</td>
+                <td>Rust + WASM</td>
+                <td>html2canvas</td>
               </tr>
               <tr>
-                <td class="cn-copy">负责人</td>
-                <td class="cn-copy">张明明 · PMO-17</td>
-                <td class="cn-copy">中文姓名 + 英文缩写</td>
-                <td class="cn-copy">中文姓名、数字与短横线不应丢字</td>
+                <td>渲染输出</td>
+                <td style="color: var(--sidebar-accent);">原生 PDF 矢量指令</td>
+                <td>位图画板嵌入</td>
               </tr>
               <tr>
-                <td class="cn-copy">状态摘要</td>
-                <td class="cn-copy">
-                  已完成 81%，风险等级 Low，下一里程碑 2026-09-30
-                </td>
-                <td class="cn-copy">百分比 + 英文等级 + 日期</td>
-                <td class="cn-copy">百分比、日期、英文单词应保持连续可复制</td>
+                <td>文本可读</td>
+                <td style="color: var(--sidebar-success);">可选择、复制、检索</td>
+                <td style="color: var(--sidebar-text-muted);">完全不可选择</td>
               </tr>
               <tr>
-                <td class="cn-copy">验收说明</td>
-                <td class="cn-copy">
-                  复制后应得到完整表格文本，不应出现乱码、换序或缺字。
-                </td>
-                <td class="cn-copy">完整句子 + 中文标点</td>
-                <td class="cn-copy">验证 PDF ToUnicode 映射</td>
+                <td>缩放质量</td>
+                <td style="color: var(--sidebar-success);">矢量无损缩放</td>
+                <td style="color: var(--sidebar-text-muted);">位图拉伸模糊</td>
+              </tr>
+              <tr>
+                <td>分页机制</td>
+                <td style="color: var(--sidebar-success);">原生分页 (基于行高)</td>
+                <td style="color: var(--sidebar-text-muted);">Canvas 裁切拼接</td>
+              </tr>
+              <tr>
+                <td>首屏耗时</td>
+                <td style="color: var(--sidebar-success);">依赖 WASM 载入耗时</td>
+                <td style="color: var(--sidebar-text-muted);">主线程直接运行</td>
+              </tr>
+              <tr>
+                <td>性能瓶颈</td>
+                <td style="color: var(--sidebar-success);">受 WASM 计算力影响</td>
+                <td style="color: var(--sidebar-error);">大图 DOM 极易崩溃</td>
               </tr>
             </tbody>
           </table>
         </div>
-        <blockquote class="callout cn-copy">
-          这段主要看中文字体嵌入以后，PDF 里的文本还能不能正常搜索、复制，以及中英文混排时字符映射有没有跑偏。
-        </blockquote>
+        <div class="footer-panel" id="footer-panel-code">
+          <div class="code-label">dompdf.js</div>
+          <pre class="code-mini"><span class="kw">const</span> blob = <span class="kw">await</span> <span class="fn">dompdf</span>(element, {
+  format: <span class="str">'a4'</span>,
+  pagination: <span class="kw">true</span>,
+  compress: <span class="kw">true</span>,
+  useCORS: <span class="kw">true</span>,
+  fontConfig: { <span class="cmt">/* ... */</span> }
+});</pre>
+          <div class="code-label">html2pdf.js</div>
+          <pre class="code-mini"><span class="fn">html2pdf</span>()
+  .<span class="fn">from</span>(element)
+  .<span class="fn">set</span>({
+    margin: <span class="str">0</span>,
+    html2canvas: { scale: <span class="str">2</span>, scrollY: <span class="str">0</span>, scrollX: <span class="str">0</span> },
+    jsPDF: { format: <span class="str">'a4'</span> },
+    pagebreak: { mode: [<span class="str">'css'</span>, <span class="str">'legacy'</span>], avoid: [<span class="str">'[divisionDisable]'</span>] }
+  })
+  .<span class="fn">output</span>(<span class="str">'blob'</span>);</pre>
+        </div>
+      </div>
+    </aside>
 
-        <h2>结构化文本样本</h2>
-        <div class="rich-grid">
-          <section class="rich-card">
-            <h3>Definition List</h3>
-            <dl class="definition-list">
-              <div>
-                <dt>Snapshot</dt>
-                <dd>
-                  Resolved DOM geometry, text runs, and image payloads gathered
-                  on the main thread.
-                </dd>
+    <!-- ===== Content Area ===== -->
+    <main class="content-area">
+      <!-- ===== Content Header ===== -->
+      <header class="content-header">
+        <div class="tab-switcher">
+          <button class="tab-btn active" id="tab-btn-basic" onclick="switchTab('basic')">综合测试页</button>
+          <button class="tab-btn" id="tab-btn-markdown" onclick="switchTab('markdown')">Markdown 编辑器</button>
+        </div>
+
+        <div class="header-info">
+          <span>A4 页面模拟 (794px × 1123px)</span>
+          <span class="info-divider"></span>
+          <!-- <span id="topbar-page-info">总计约 1.0 页</span> -->
+          <span class="info-divider"></span>
+          <span>缩放比例 100%</span>
+        </div>
+      </header>
+
+      <div class="top-loading-overlay" id="top-loading-overlay" hidden aria-live="polite">
+        <div class="top-loading-card" role="status" aria-label="导出进度">
+          <span class="top-loading-spinner" aria-hidden="true"></span>
+          <span class="top-loading-text" id="top-loading-text">正在处理中...</span>
+        </div>
+      </div>
+
+      <!-- Tab 1: 综合测试页 -->
+      <div class="tab-panel active" id="panel-basic">
+        <div class="doc-viewport">
+          <article id="document" class="doc">
+            <header class="report-hero">
+              <div class="report-hero-main">
+                <div class="eyebrow">DOMPDF.JS CAPABILITY REPORT</div>
+                <h1>纯前端 DOM 转 PDF 能力演示文档</h1>
+                <p class="lede cn-copy">
+                  这个默认示例不再强调“花哨样式拼盘”，而是更贴近真实业务文档：同一份 DOM 同时覆盖中英混排、长文本、结构化表格、内联 SVG、代码块、数学公式、分页控制和跨页保护容器。这样既能更完整地展示
+                  dompdf.js 的能力，也更容易和 html2pdf.js 拉开最终 PDF 体积差。
+                </p>
+                <div class="report-pill-row">
+                  <span class="report-pill">可复制文本</span>
+                  <span class="report-pill">多页分页</span>
+                  <span class="report-pill">内联 SVG</span>
+                  <span class="report-pill">CJK + Latin</span>
+                  <span class="report-pill">divisionDisable</span>
+                  <span class="report-pill">数学符号</span>
+                </div>
               </div>
-              <div>
-                <dt>Pagination</dt>
-                <dd>
-                  WASM-side page assignment that treats each text line as the
-                  minimum unsplittable unit.
-                </dd>
+              <aside class="report-hero-aside">
+                <div class="report-meta-eyebrow">演示目标</div>
+                <ul class="report-meta-list">
+                  <li><strong>主展示：</strong>文本、表格、SVG、分页与可搜索性</li>
+                  <li><strong>次展示：</strong>保留一张小位图样本，验证图片嵌入链路</li>
+                  <li><strong>对比预期：</strong>dompdf.js 输出更轻，html2pdf.js 随页数增长更明显</li>
+                  <li><strong>导出对象：</strong><code>#document</code> 整块内容</li>
+                </ul>
+              </aside>
+            </header>
+
+            <section class="report-kpi-grid" aria-label="Top metrics">
+              <div class="report-kpi">
+                <div class="report-kpi-label">文档宽度</div>
+                <strong>794px</strong>
+                <span>按 A4 内容宽度组织，避免示例口径偏移</span>
               </div>
-              <div>
-                <dt>Emission</dt>
-                <dd>
-                  PDF object generation without third-party PDF libraries.
-                </dd>
+              <div class="report-kpi">
+                <div class="report-kpi-label">内容策略</div>
+                <strong>重文本 / 轻位图</strong>
+                <span>让矢量文本和位图页截图的差异更明显</span>
               </div>
-            </dl>
-          </section>
-          <section class="rich-card">
-            <h3>Preformatted Flow</h3>
-            <pre class="report-code"><code>render(root)
+              <div class="report-kpi">
+                <div class="report-kpi-label">能力覆盖</div>
+                <strong>多模块混排</strong>
+                <span>段落、表格、SVG、代码、公式、分页控制</span>
+              </div>
+              <div class="report-kpi">
+                <div class="report-kpi-label">观察重点</div>
+                <strong>体积 / 版式 / 复制</strong>
+                <span>不仅看速度，也看最终 PDF 品质</span>
+              </div>
+            </section>
+
+            <section class="report-section">
+              <div class="report-section-head">
+                <div class="report-section-index">01</div>
+                <div>
+                  <div class="report-section-kicker">Typography</div>
+                  <h2>文本、字体与可复制性</h2>
+                  <p class="report-section-summary cn-copy">
+                    这一节优先展示 dompdf.js 最值得看的能力：文字仍然是文字，而不是被摊平成整页位图。对业务文档来说，可检索、可复制、可缩放通常比“看起来差不多”更重要。
+                  </p>
+                </div>
+              </div>
+              <div class="report-grid report-grid-2">
+                <section class="report-card">
+                  <h3>双语业务摘要</h3>
+                  <p class="cn-copy">
+                    城市更新试点 2026 / Urban Renewal Pilot 目前进入交付前评审阶段。当前版本重点验证多语言段落在 A4 分页、字体嵌入、字宽计算与表格复制中的稳定性，确保导出后的 PDF
+                    能够满足“归档、分发、审阅、检索”四类业务场景。
+                  </p>
+                  <p class="cn-copy">
+                    For the export engine, a realistic stress sample matters more than decorative gradients. The
+                    document should contain long paragraphs, dense tables, repeated labels, page boundaries, and inline
+                    vector figures so the resulting PDF exposes actual trade-offs in text fidelity, object count, and
+                    payload size.
+                  </p>
+                  <div class="report-note cn-copy">
+                    这里故意放较长、较密的正文文本，让 html2pdf.js 的逐页位图输出更容易在体积上放大，而 dompdf.js 仍然保持以文本和矢量对象为主的输出结构。
+                  </div>
+                </section>
+                <aside class="report-card">
+                  <h3>本页重点验证</h3>
+                  <ul class="report-checklist">
+                    <li>中文、英文、数字与标点连续可复制</li>
+                    <li>字体嵌入后仍能搜索关键字和项目编号</li>
+                    <li>多页导出时页眉页脚与正文不互相覆盖</li>
+                    <li>结构化表格和列表不因缩放产生模糊</li>
+                    <li>复杂容器可通过 <code>divisionDisable</code> 保持整体跨页</li>
+                  </ul>
+                </aside>
+              </div>
+            </section>
+
+            <section class="report-section">
+              <div class="report-section-head">
+                <div class="report-section-index">02</div>
+                <div>
+                  <div class="report-section-kicker">Graphics</div>
+                  <h2>矢量图形与位图样本</h2>
+                  <p class="report-section-summary">
+                    默认示例保留一张小位图，只用于验证图片压缩与嵌入；真正的主角切换成内联 SVG 图表和流程示意，更接近 dompdf.js 的优势场景。
+                  </p>
+                </div>
+              </div>
+              <div class="report-grid report-grid-2">
+                <section class="report-card">
+                  <h3>内联 SVG 指标图</h3>
+                  <svg class="report-svg-figure" viewBox="0 0 640 280" aria-label="Benchmark chart">
+                    <rect x="0" y="0" width="640" height="280" rx="14" fill="#ffffff" />
+                    <g stroke="#dbe4ee" stroke-width="1">
+                      <line x1="64" y1="48" x2="608" y2="48" />
+                      <line x1="64" y1="96" x2="608" y2="96" />
+                      <line x1="64" y1="144" x2="608" y2="144" />
+                      <line x1="64" y1="192" x2="608" y2="192" />
+                      <line x1="64" y1="240" x2="608" y2="240" />
+                    </g>
+                    <g>
+                      <rect x="96" y="138" width="42" height="102" rx="8" fill="#5b8def" />
+                      <rect x="174" y="118" width="42" height="122" rx="8" fill="#7c93ff" />
+                      <rect x="252" y="88" width="42" height="152" rx="8" fill="#a855f7" />
+                      <rect x="330" y="128" width="42" height="112" rx="8" fill="#14b8a6" />
+                      <rect x="408" y="74" width="42" height="166" rx="8" fill="#10b981" />
+                      <rect x="486" y="102" width="42" height="138" rx="8" fill="#f59e0b" />
+                    </g>
+                    <g opacity="0.16">
+                      <rect x="96" y="130" width="42" height="8" rx="8" fill="#ffffff" />
+                      <rect x="174" y="110" width="42" height="8" rx="8" fill="#ffffff" />
+                      <rect x="252" y="80" width="42" height="8" rx="8" fill="#ffffff" />
+                      <rect x="330" y="120" width="42" height="8" rx="8" fill="#ffffff" />
+                      <rect x="408" y="66" width="42" height="8" rx="8" fill="#ffffff" />
+                      <rect x="486" y="94" width="42" height="8" rx="8" fill="#ffffff" />
+                    </g>
+                    <polyline fill="none" stroke="#1f3a5f" stroke-width="3"
+                      points="117,154 195,132 273,112 351,118 429,92 507,104" />
+                    <g fill="#1f3a5f">
+                      <circle cx="117" cy="154" r="4" />
+                      <circle cx="195" cy="132" r="4" />
+                      <circle cx="273" cy="112" r="4" />
+                      <circle cx="351" cy="118" r="4" />
+                      <circle cx="429" cy="92" r="4" />
+                      <circle cx="507" cy="104" r="4" />
+                    </g>
+                    <g fill="#5b6b80" font-size="12" font-family="Inter, Arial, sans-serif">
+                      <text x="92" y="258">Jan</text>
+                      <text x="170" y="258">Feb</text>
+                      <text x="248" y="258">Mar</text>
+                      <text x="326" y="258">Apr</text>
+                      <text x="404" y="258">May</text>
+                      <text x="482" y="258">Jun</text>
+                    </g>
+                    <text x="64" y="28" fill="#0f172a" font-size="18" font-weight="700"
+                      font-family="Inter, Arial, sans-serif">Snapshot Throughput vs. PDF Payload</text>
+                  </svg>
+                  <p class="report-figure-caption">
+                    这类内联矢量图在 dompdf.js 中可以保持清晰边缘与可缩放性，而 html2pdf.js 更倾向于把整页转换成截图。
+                  </p>
+                </section>
+                <section class="report-card" divisionDisable>
+                  <div class="report-raster-card">
+                    <img id="sample-img" class="report-raster-image" alt="small raster sample for export validation" />
+                    <div class="report-raster-copy">
+                      <h3>小位图保留样本</h3>
+                      <p>
+                        这里仍保留一张通过 Canvas 生成的 JPEG，用来验证图片压缩、尺寸保持与嵌入链路是否稳定，但它不再主导整个演示页面。
+                      </p>
+                      <div class="report-pill-row report-pill-row-compact" style="margin-top: 25px;">
+                        <span class="report-pill">JPEG</span>
+                        <span class="report-pill">Raster</span>
+                        <span class="report-pill">Compression</span>
+                      </div>
+                    </div>
+                    <div class="report-note report-note-tight">
+                      现在的默认示例会尽量避免“大面积图片充斥整页”，这样更符合技术文档场景，也更容易看出 dompdf.js 在文本型 PDF 上的优势。
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </section>
+
+            <section class="report-section">
+              <div class="report-section-head">
+                <div class="report-section-index">03</div>
+                <div>
+                  <div class="report-section-kicker">Layout</div>
+                  <h2>布局、裁切、透明度与流程图</h2>
+                  <p class="report-section-summary">
+                    这一节主要看复杂盒模型在 PDF 中是否稳定，包括透明叠层、裁切区域、边框圆角、内联代码以及矢量流程框图。
+                  </p>
+                </div>
+              </div>
+              <div class="report-grid report-grid-2">
+                <section class="report-card">
+                  <h3>渲染流程示意</h3>
+                  <svg class="report-svg-figure" viewBox="0 0 640 250" aria-label="Pipeline diagram">
+                    <rect x="34" y="90" width="120" height="72" rx="12" fill="#f8fafc" stroke="#d7e0ea" />
+                    <rect x="194" y="90" width="120" height="72" rx="12" fill="#f8fafc" stroke="#d7e0ea" />
+                    <rect x="354" y="90" width="120" height="72" rx="12" fill="#f8fafc" stroke="#d7e0ea" />
+                    <rect x="514" y="90" width="92" height="72" rx="12" fill="#eef4fb" stroke="#c5d3e4" />
+                    <path d="M154 126H194" stroke="#7891b2" stroke-width="3" stroke-linecap="round" />
+                    <path d="M314 126H354" stroke="#7891b2" stroke-width="3" stroke-linecap="round" />
+                    <path d="M474 126H514" stroke="#7891b2" stroke-width="3" stroke-linecap="round" />
+                    <g fill="#0f172a" font-family="Inter, Arial, sans-serif">
+                      <text x="62" y="118" font-size="15" font-weight="700">DOM Snapshot</text>
+                      <text x="62" y="140" font-size="12">text runs / rects / images</text>
+                      <text x="223" y="118" font-size="15" font-weight="700">Worker</text>
+                      <text x="210" y="140" font-size="12">structured payload transfer</text>
+                      <text x="390" y="118" font-size="15" font-weight="700">Rust + WASM</text>
+                      <text x="378" y="140" font-size="12">pagination and PDF emission</text>
+                      <text x="538" y="118" font-size="15" font-weight="700">Blob</text>
+                      <text x="533" y="140" font-size="12">application/pdf</text>
+                    </g>
+                  </svg>
+                  <div class="report-mini-grid">
+                    <div class="report-mini-card">
+                      <h4>裁切样本</h4>
+                      <div class="clip-box" divisionDisable>
+                        <p>这个容器启用了 <code>overflow: hidden</code>。</p>
+                        <div class="spill">Overflow content should stay clipped inside the rounded box.</div>
+                      </div>
+                    </div>
+                    <div class="report-mini-card">
+                      <h4>透明度样本</h4>
+                      <div class="opacity-panel">
+                        <div class="opacity-stack">
+                          <div class="opacity-base">Base Layer</div>
+                          <div class="opacity-float opacity-a">Opacity 0.72</div>
+                          <div class="opacity-float opacity-b">Opacity 0.48</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+                <aside class="report-card">
+                  <h3>实现侧重点</h3>
+                  <ul class="report-checklist">
+                    <li>流程图使用纯 SVG，而不是预先烘焙的 PNG</li>
+                    <li>带圆角和裁切的容器不能在导出后漏出子节点</li>
+                    <li>透明叠层的顺序需要和浏览器视图一致</li>
+                    <li>文档中的 <code>code</code>、粗体和行内标签都要保持层级</li>
+                  </ul>
+                  <div class="report-note cn-copy">
+                    对真实文档来说，布局可靠性往往比单个视觉特效更重要。这个默认示例会把“稳定排版”放到比“炫技视觉”更高的位置。
+                  </div>
+                </aside>
+              </div>
+            </section>
+
+            <section class="report-section">
+              <div class="report-section-head">
+                <div class="report-section-index">04</div>
+                <div>
+                  <div class="report-section-kicker">Structured Data</div>
+                  <h2>结构化表格与文本检索</h2>
+                  <p class="report-section-summary cn-copy">
+                    下面的明细表会动态生成较多行，用来同时验证列宽、换行、字体嵌入、复制顺序和多页表格的稳定性。这类内容对 dompdf.js 更友好，也更接近真实报告、清单和审计文档。
+                  </p>
+                </div>
+              </div>
+              <div class="report-card">
+                <div class="report-table-head">
+                  <div>
+                    <h3>能力验证矩阵</h3>
+                    <p class="report-table-subtle">覆盖段落、编号、日期、金额、状态标签与中英混排字段。</p>
+                  </div>
+                  <span class="report-status-chip">Live generated</span>
+                </div>
+                <div class="table-shell report-table-shell">
+                  <table class="report-table">
+                    <thead>
+                      <tr>
+                        <th rowspan="2">Region / Division</th>
+                        <th colspan="2">H1 Performance</th>
+                        <th colspan="2">H2 Forecast</th>
+                        <th rowspan="2">SLA Status</th>
+                      </tr>
+                      <tr>
+                        <th>Revenue</th>
+                        <th>Margin</th>
+                        <th>Revenue</th>
+                        <th>Margin</th>
+                      </tr>
+                    </thead>
+                    <tbody id="records-body"></tbody>
+                  </table>
+                </div>
+                <blockquote class="callout cn-copy">
+                  如果这一整页在导出后仍然可以按正常顺序选中、复制并搜索字段名、编号和日期，那么说明文本对象、字形映射与表格结构都处于比较可用的状态。
+                </blockquote>
+              </div>
+            </section>
+
+            <section class="report-section">
+              <div class="report-section-head">
+                <div class="report-section-index">05</div>
+                <div>
+                  <div class="report-section-kicker">Reference Blocks</div>
+                  <h2>定义列表、代码块与数学符号</h2>
+                  <p class="report-section-summary">
+                    这部分主要观察预格式文本、符号字体和公式布局。样式会保持克制，避免视觉噪音影响阅读和对比。
+                  </p>
+                </div>
+              </div>
+              <div class="rich-grid">
+                <section class="rich-card">
+                  <h3>Definition List</h3>
+                  <dl class="definition-list">
+                    <div>
+                      <dt>Snapshot</dt>
+                      <dd>Collect geometry, text runs, style tokens, and image payloads on the main thread.</dd>
+                    </div>
+                    <div>
+                      <dt>Pagination</dt>
+                      <dd>Assign lines and blocks to pages while respecting <code>pageBreak</code> and
+                        <code>divisionDisable</code>.</dd>
+                    </div>
+                    <div>
+                      <dt>Emission</dt>
+                      <dd>Write native PDF objects, text operators, fonts, and xobjects without third-party PDF
+                        libraries.</dd>
+                    </div>
+                  </dl>
+                </section>
+                <section class="rich-card">
+                  <h3>Preformatted Flow</h3>
+                  <pre class="report-code"><code>render(root)
   -> collectSnapshotData(root)
-  -> encodeSnapshot(data)
+  -> normalizeTextRuns(snapshot)
   -> worker.postMessage(snapshot)
   -> wasm.render_pdf(snapshot)
   -> Blob(application/pdf)</code></pre>
+                </section>
+              </div>
+
+              <section class="math-block">
+                <h3>数学和符号样本</h3>
+                <p>欧拉恒等式：</p>
+                <p class="equation">e<sup>iπ</sup> + 1 = 0</p>
+                <p>高斯积分：</p>
+                <p class="equation">∫<sub>-∞</sub><sup>+∞</sup> e<sup>-x²</sup> dx = √π</p>
+                <p>贝叶斯定理：</p>
+                <p class="equation">P(A | B) = P(B | A) · P(A) / P(B)</p>
+                <p>分段函数：</p>
+                <p class="equation">
+                  f(x) =
+                  <span class="cases"><span>x²</span><span>2x + 1</span><span>3 - x</span></span>
+                  &nbsp;&nbsp;if&nbsp;
+                  <span class="cases"><span>x &lt; 0</span><span>0 ≤ x &lt; 1</span><span>x ≥ 1</span></span>
+                </p>
+              </section>
+            </section>
+
+            <section class="report-section">
+              <div class="report-section-head">
+                <div class="report-section-index">06</div>
+                <div>
+                  <div class="report-section-kicker">Pagination</div>
+                  <h2>分页压力测试与附录</h2>
+                  <p class="report-section-summary cn-copy">
+                    这部分故意堆叠较长的正文和多条记录，让输出自然跨页。对于 html2pdf.js 来说，每一页更像一张大截图；对于 dompdf.js 来说，文本密度增加并不会线性放大到同样程度。
+                  </p>
+                </div>
+              </div>
+
+              <div class="report-appendix">
+                <div class="report-appendix-note">
+                  下列条目采用重复但不完全相同的业务文本，用来验证长列表分页、连续复制以及页边界附近的段落切分。
+                </div>
+                <ol id="long-list" class="report-long-list"></ol>
+              </div>
+
+              <div class="timeline-card-doc" pageBreak>
+                <h3>强制分页样本</h3>
+                <div class="timeline">
+                  <div class="timeline-item">
+                    <div class="timeline-dot"></div>
+                    <div>
+                      <strong>Phase 1 · Snapshot Contract</strong>
+                      <p>冻结 DOM Snapshot 字段，确保文本、图片、布局与分页控制信号都能稳定进入 Worker。</p>
+                    </div>
+                  </div>
+                  <div class="timeline-item">
+                    <div class="timeline-dot"></div>
+                    <div>
+                      <strong>Phase 2 · Typography Validation</strong>
+                      <p>重点回归中文字体、数字、英文单词、代码片段、数学符号与复制顺序。</p>
+                    </div>
+                  </div>
+                  <div class="timeline-item">
+                    <div class="timeline-dot"></div>
+                    <div>
+                      <strong>Phase 3 · Document Scale</strong>
+                      <p>用真实长度的文档内容拉开最终 PDF 体积差，并确认分页切点不漂移。</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="division-box cn-copy" divisionDisable>
+                <h3>divisionDisable 样本</h3>
+                <p>
+                  这个模块带有 <code>divisionDisable</code> 属性。跨页时它应该整体移动到下一页，而不是被从中间切断。真实业务里，签字区、报价摘要、审批意见、票据封面等模块通常都需要这种保护。
+                </p>
+                <p>
+                  如果这个卡片在页边界处被截开，说明复杂容器在分页合并和块级迁移上的策略还需要继续修正。
+                </p>
+              </div>
+            </section>
+          </article>
+        </div>
+      </div>
+
+      <!-- Tab 2: Markdown 编辑器 -->
+      <div class="tab-panel" id="panel-markdown">
+        <div class="md-layout">
+          <!-- Editor -->
+          <section class="md-editor-panel">
+            <div class="md-panel-header">
+              <div class="md-panel-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round">
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                </svg>
+                <span>Markdown 输入区</span>
+              </div>
+              <div class="md-panel-stats">
+                <span class="md-stat-badge" id="md-line-count">0 行</span>
+                <span class="md-stat-badge" id="md-word-count">0 词</span>
+                <span class="md-stat-badge" id="md-char-count">0 字符</span>
+              </div>
+            </div>
+            <div class="md-editor-body">
+              <div id="vditor-container" style="flex: 1; height: 100%; border: none;"></div>
+            </div>
+          </section>
+          <!-- Preview -->
+          <section class="md-preview-panel">
+            <div class="md-panel-header">
+              <div class="md-panel-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+                <span>排版预览 (A4)</span>
+              </div>
+              <div class="md-panel-stats">
+                <span class="md-stat-badge" id="md-theme-indicator">Paper Light</span>
+                <span class="md-stat-badge" id="md-page-count">约 1.0 页</span>
+                <select id="md-theme-select"
+                  style="height: 24px; font-size: 11px; border-radius: 4px; border: 1px solid var(--border-color); padding: 0 4px; background: #fff;">
+                  <option value="paper">Paper Light</option>
+                  <option value="midnight">Midnight Blue</option>
+                  <option value="slate">Slate Editorial</option>
+                  <option value="sepia">Sepia Notebook</option>
+                </select>
+              </div>
+            </div>
+            <div class="md-preview-stage">
+              <div style="width: 100%; max-width: 100%; display: flex; justify-content: center;">
+                <div id="preview-sheet" class="preview-sheet" data-theme="paper">
+                  <div id="watermark-under-layer" class="watermark-layer" data-layer="under"></div>
+                  <div class="md-empty-state">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" stroke-linecap="round"
+                      stroke-linejoin="round" style="width: 48px; height: 48px; margin-bottom: 14px;">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                      <line x1="9" y1="15" x2="15" y2="15" />
+                      <line x1="12" y1="12" x2="12" y2="18" />
+                    </svg>
+                    <p style="font-size: 14px; color: var(--text-muted);">在左侧输入 Markdown，右侧将自动渲染为 A4 排版</p>
+                  </div>
+                  <article id="markdown-preview" class="markdown-body"></article>
+                  <div id="watermark-over-layer" class="watermark-layer" data-layer="over"></div>
+                </div>
+              </div>
+            </div>
           </section>
         </div>
-
-        <h2>分页验证</h2>
-        <p>
-          下面的列表是故意拉长的。这里主要看分页位置是否稳定，每一条文本行都应该作为最小不可拆分单元整体移动，而不是被腰斩。
-        </p>
-        <ol id="long-list"></ol>
-        <div class="timeline-card" pageBreak>
-          <h3>强制分页样本</h3>
-          <div class="timeline">
-            <div class="timeline-item">
-              <div class="timeline-dot"></div>
-              <div>
-                <strong>Week 1</strong>
-                <p>
-                  Lock snapshot schema and code layout after the project
-                  structure refactor.
-                </p>
-              </div>
-            </div>
-            <div class="timeline-item">
-              <div class="timeline-dot"></div>
-              <div>
-                <strong>Week 2</strong>
-                <p>
-                  Validate build output, worker bundling, and inline wasm
-                  distribution.
-                </p>
-              </div>
-            </div>
-            <div class="timeline-item">
-              <div class="timeline-dot"></div>
-              <div>
-                <strong>Week 3</strong>
-                <p>
-                  Audit long content, clipping, opacity, and bilingual text
-                  selection.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="division-box cn-copy" divisionDisable>
-          <h3>divisionDisable 样本</h3>
-          <p>
-            这个容器带有
-            <code>divisionDisable</code> 属性。跨页时它会被整体移动到下一页，
-            不应在中间被拆开。这里放入更长的说明文字、边框和背景，便于观察整体迁移效果。
-          </p>
-          <p>
-            如果这个卡片在页边界被切开，就说明复杂容器在分页上的边界处理仍存在问题。
-          </p>
-        </div>
-
-        <section class="math-block">
-          <h3>数学和符号样本</h3>
-
-          <p>欧拉恒等式被广泛视为数学中最美的等式之一：</p>
-          <p class="equation">e<sup>i&pi;</sup> + 1 = 0</p>
-
-          <p>高斯积分将指数函数与 π 联系在一起：</p>
-          <p class="equation">
-            &int;<sub>-&infin;</sub><sup>+&infin;</sup> e<sup>-x&sup2;</sup> dx
-            = &radic;&pi;
-          </p>
-
-          <p>二次方程的求根公式：</p>
-          <p class="equation">x = (-b &plusmn; &radic;(b&sup2; - 4ac)) / 2a</p>
-
-          <p>贝叶斯定理描述了后验概率的更新方式：</p>
-          <p class="equation">P(A | B) = P(B | A) &middot; P(A) / P(B)</p>
-
-          <p>矩阵乘法 C = A &times; B 的元素定义如下：</p>
-          <p class="equation">
-            C<sub>ij</sub> = &sum;<sub>k=1</sub><sup>n</sup> A<sub>ik</sub>
-            &middot; B<sub>kj</sub>
-          </p>
-
-          <p>傅里叶变换把时域信号转换到频域：</p>
-          <p class="equation">
-            &#x1D54F;(&omega;) = &int;<sub>-&infin;</sub
-            ><sup>+&infin;</sup> f(t) &middot; e<sup>-i&omega;t</sup> dt
-          </p>
-
-          <p>麦克斯韦方程组的微分形式概括了经典电磁学：</p>
-          <p class="equation">
-            &nabla; &middot; <b>E</b> = &rho; / &epsilon;<sub>0</sub><br />
-            &nabla; &times; <b>E</b> = -&part;<sub>t</sub><b>B</b><br />
-            &nabla; &middot; <b>B</b> = 0<br />
-            &nabla; &times; <b>B</b> = &mu;<sub>0</sub><b>J</b> +
-            &mu;<sub>0</sub>&epsilon;<sub>0</sub>&part;<sub>t</sub><b>E</b>
-          </p>
-
-          <p>相对论的质能等价：</p>
-          <p class="equation">E = mc&sup2;</p>
-
-          <p>薛定谔方程描述了非相对论性粒子的波函数演化：</p>
-          <p class="equation">
-            i&#8463; &part;<sub>t</sub> &Psi;(r, t) = [
-            -(&#8463;&sup2;/2m)&nabla;&sup2; + V(r, t) ] &Psi;(r, t)
-          </p>
-
-          <p>自然对数的换底公式：</p>
-          <p class="equation">
-            log<sub>a</sub> b = log<sub>c</sub> b / log<sub>c</sub> a
-          </p>
-
-          <p>一个分段函数示例：</p>
-          <p class="equation">
-            f(x) =
-            <span class="cases">
-              <span>x&sup2;</span>
-              <span>2x + 1</span>
-              <span>3 - x</span>
-            </span>
-            &nbsp;&nbsp;if&nbsp;
-            <span class="cases">
-              <span>x &lt; 0</span>
-              <span>0 &le; x &lt; 1</span>
-              <span>x &ge; 1</span>
-            </span>
-          </p>
-        </section>
-      </article>
+      </div>
     </main>
+  </div>
+  <script src="./index.js"></script>
+</body>
 
-    <script src="../dist/dompdf.js"></script>
-    <script>
-      (function () {
-        var api = window.dompdf;
-        var statusEl = document.getElementById("status");
-        var doc = document.getElementById("document");
-        var compareSummaryEl = document.getElementById("compare-summary");
-        var overlayOn = false;
-        var html2pdfLoader = null;
-        var sharedFontConfig = {
-          fontFamily: "SourceHanSansSC-Regular",
-          fontStyle: "normal",
-          fontWeight: 400,
-        };
-        // Standalone symbol/math fallback font (NOT bundled into dompdf.js).
-        // Loaded separately and appended to the fontConfig array; the engine's
-        // per-glyph fallback uses it only for glyphs the primary font lacks
-        // (∫ ∑ √ ∇ ∂ ℏ 𝕏 …). See assets/symbol-fallback.ttf (subset of DejaVu
-        // Sans, free license).
-        var symbolFontConfig = null;
-        var readyResolve;
-        var readyPromise = new Promise(function (resolve) {
-          readyResolve = resolve;
-        });
-        var compareState = {
-          dompdf: {
-            state: "idle",
-            durationMs: null,
-            sizeBytes: null,
-            error: "",
-            note: "输出以矢量文本为主，图片按对象嵌入。",
-          },
-          html2pdf: {
-            state: "idle",
-            durationMs: null,
-            sizeBytes: null,
-            error: "",
-            note: "通过 html2canvas + jsPDF 生成位图页。",
-          },
-        };
-
-        if (!api) {
-          setStatus("dist/dompdf.js 未找到，请先执行 npm run build。");
-          return;
-        }
-
-        function setStatus(text) {
-          statusEl.textContent = text;
-        }
-
-        function formatDuration(ms) {
-          if (ms < 1000) return Math.round(ms) + "ms";
-          return (ms / 1000).toFixed(2) + "s";
-        }
-
-        function formatBytes(bytes) {
-          if (typeof bytes !== "number" || !isFinite(bytes) || bytes < 0) {
-            return "-";
-          }
-          if (bytes < 1024) return bytes + " B";
-          if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-          return (bytes / (1024 * 1024)).toFixed(2) + " MB";
-        }
-
-        function percentDelta(base, target) {
-          if (!base || !target) return null;
-          return ((target - base) / base) * 100;
-        }
-
-        function updateCompareCard(key) {
-          var state = compareState[key];
-          var card = document.getElementById("compare-card-" + key);
-          var durationEl = document.getElementById("metric-" + key + "-duration");
-          var sizeEl = document.getElementById("metric-" + key + "-size");
-          var noteEl = document.getElementById("metric-" + key + "-note");
-          if (!card || !durationEl || !sizeEl || !noteEl) return;
-          card.dataset.state = state.state;
-          if (state.state === "pending") {
-            durationEl.textContent = "运行中";
-            sizeEl.textContent = "-";
-            noteEl.textContent = state.note;
-            return;
-          }
-          if (state.state === "error") {
-            durationEl.textContent = "失败";
-            sizeEl.textContent = "-";
-            noteEl.textContent = state.error || state.note;
-            return;
-          }
-          if (state.state === "success") {
-            durationEl.textContent = formatDuration(state.durationMs);
-            sizeEl.textContent = formatBytes(state.sizeBytes);
-            noteEl.textContent = state.note;
-            return;
-          }
-          durationEl.textContent = "未运行";
-          sizeEl.textContent = "-";
-          noteEl.textContent = state.note;
-        }
-
-        function updateCompareSummary() {
-          var dompdfState = compareState.dompdf;
-          var html2pdfState = compareState.html2pdf;
-          if (
-            dompdfState.state !== "success" ||
-            html2pdfState.state !== "success"
-          ) {
-            compareSummaryEl.textContent =
-              "点击 Run Compare 开始基准对比。结果受当前设备性能和浏览器环境影响。";
-            return;
-          }
-          var fasterKey =
-            dompdfState.durationMs <= html2pdfState.durationMs
-              ? "dompdf.js"
-              : "html2pdf.js";
-          var smallerKey =
-            dompdfState.sizeBytes <= html2pdfState.sizeBytes
-              ? "dompdf.js"
-              : "html2pdf.js";
-          var speedGap =
-            fasterKey === "dompdf.js"
-              ? percentDelta(dompdfState.durationMs, html2pdfState.durationMs)
-              : percentDelta(html2pdfState.durationMs, dompdfState.durationMs);
-          var sizeGap =
-            smallerKey === "dompdf.js"
-              ? percentDelta(dompdfState.sizeBytes, html2pdfState.sizeBytes)
-              : percentDelta(html2pdfState.sizeBytes, dompdfState.sizeBytes);
-          compareSummaryEl.textContent =
-            "速度更快：" +
-            fasterKey +
-            (speedGap == null ? "" : "，另一方约慢 " + speedGap.toFixed(1) + "%") +
-            "。文件更小：" +
-            smallerKey +
-            (sizeGap == null ? "" : "，另一方约大 " + sizeGap.toFixed(1) + "%") +
-            "。";
-        }
-
-        function updateCompareUI() {
-          updateCompareCard("dompdf");
-          updateCompareCard("html2pdf");
-          updateCompareSummary();
-        }
-
-        function currentOptions() {
-          return {
-            format: "a4",
-            pagination: true,
-            marginPt: 0,
-            backgroundColor: "#ffffff",
-            useCORS: true,
-            fontConfig: symbolFontConfig
-              ? [sharedFontConfig, symbolFontConfig]
-              : sharedFontConfig,
-            pageConfig: {
-              excludePages: [1],
-              header: {
-                content: "dompdf · Single HTML Demo",
-                height: 50,
-                contentColor: "#334155",
-                contentFontSize: 12,
-                contentPosition: "center",
-                padding: [0, 0, 0, 0],
-              },
-              footer: {
-                content: "第 ${currentPage} 页 / 共 ${totalPages} 页",
-                height: 48,
-                contentColor: "#475569",
-                contentFontSize: 11,
-                contentPosition: "center",
-                padding: [0, 0, 0, 0],
-              },
-            },
-          };
-        }
-
-        function mergeExportOptions(base, override) {
-          if (!override) return base;
-          var merged = Object.assign({}, base, override);
-          var basePageConfig = base.pageConfig || {};
-          var overridePageConfig = override.pageConfig || {};
-          merged.pageConfig = Object.assign(
-            {},
-            basePageConfig,
-            overridePageConfig,
-          );
-          if (basePageConfig.header || overridePageConfig.header) {
-            merged.pageConfig.header = Object.assign(
-              {},
-              basePageConfig.header || {},
-              overridePageConfig.header || {},
-            );
-          }
-          if (basePageConfig.footer || overridePageConfig.footer) {
-            merged.pageConfig.footer = Object.assign(
-              {},
-              basePageConfig.footer || {},
-              overridePageConfig.footer || {},
-            );
-          }
-          return merged;
-        }
-
-        function encodeBase64(uint8) {
-          var binary = "";
-          var chunkSize = 32768;
-          for (var i = 0; i < uint8.length; i += chunkSize) {
-            var chunk = uint8.subarray(
-              i,
-              Math.min(i + chunkSize, uint8.length),
-            );
-            binary += String.fromCharCode.apply(null, chunk);
-          }
-          return btoa(binary);
-        }
-
-        function summarizeOptions(options) {
-          var pageConfig =
-            options.pageConfig && typeof options.pageConfig === "object"
-              ? options.pageConfig
-              : null;
-          return {
-            format: options.format,
-            pagination: !!options.pagination,
-            marginPt: options.marginPt,
-            backgroundColor: options.backgroundColor,
-            useCORS: !!options.useCORS,
-            fontConfig: options.fontConfig
-              ? {
-                  fontFamily: options.fontConfig.fontFamily,
-                  fontStyle: options.fontConfig.fontStyle,
-                  fontWeight: options.fontConfig.fontWeight,
-                  hasFontBytes: !!options.fontConfig.fontBytes,
-                }
-              : null,
-            pageConfig: pageConfig
-              ? {
-                  header: pageConfig.header
-                    ? {
-                        height: pageConfig.header.height,
-                        content: pageConfig.header.content,
-                        contentFontSize: pageConfig.header.contentFontSize,
-                      }
-                    : null,
-                  footer: pageConfig.footer
-                    ? {
-                        height: pageConfig.footer.height,
-                        content: pageConfig.footer.content,
-                        contentFontSize: pageConfig.footer.contentFontSize,
-                      }
-                    : null,
-                }
-              : null,
-          };
-        }
-
-        function automationMeta(options) {
-          var rect = doc.getBoundingClientRect();
-          return {
-            selector: "#document",
-            rootWidthPx: rect.width,
-            rootHeightPx: rect.height,
-            devicePixelRatio: window.devicePixelRatio || 1,
-            pageBreaks: api.computePageBreaks(doc, options),
-            options: summarizeOptions(options),
-          };
-        }
-
-        window.__DOMPDF_AUTOMATION__ = {
-          ready: function () {
-            return readyPromise;
-          },
-          getMeta: function (override) {
-            var options = mergeExportOptions(currentOptions(), override || {});
-            return automationMeta(options);
-          },
-          inspect: function (override) {
-            var options = mergeExportOptions(currentOptions(), override || {});
-            return readyPromise.then(function () {
-              return api.inspect(doc, options);
-            });
-          },
-          exportPdf: function (override) {
-            var options = mergeExportOptions(currentOptions(), override || {});
-            return readyPromise.then(function () {
-              return api(doc, options).then(function (blob) {
-                return blob.arrayBuffer().then(function (buf) {
-                  return {
-                    pdfBase64: encodeBase64(new Uint8Array(buf)),
-                    meta: automationMeta(options),
-                  };
-                });
-              });
-            });
-          },
-        };
-
-        function buildLongList() {
-          var list = document.getElementById("long-list");
-          var items = [
-            "Define the snapshot contract before touching Push heavy work Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.into a Web Worker to keep the main thread responsive.，PDF bytes.Collect rects in document space instead of viewport space.Collect rects in document space instead of viewport space.",
-            "Define the snapshot contract before touching Push heavy work Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.into a Web Worker to keep the main thread responsive.，PDF bytes.Collect rects in document space instead of viewport space.Collect rects in document space instead of viewport space.",
-            "Define the snapshot contract before touching Push heavy work Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.into a Web Worker to keep the main thread responsive.，PDF bytes.Collect rects in document space instead of viewport space.Collect rects in document space instead of viewport space.",
-            "Define the snapshot contract before touching Push heavy work Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.into a Web Worker to keep the main thread responsive.，PDF bytes.Collect rects in document space instead of viewport space.Collect rects in document space instead of viewport space.",
-            "Define the snapshot contract before touching Push heavy work Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.into a Web Worker to keep the main thread responsive.，PDF bytes.Collect rects in document space instead of viewport space.Collect rects in document space instead of viewport space.",
-            "Define the snapshot contract before touching Push heavy work Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.into a Web Worker to keep the main thread responsive.，PDF bytes.Collect rects in document space instead of viewport space.Collect rects in document space instead of viewport space.",
-            "Define the snapshot contract before touching Push heavy work Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.into a Web Worker to keep the main thread responsive.，PDF bytes.Collect rects in document space instead of viewport space.Collect rects in document space instead of viewport space.",
-            "Define the snapshot contract before touching Push heavy work Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.into a Web Worker to keep the main thread responsive.，PDF bytes.Collect rects in document space instead of viewport space.Collect rects in document space instead of viewport space.",
-            "Define the snapshot contract before touching Push heavy work Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.into a Web Worker to keep the main thread responsive.，PDF bytes.Collect rects in document space instead of viewport space.Collect rects in document space instead of viewport space.",
-            "Define the snapshot contract before touching Push heavy work Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.Keep the emitted PDF structure inspectable without third-party PDF libraries.into a Web Worker to keep the main thread responsive.，PDF bytes.Collect rects in document space instead of viewport space.Collect rects in document space instead of viewport space.",
-            // "Collect rects in document space instead of viewport space.",
-            // "Collect rects in document space instead of viewport space.",
-            // "Push heavy work into a Web Worker to keep the main thread responsive.",
-            // "Treat each line as the minimum unsplittable pagination unit.",
-            // "Clip overflow:hidden subtrees so decorative layers do not bleed out.",
-            // "Embed CID fonts for Chinese copy and mixed-language paragraphs.",
-            // "Keep the emitted PDF structure inspectable without third-party PDF libraries.",
-            // "Compare output in Chrome, Acrobat, and Preview for stability checks.",
-          ];
-          for (var i = 0; i <50; i += 1) {
-            var li = document.createElement("li");
-            li.textContent = i + 1 + ". " + items[i % items.length];
-            list.appendChild(li);
-          }
-        }
-
-        function createChartDataUrl() {
-          var width = 440;
-          var height = 280;
-          var canvas = document.createElement("canvas");
-          canvas.width = width;
-          canvas.height = height;
-          var ctx = canvas.getContext("2d");
-          var bg = ctx.createLinearGradient(0, 0, width, height);
-          var data = [40, 75, 55, 90, 65, 110, 85];
-          var barWidth = 36;
-          var gap = 16;
-          var x = 56;
-
-          bg.addColorStop(0, "#1e3a8a");
-          bg.addColorStop(1, "#0ea5e9");
-          ctx.fillStyle = bg;
-          ctx.fillRect(0, 0, width, height);
-
-          ctx.strokeStyle = "rgba(255,255,255,0.15)";
-          ctx.lineWidth = 1;
-          for (var y = 40; y < height - 20; y += 40) {
-            ctx.beginPath();
-            ctx.moveTo(40, y);
-            ctx.lineTo(width - 20, y);
-            ctx.stroke();
-          }
-
-          ctx.fillStyle = "#fde68a";
-          for (var i = 0; i < data.length; i += 1) {
-            var barHeight = data[i] * 1.6;
-            ctx.fillRect(x, height - 30 - barHeight, barWidth, barHeight);
-            x += barWidth + gap;
-          }
-
-          ctx.strokeStyle = "#ffffff";
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(40, height - 30);
-          ctx.lineTo(width - 20, height - 30);
-          ctx.stroke();
-
-          ctx.fillStyle = "#ffffff";
-          ctx.font = "bold 16px sans-serif";
-          ctx.fillText("Weekly engagement", 40, 24);
-          return canvas.toDataURL("image/jpeg", 0.9);
-        }
-
-        function clearOverlay() {
-          document.body.classList.remove("dompdf-overlay");
-          var oldBreaks = document.querySelectorAll(".dompdf-pagebreak");
-          for (var i = 0; i < oldBreaks.length; i += 1) {
-            oldBreaks[i].remove();
-          }
-          overlayOn = false;
-        }
-
-        function drawOverlay() {
-          clearOverlay();
-          document.body.classList.add("dompdf-overlay");
-          if (getComputedStyle(doc).position === "static") {
-            doc.style.position = "relative";
-          }
-          var breaks = api.computePageBreaks(doc, currentOptions());
-          for (var i = 0; i < breaks.length; i += 1) {
-            var line = document.createElement("div");
-            line.className = "dompdf-pagebreak";
-            line.style.top = breaks[i] + "px";
-            doc.appendChild(line);
-          }
-          overlayOn = true;
-          setStatus(breaks.length + " page breaks drawn.");
-        }
-
-        function withBusy(fn) {
-          var controls = document.querySelectorAll("button");
-          for (var i = 0; i < controls.length; i += 1) {
-            controls[i].disabled = true;
-          }
-          setStatus("working...");
-          return fn().finally(function () {
-            for (var j = 0; j < controls.length; j += 1) {
-              controls[j].disabled = false;
-            }
-          });
-        }
-
-        function downloadBlob(blob, filename) {
-          var url = URL.createObjectURL(blob);
-          var a = document.createElement("a");
-          a.href = url;
-          a.download = filename;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          setTimeout(function () {
-            URL.revokeObjectURL(url);
-          }, 2000);
-        }
-
-        function ensureHtml2Pdf() {
-          if (window.html2pdf) return Promise.resolve(window.html2pdf);
-          if (html2pdfLoader) return html2pdfLoader;
-          html2pdfLoader = new Promise(function (resolve, reject) {
-            var script = document.createElement("script");
-            script.src =
-              "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
-            script.async = true;
-            script.onload = function () {
-              if (window.html2pdf) {
-                resolve(window.html2pdf);
-                return;
-              }
-              reject(new Error("html2pdf.js loaded but global was missing"));
-            };
-            script.onerror = function () {
-              reject(new Error("failed to load html2pdf.js from CDN"));
-            };
-            document.head.appendChild(script);
-          }).catch(function (err) {
-            html2pdfLoader = null;
-            throw err;
-          });
-          return html2pdfLoader;
-        }
-
-        function renderWithDompdf() {
-          return api(doc, currentOptions());
-        }
-
-        function currentViewportWidthPx() {
-          var docRect = doc.getBoundingClientRect();
-          return Math.max(
-            window.innerWidth || 0,
-            document.documentElement.clientWidth || 0,
-            Math.ceil(docRect.right),
-          );
-        }
-
-        function renderWithHtml2Pdf() {
-          return ensureHtml2Pdf().then(function (html2pdf) {
-            return html2pdf()
-              .set({
-                margin: 0,
-                filename: "html2pdf-single-file-demo.pdf",
-                image: { type: "jpeg", quality: 0.95 },
-                html2canvas: {
-                  scale: 2,
-                  useCORS: true,
-                  backgroundColor: "#ffffff",
-                  logging: false,
-                  // Preserve the live desktop layout; shrinking the cloned window
-                  // to the root width triggers the example's mobile breakpoint and
-                  // makes the exported PDF look blank/cropped.
-                  windowWidth: currentViewportWidthPx(),
-                },
-                jsPDF: {
-                  unit: "pt",
-                  format: "a4",
-                  orientation: "portrait",
-                  compress: false,
-                },
-                pagebreak: { mode: ["css", "legacy"] },
-              })
-              .from(doc)
-              .toPdf()
-              .outputPdf("blob");
-          });
-        }
-
-        function measureEngine(key, runner) {
-          var state = compareState[key];
-          state.state = "pending";
-          state.error = "";
-          state.durationMs = null;
-          state.sizeBytes = null;
-          updateCompareUI();
-          var startedAt = performance.now();
-          return runner()
-            .then(function (blob) {
-              state.state = "success";
-              state.durationMs = performance.now() - startedAt;
-              state.sizeBytes = blob.size;
-              updateCompareUI();
-              return {
-                blob: blob,
-                durationMs: state.durationMs,
-                sizeBytes: state.sizeBytes,
-              };
-            })
-            .catch(function (err) {
-              state.state = "error";
-              state.error = err && err.message ? err.message : String(err);
-              updateCompareUI();
-              throw err;
-            });
-        }
-
-        function loadFont() {
-          return fetch("./SourceHanSansSC-Regular.ttf")
-            .then(function (res) {
-              if (!res.ok) {
-                throw new Error(
-                  "failed to load Chinese font: HTTP " + res.status,
-                );
-              }
-              return res.arrayBuffer();
-            })
-            .then(function (buf) {
-              sharedFontConfig.fontBytes = new Uint8Array(buf);
-            });
-        }
-
-        function loadSymbolFont() {
-          // Separate file, fetched at runtime — not part of the dompdf.js bundle.
-          return fetch("../assets/symbol-fallback.ttf")
-            .then(function (res) {
-              if (!res.ok) return null;
-              return res.arrayBuffer();
-            })
-            .then(function (buf) {
-              if (!buf) return;
-              symbolFontConfig = {
-                fontFamily: "SymbolFallback",
-                fontStyle: "normal",
-                fontWeight: 400,
-                fontBytes: new Uint8Array(buf),
-              };
-            })
-            .catch(function () {
-              /* symbol font unavailable; symbols limited to the primary font */
-            });
-        }
-
-        function wireButtons() {
-          document
-            .getElementById("btn-export-dompdf")
-            .addEventListener("click", function () {
-              withBusy(function () {
-                setStatus("running dompdf.js...");
-                return measureEngine("dompdf", renderWithDompdf).then(function (
-                  result,
-                ) {
-                  downloadBlob(result.blob, "dompdf-single-file-demo.pdf");
-                  setStatus(
-                    "dompdf.js downloaded in " +
-                      formatDuration(result.durationMs) +
-                      " · " +
-                      formatBytes(result.sizeBytes),
-                  );
-                });
-              })
-                .catch(function (err) {
-                  setStatus("error: " + err.message);
-                  console.error(err);
-                });
-            });
-
-          document
-            .getElementById("btn-export-html2pdf")
-            .addEventListener("click", function () {
-              withBusy(function () {
-                setStatus("running html2pdf.js...");
-                return measureEngine("html2pdf", renderWithHtml2Pdf).then(
-                  function (result) {
-                    downloadBlob(result.blob, "html2pdf-single-file-demo.pdf");
-                    setStatus(
-                      "html2pdf.js downloaded in " +
-                        formatDuration(result.durationMs) +
-                        " · " +
-                        formatBytes(result.sizeBytes),
-                    );
-                  },
-                );
-              }).catch(function (err) {
-                setStatus("error: " + err.message);
-                console.error(err);
-              });
-            });
-
-          document
-            .getElementById("btn-compare")
-            .addEventListener("click", function () {
-              withBusy(function () {
-                setStatus("benchmarking dompdf.js...");
-                return measureEngine("dompdf", renderWithDompdf)
-                  .then(function () {
-                    setStatus("benchmarking html2pdf.js...");
-                    return measureEngine("html2pdf", renderWithHtml2Pdf);
-                  })
-                  .then(function () {
-                    setStatus("compare finished.");
-                  });
-              }).catch(function (err) {
-                setStatus("error: " + err.message);
-                console.error(err);
-              });
-            });
-
-          document
-            .getElementById("btn-inspect")
-            .addEventListener("click", function () {
-              withBusy(function () {
-                return api.inspect(doc, currentOptions());
-              })
-                .then(function (summary) {
-                  setStatus(summary.split("\n")[0]);
-                  console.log(summary);
-                })
-                .catch(function (err) {
-                  setStatus("error: " + err.message);
-                  console.error(err);
-                });
-            });
-
-          document
-            .getElementById("btn-overlay")
-            .addEventListener("click", function () {
-              if (overlayOn) {
-                clearOverlay();
-                setStatus("overlay removed.");
-                return;
-              }
-              try {
-                drawOverlay();
-              } catch (err) {
-                setStatus("error: " + err.message);
-                console.error(err);
-              }
-            });
-        }
-
-        buildLongList();
-        document.getElementById("sample-img").src = createChartDataUrl();
-        updateCompareUI();
-        ensureHtml2Pdf()
-          .then(function () {
-            compareState.html2pdf.note =
-              "html2pdf.js 已预加载，可直接参与对比。";
-            if (compareState.html2pdf.state === "error") {
-              compareState.html2pdf.state = "idle";
-              compareState.html2pdf.error = "";
-            }
-            updateCompareUI();
-          })
-          .catch(function (err) {
-            compareState.html2pdf.state = "error";
-            compareState.html2pdf.error = err.message;
-            updateCompareUI();
-          });
-        Promise.all([loadFont(), loadSymbolFont()])
-          .then(function () {
-            setStatus(
-              symbolFontConfig ? "ready (symbol font loaded)" : "ready",
-            );
-          })
-          .catch(function (err) {
-            setStatus("font load warning: " + err.message);
-            console.warn(err);
-          })
-          .finally(function () {
-            wireButtons();
-            readyResolve({
-              status: statusEl.textContent,
-              hasFontBytes: !!sharedFontConfig.fontBytes,
-            });
-          });
-      })();
-    </script>
-  </body>
 </html>
