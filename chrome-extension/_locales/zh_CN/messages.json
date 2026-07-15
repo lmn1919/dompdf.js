@@ -1,0 +1,4 @@
+{
+  "extensionName": { "message": "DomPDF - 网页转 PDF" },
+  "extensionDescription": { "message": "基于 dompdf.js 引擎，将网页或选中元素导出为高质量矢量 PDF" }
+}

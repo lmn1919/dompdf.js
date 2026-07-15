@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <rect x="16" y="8" width="96" height="112" rx="8" fill="#e8e8e8" stroke="#888" stroke-width="2.5"/>
+  <path d="M72 8v28a8 8 0 008 8h28" fill="none" stroke="#888" stroke-width="2.5"/>
+  <rect x="28" y="24" width="36" height="4" rx="2" fill="#bbb"/>
+  <rect x="28" y="34" width="50" height="4" rx="2" fill="#bbb"/>
+  <rect x="28" y="44" width="30" height="4" rx="2" fill="#bbb"/>
+  <rect x="28" y="54" width="55" height="4" rx="2" fill="#bbb"/>
+  <rect x="28" y="64" width="40" height="4" rx="2" fill="#bbb"/>
+  <rect x="24" y="76" width="80" height="36" rx="5" fill="#c0392b"/>
+  <text x="64" y="101" font-family="Arial,sans-serif" font-size="26" font-weight="bold" fill="#fff" text-anchor="middle">PDF</text>
+</svg>

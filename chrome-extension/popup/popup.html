@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=380">
+  <title>DomPDF</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="app">
+    <!-- 顶栏 -->
+    <header class="header">
+      <div class="header-left">
+        <img src="../icons/icon32.svg" alt="" class="header-icon">
+        <span class="header-title">DomPDF</span>
+      </div>
+      <span class="header-version">v1.0</span>
+    </header>
+
+    <!-- 导出模式 Tab -->
+    <div class="mode-tabs">
+      <button class="mode-tab active" data-mode="fullpage">
+        <svg class="tab-icon" viewBox="0 0 16 16" width="14" height="14"><rect x="2" y="1" width="12" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2"/><line x1="4.5" y1="4" x2="11.5" y2="4" stroke="currentColor" stroke-width="0.9"/><line x1="4.5" y1="6.5" x2="11.5" y2="6.5" stroke="currentColor" stroke-width="0.9"/><line x1="4.5" y1="9" x2="9" y2="9" stroke="currentColor" stroke-width="0.9"/><line x1="4.5" y1="11.5" x2="11.5" y2="11.5" stroke="currentColor" stroke-width="0.9"/></svg>
+        整页导出
+      </button>
+      <button class="mode-tab" data-mode="select">
+        <svg class="tab-icon" viewBox="0 0 16 16" width="14" height="14"><rect x="4" y="4" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="2 1.5"/><path d="M1 3V1.5A.5.5 0 011.5 1H3M13 1h1.5a.5.5 0 01.5.5V3M15 13v1.5a.5.5 0 01-.5.5H13M3 15H1.5a.5.5 0 01-.5-.5V13" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+        选择元素
+      </button>
+    </div>
+
+    <!-- 主内容区 -->
+    <div class="main-content">
+      <!-- 基本设置 -->
+      <section class="section">
+        <div class="section-title">基本设置</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label" for="format">纸张大小</label>
+            <select id="format" class="form-select">
+              <option value="a4" selected>A4 (210×297mm)</option>
+              <option value="a3">A3 (297×420mm)</option>
+              <option value="letter">Letter (216×279mm)</option>
+              <option value="legal">Legal (216×356mm)</option>
+              <option value="custom">自定义</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="orientation">方向</label>
+            <select id="orientation" class="form-select">
+              <option value="p" selected>纵向</option>
+              <option value="l">横向</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 自定义尺寸 -->
+        <div id="customSizeGroup" class="form-grid custom-size hidden">
+          <div class="form-group">
+            <label class="form-label" for="customWidth">宽度 (mm)</label>
+            <input type="number" id="customWidth" class="form-input" value="210" min="50" max="1000">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="customHeight">高度 (mm)</label>
+            <input type="number" id="customHeight" class="form-input" value="297" min="50" max="1000">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label class="form-label">边距 (pt)</label>
+          <div class="margin-inputs">
+            <input type="number" id="marginTop" class="form-input margin-input" value="20" min="0" placeholder="上">
+            <input type="number" id="marginRight" class="form-input margin-input" value="20" min="0" placeholder="右">
+            <input type="number" id="marginBottom" class="form-input margin-input" value="20" min="0" placeholder="下">
+            <input type="number" id="marginLeft" class="form-input margin-input" value="20" min="0" placeholder="左">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label class="toggle-row">
+            <span class="form-label">启用分页</span>
+            <input type="checkbox" id="pagination" class="toggle-input" checked>
+            <span class="toggle-switch"></span>
+          </label>
+        </div>
+
+        <div class="form-row">
+          <label class="toggle-row">
+            <span class="form-label">压缩</span>
+            <input type="checkbox" id="compress" class="toggle-input" checked>
+            <span class="toggle-switch"></span>
+          </label>
+        </div>
+      </section>
+
+      <!-- 高级设置折叠面板 -->
+      <section class="section">
+        <button class="collapse-toggle" data-target="advancedPanel">
+          <span class="collapse-title">高级设置</span>
+          <svg class="collapse-arrow" viewBox="0 0 12 12" width="12" height="12"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div id="advancedPanel" class="collapse-body">
+          <!-- 页眉 -->
+          <div class="sub-section">
+            <label class="toggle-row">
+              <span class="form-label-sm">页眉</span>
+              <input type="checkbox" id="headerEnabled" class="toggle-input">
+              <span class="toggle-switch"></span>
+            </label>
+            <div id="headerConfig" class="indent-group hidden">
+              <div class="form-group">
+                <input type="text" id="headerContent" class="form-input" placeholder="页眉文字">
+              </div>
+              <div class="form-grid-3">
+                <div class="form-group">
+                  <label class="form-label-xs">高度</label>
+                  <input type="number" id="headerHeight" class="form-input" value="40" min="10">
+                </div>
+                <div class="form-group">
+                  <label class="form-label-xs">字号</label>
+                  <input type="number" id="headerFontSize" class="form-input" value="10" min="6">
+                </div>
+                <div class="form-group">
+                  <label class="form-label-xs">位置</label>
+                  <select id="headerPosition" class="form-select">
+                    <option value="center">居中</option>
+                    <option value="centerLeft">靠左</option>
+                    <option value="centerRight">靠右</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 页脚 -->
+          <div class="sub-section">
+            <label class="toggle-row">
+              <span class="form-label-sm">页脚</span>
+              <input type="checkbox" id="footerEnabled" class="toggle-input">
+              <span class="toggle-switch"></span>
+            </label>
+            <div id="footerConfig" class="indent-group hidden">
+              <div class="form-group">
+                <input type="text" id="footerContent" class="form-input" placeholder="页脚文字 (支持 ${currentPage}/${totalPages})">
+              </div>
+              <div class="form-grid-3">
+                <div class="form-group">
+                  <label class="form-label-xs">高度</label>
+                  <input type="number" id="footerHeight" class="form-input" value="40" min="10">
+                </div>
+                <div class="form-group">
+                  <label class="form-label-xs">字号</label>
+                  <input type="number" id="footerFontSize" class="form-input" value="10" min="6">
+                </div>
+                <div class="form-group">
+                  <label class="form-label-xs">位置</label>
+                  <select id="footerPosition" class="form-select">
+                    <option value="center">居中</option>
+                    <option value="centerLeft">靠左</option>
+                    <option value="centerRight">靠右</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 水印 -->
+          <div class="sub-section">
+            <label class="toggle-row">
+              <span class="form-label-sm">水印</span>
+              <input type="checkbox" id="watermarkEnabled" class="toggle-input">
+              <span class="toggle-switch"></span>
+            </label>
+            <div id="watermarkConfig" class="indent-group hidden">
+              <div class="form-group">
+                <input type="text" id="watermarkText" class="form-input" placeholder="水印文字">
+              </div>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label class="form-label-xs">字号</label>
+                  <input type="number" id="watermarkFontSize" class="form-input" value="48" min="10">
+                </div>
+                <div class="form-group">
+                  <label class="form-label-xs">角度</label>
+                  <input type="number" id="watermarkAngle" class="form-input" value="-45" min="-90" max="90">
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label-xs">颜色</label>
+                <input type="text" id="watermarkColor" class="form-input" value="rgba(0,0,0,0.08)" placeholder="rgba(0,0,0,0.08)">
+              </div>
+            </div>
+          </div>
+
+          <!-- 加密 -->
+          <div class="sub-section">
+            <label class="toggle-row">
+              <span class="form-label-sm">PDF 加密</span>
+              <input type="checkbox" id="encryptionEnabled" class="toggle-input">
+              <span class="toggle-switch"></span>
+            </label>
+            <div id="encryptionConfig" class="indent-group hidden">
+              <div class="form-group">
+                <label class="form-label-xs">用户密码</label>
+                <input type="password" id="userPassword" class="form-input" placeholder="打开文件需要输入">
+              </div>
+              <div class="form-group">
+                <label class="form-label-xs">所有者密码</label>
+                <input type="password" id="ownerPassword" class="form-input" placeholder="修改权限需要输入">
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 字体管理 -->
+      <section class="section">
+        <button class="collapse-toggle" data-target="fontPanel">
+          <span class="collapse-title">字体管理</span>
+          <svg class="collapse-arrow" viewBox="0 0 12 12" width="12" height="12"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div id="fontPanel" class="collapse-body">
+          <div class="font-item builtin">
+            <div class="font-info">
+              <span class="font-name">思源黑体 SC</span>
+              <span class="font-badge">内置</span>
+            </div>
+            <label class="toggle-row">
+              <input type="checkbox" id="useBuiltinFont" class="toggle-input" checked>
+              <span class="toggle-switch"></span>
+            </label>
+          </div>
+          <div id="customFontsList"></div>
+          <div class="font-upload-row">
+            <label class="btn btn-outline btn-sm" for="fontUpload">
+              <svg viewBox="0 0 14 14" width="12" height="12"><path d="M7 2v8M3 6l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 10v2h10v-2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              上传字体
+            </label>
+            <input type="file" id="fontUpload" accept=".ttf,.otf" hidden>
+            <span class="font-hint">支持 .ttf / .otf</span>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- 底部操作栏 -->
+    <footer class="footer">
+      <!-- 进度条 -->
+      <div id="progressArea" class="progress-area hidden">
+        <div class="progress-bar">
+          <div id="progressFill" class="progress-fill"></div>
+        </div>
+        <span id="progressText" class="progress-text">准备中...</span>
+      </div>
+
+      <!-- 按钮 -->
+      <div class="footer-actions">
+        <button id="btnExport" class="btn btn-primary">
+          <svg viewBox="0 0 16 16" width="14" height="14"><path d="M8 2v8M4 7l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12v2h12v-2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span id="btnExportText">生成 PDF</span>
+        </button>
+      </div>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

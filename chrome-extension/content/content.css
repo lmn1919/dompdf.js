@@ -1,0 +1,218 @@
+/* ============================================================
+   DomPDF Chrome Extension — Content Script Styles
+   元素选择高亮 + 浮动工具栏 + 导出进度浮层
+   ============================================================ */
+
+/* ---- 选择模式覆盖层（全屏半透明蒙版） ---- */
+#dompdf-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 2147483640;
+  cursor: crosshair;
+  pointer-events: auto;
+}
+
+/* ---- 元素高亮框 ---- */
+#dompdf-highlight {
+  position: fixed;
+  z-index: 2147483641;
+  pointer-events: none;
+  border: 2px solid #4a8fe2;
+  background: rgba(74, 143, 226, 0.08);
+  transition: top 0.12s ease, left 0.12s ease, width 0.12s ease, height 0.12s ease;
+}
+
+/* 选中状态 */
+#dompdf-highlight.selected {
+  border-color: #4a8fe2;
+  background: rgba(74, 143, 226, 0.12);
+  border-width: 2px;
+}
+
+/* ---- 元素信息 Tooltip ---- */
+#dompdf-tooltip {
+  position: fixed;
+  z-index: 2147483643;
+  pointer-events: none;
+  padding: 3px 8px;
+  background: #1b1b1f;
+  color: #d4d4d8;
+  font-family: "SF Mono", "Cascadia Code", "Consolas", monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  border: 1px solid #3c3c44;
+  border-radius: 3px;
+  white-space: nowrap;
+  max-width: 400px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#dompdf-tooltip .tag-name {
+  color: #6eb3f7;
+}
+
+#dompdf-tooltip .id-name {
+  color: #e6a23c;
+}
+
+#dompdf-tooltip .class-name {
+  color: #81c995;
+}
+
+#dompdf-tooltip .size-info {
+  color: #8b8b96;
+  margin-left: 6px;
+}
+
+/* ---- 浮动工具栏 ---- */
+#dompdf-toolbar {
+  position: fixed;
+  z-index: 2147483644;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  background: #1b1b1f;
+  border: 1px solid #3c3c44;
+  border-radius: 5px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-size: 0;
+  line-height: 1;
+}
+
+#dompdf-toolbar .tb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: #b4b4be;
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s;
+}
+
+#dompdf-toolbar .tb-btn:hover {
+  background: #2a2a30;
+  color: #d4d4d8;
+}
+
+#dompdf-toolbar .tb-btn.primary {
+  background: #4a8fe2;
+  color: #fff;
+}
+
+#dompdf-toolbar .tb-btn.primary:hover {
+  background: #5a9bea;
+}
+
+#dompdf-toolbar .tb-btn.danger:hover {
+  background: rgba(192, 57, 43, 0.15);
+  color: #e74c3c;
+}
+
+#dompdf-toolbar .tb-sep {
+  width: 1px;
+  height: 18px;
+  background: #3c3c44;
+  margin: 0 2px;
+}
+
+/* 工具栏中的节点信息 */
+#dompdf-toolbar .tb-node-info {
+  padding: 0 6px;
+  font-family: "SF Mono", "Cascadia Code", "Consolas", monospace;
+  font-size: 10px;
+  color: #8b8b96;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- 导出进度浮层 ---- */
+#dompdf-progress-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 2147483645;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#dompdf-progress-card {
+  background: #1b1b1f;
+  border: 1px solid #3c3c44;
+  border-radius: 8px;
+  padding: 24px 32px;
+  min-width: 280px;
+  text-align: center;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+#dompdf-progress-card .prog-title {
+  font-size: 14px;
+  color: #d4d4d8;
+  margin-bottom: 16px;
+  font-weight: 500;
+}
+
+#dompdf-progress-card .prog-bar-track {
+  height: 4px;
+  background: #35353d;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+#dompdf-progress-card .prog-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: #4a8fe2;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+#dompdf-progress-card .prog-text {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #8b8b96;
+}
+
+/* ---- 导出成功提示 ---- */
+#dompdf-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 2147483646;
+  padding: 10px 18px;
+  background: #1b1b1f;
+  border: 1px solid #4caf50;
+  border-radius: 5px;
+  color: #d4d4d8;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.25s, transform 0.25s;
+}
+
+#dompdf-toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}

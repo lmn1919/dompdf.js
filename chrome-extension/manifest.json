@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "DomPDF - 网页转 PDF",
+  "version": "1.0.0",
+  "description": "基于 dompdf.js 引擎，将网页或选中元素导出为高质量矢量 PDF",
+  "default_locale": "zh_CN",
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": "icons/icon128.svg",
+    "default_title": "DomPDF - 网页转 PDF"
+  },
+  "permissions": [
+    "activeTab",
+    "storage",
+    "downloads",
+    "scripting"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["lib/dompdf.min.js", "fonts/*"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}
+
