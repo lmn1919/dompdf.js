@@ -508,6 +508,7 @@ fn apply_break_directives(snap: &mut Snapshot, children: &[Vec<usize>], content_
             break;
         }
     }
+
 }
 
 /// Geometry derived from config + page size.
@@ -1411,6 +1412,7 @@ fn draw_text_lines(
         }
         let allow_justify = font.align == 3 && line_idx + 1 < node.lines.len();
         let cid = select_cid_font(fontctx, &font.family, font.weight, font.italic, &normalized);
+        let synthetic_bold = font.weight >= 700 && cid.map(|cf| cf.weight < 700).unwrap_or(false);
         let actual_text_hex = if node.render_mode == 3 || node.opacity.unwrap_or(1.0) <= 0.001 {
             Some(pdf_utf16_hex(&normalized))
         } else {
@@ -1425,6 +1427,9 @@ fn draw_text_lines(
         if let Some(actual_text) = actual_text_hex.as_ref() {
             out.push_str(&format!("/Span << /ActualText <{}> >> BDC\n", actual_text));
         }
+        if synthetic_bold {
+            out.push_str(&format!("{} {} {} RG {} w\n", f(color[0]), f(color[1]), f(color[2]), f((fs_pt * 0.025).max(0.15))));
+        }
         out.push_str("BT\n");
         // Tr (text render mode) is a persistent graphics-state parameter: it is
         // NOT reset by BT/ET, only by q/Q. Always emit it explicitly so an
@@ -1432,6 +1437,8 @@ fn draw_text_lines(
         // never leak render mode 3 into later, normally-visible text.
         if node.render_mode == 3 {
             out.push_str("3 Tr\n");
+        } else if synthetic_bold {
+            out.push_str("2 Tr\n");
         } else {
             out.push_str("0 Tr\n");
         }
