@@ -2482,8 +2482,8 @@ function buildInlineRunsWithLangFont(
           height: raster.height,
           format: raster.format,
         });
-        const rawX = raster.rawLeft + window.scrollX - offX;
-        const rawY = raster.rawTop + window.scrollY - offY;
+        const rawX = raster.rawLeft + window.scrollX - offX + rootScrollX;
+        const rawY = raster.rawTop + window.scrollY - offY + rootScrollY;
         // Layout size comes from the CSS box, NOT the supersampled pixel count —
         // otherwise a 2-3x raster would scale the element up by the same factor.
         const scaledW = raster.cssWidth * layoutScale;
@@ -2584,7 +2584,9 @@ function buildInlineRunsWithLangFont(
       (parseFloat(cs.borderBottomLeftRadius) || 0) * layoutScale,
     ];
     const hasRadius = (radius[0] + radius[1] + radius[2] + radius[3]) > 0;
-    const overflowHidden = clipsOverflow(cs);
+    // The exported root represents the full document, including scrollable
+    // off-screen content. Nested clipping containers keep their CSS behavior.
+    const overflowHidden = parentId !== -1 && clipsOverflow(cs);
     const opacity = parseFloat(cs.opacity);
     const hasOpacity = opacity < 1;
 
@@ -3116,11 +3118,8 @@ export function computePageBreaks(root: HTMLElement, options: ExportOptions = {}
   const [fmtW, fmtH] = resolvePageSize(normalizedOptions.format);
   const pageWidthPt = normalizedOptions.pageWidthPt ?? fmtW;
   const pageHeightPt = normalizedOptions.pageHeightPt ?? fmtH;
-  const m = normalizedOptions.marginPt ?? 36;
-  const mTop = Array.isArray(m) ? m[0] : m;
-  const mRight = Array.isArray(m) ? m[1] : m;
-  const mBottom = Array.isArray(m) ? m[2] : m;
-  const mLeft = Array.isArray(m) ? m[3] : m;
+  const marginGeometry = resolveMarginGeometry(root, normalizedOptions);
+  const [mTop, mRight, mBottom, mLeft] = marginGeometry.margins;
   const pagination = normalizedOptions.pagination ?? false;
   if (!pagination) return [];
   const staticHF = resolveStaticHF(normalizedOptions, pagination);
