@@ -4,7 +4,7 @@
 //!
 //! Header:
 //!   magic: 4 bytes = "D2P1"
-//!   version: u32 = 10
+//!   version: u32 = 11
 //!   pageWidthPt, pageHeightPt, marginTop, marginRight, marginBottom, marginLeft: f32
 //!
 //! Config block:
@@ -161,6 +161,7 @@ pub struct Node {
     pub render_mode: u8,
     pub division_disable: bool,
     pub page_break: bool,
+    pub href: Option<String>,
     pub text: Option<String>,
     pub lines: Vec<Line>,
 }
@@ -177,6 +178,8 @@ pub const F_RENDER_MODE: u16 = 0x80;
 pub const F_DIVISION_DISABLE: u16 = 0x100;
 pub const F_PAGE_BREAK: u16 = 0x200;
 pub const F_SHADOW: u16 = 0x400;
+pub const F_LINK: u16 = 0x800;
+pub const F_AVOID_IMAGE_SPLIT: u16 = 0x1000;
 
 #[derive(Clone)]
 pub struct Border {
@@ -450,9 +453,9 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
         return Err(format!("bad magic: {:?}", magic));
     }
     let version = c.u32()?;
-    if version != 7 && version != 8 && version != 9 && version != 10 {
+    if version != 7 && version != 8 && version != 9 && version != 10 && version != 11 {
         return Err(format!(
-            "unsupported version {} (expected 7, 8, 9 or 10)",
+            "unsupported version {} (expected 7, 8, 9, 10 or 11)",
             version
         ));
     }
@@ -643,6 +646,12 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
         let render_mode = if flags & F_RENDER_MODE != 0 { c.u8()? } else { 0 };
         let division_disable = flags & F_DIVISION_DISABLE != 0;
         let page_break = flags & F_PAGE_BREAK != 0;
+        let href = if version >= 11 && flags & F_LINK != 0 {
+            let href_len = c.u32()? as usize;
+            Some(c.utf8(href_len)?)
+        } else {
+            None
+        };
         let mut text = None;
         let mut lines = Vec::new();
         if kind == 1 {
@@ -688,6 +697,7 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
             render_mode,
             division_disable,
             page_break,
+            href,
             text,
             lines,
         });

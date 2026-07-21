@@ -376,7 +376,7 @@ export interface ExportOptions {
   // ---- advanced pt-level overrides (take precedence over format/margins) ----
   pageWidthPt?: number;
   pageHeightPt?: number;
-  /** Margins in pt: number (all sides) or [top, right, bottom, left]. Default 0. */
+  /** Margins in pt. When omitted or 0, use the root element's CSS margin + padding. */
   marginPt?: number | [number, number, number, number];
   jpegQuality?: number;
 }
@@ -431,6 +431,52 @@ function computeLayoutScale(rootWidthPx: number, pageWidthPt: number, mLeftPt: n
   if (!(rootWidthPx > 0)) return 1;
   const contentWidthPx = Math.max(1, (pageWidthPt - mLeftPt - mRightPt) / PX_TO_PT);
   return Math.min(1, contentWidthPx / rootWidthPx);
+}
+
+function marginPtIsEmpty(value: any) {
+  return value == null || value === '' || value === 0 || (Array.isArray(value) && value.length === 0);
+}
+// In automatic mode the CSS inset becomes the PDF margin, so coordinates must
+// start at the content box to avoid rendering the same padding twice.
+function resolveMarginGeometry(root: HTMLElement, options: ExportOptions = {}) {
+  const supplied = options.marginPt;
+  if (!marginPtIsEmpty(supplied)) {
+    return {
+      margins: Array.isArray(supplied) ? supplied : [supplied, supplied, supplied, supplied],
+      offsetX: 0,
+      offsetY: 0,
+      contentWidth: null,
+      contentHeight: null
+    };
+  }
+  if (root && typeof getComputedStyle === 'function') {
+    const rootStyle = getComputedStyle(root);
+    const sides = ['Top', 'Right', 'Bottom', 'Left'] as const;
+    const spacing = (style: CSSStyleDeclaration, side: typeof sides[number]) =>
+      (parseFloat(style[`margin${side}`]) || 0) + (parseFloat(style[`padding${side}`]) || 0);
+    const cs = rootStyle;
+    const paddingLeft = parseFloat(cs.paddingLeft) || 0;
+    const paddingRight = parseFloat(cs.paddingRight) || 0;
+    const paddingTop = parseFloat(cs.paddingTop) || 0;
+    const paddingBottom = parseFloat(cs.paddingBottom) || 0;
+    const borderLeft = parseFloat(cs.borderLeftWidth) || 0;
+    const borderRight = parseFloat(cs.borderRightWidth) || 0;
+    const borderTop = parseFloat(cs.borderTopWidth) || 0;
+    const borderBottom = parseFloat(cs.borderBottomWidth) || 0;
+    const rootRect = root.getBoundingClientRect();
+    const visibleContentWidth = rootRect.width - borderLeft - borderRight - paddingLeft - paddingRight;
+    const visibleContentHeight = rootRect.height - borderTop - borderBottom - paddingTop - paddingBottom;
+    const scrollContentWidth = root.scrollWidth - paddingLeft - paddingRight;
+    const scrollContentHeight = root.scrollHeight - paddingTop - paddingBottom;
+    return {
+      margins: sides.map(side => spacing(cs, side) * PX_TO_PT),
+      offsetX: borderLeft + paddingLeft,
+      offsetY: borderTop + paddingTop,
+      contentWidth: Math.max(1, visibleContentWidth, scrollContentWidth),
+      contentHeight: Math.max(1, visibleContentHeight, scrollContentHeight)
+    };
+  }
+  return { margins: [36, 36, 36, 36], offsetX: 0, offsetY: 0, contentWidth: null, contentHeight: null };
 }
 
 interface CollectedImage {
@@ -568,6 +614,7 @@ interface NodeRec {
   renderMode: number;
   divisionDisable: boolean;
   pageBreak: boolean;
+  href?: string;
   text?: string;
   lines?: LineBox[];
 }
@@ -584,6 +631,8 @@ const F_RENDER_MODE = 0x80;
 const F_DIVISION_DISABLE = 0x100;
 const F_PAGE_BREAK = 0x200;
 const F_SHADOW = 0x400;
+const F_LINK = 0x800;
+const F_AVOID_IMAGE_SPLIT = 0x1000;
 
 // header/footer position enum (must match Rust HFSpec.position)
 function positionNum(p: ContentPosition | undefined): number {
@@ -1945,8 +1994,8 @@ export async function collectSnapshotData(
   const [fmtW, fmtH] = resolvePageSize(normalizedOptions.format);
   const pageWidthPt = normalizedOptions.pageWidthPt ?? fmtW;
   const pageHeightPt = normalizedOptions.pageHeightPt ?? fmtH;
-  const m = normalizedOptions.marginPt ?? 0;
-  const [mTop, mRight, mBottom, mLeft] = Array.isArray(m) ? m : [m, m, m, m];
+  const marginGeometry = resolveMarginGeometry(root, normalizedOptions);
+  const [mTop, mRight, mBottom, mLeft] = marginGeometry.margins;
   const quality = normalizedOptions.jpegQuality ?? 0.85;
   const useCORS = normalizedOptions.useCORS ?? false;
   const pagination = normalizedOptions.pagination ?? false;
@@ -2009,17 +2058,20 @@ export async function collectSnapshotData(
   );
 
   const rootRect = root.getBoundingClientRect();
-  const offX = rootRect.left + window.scrollX;
-  const offY = rootRect.top + window.scrollY;
-  const layoutScale = computeLayoutScale(rootRect.width, pageWidthPt, mLeft, mRight);
+  const rootScrollX = root.scrollLeft;
+  const rootScrollY = root.scrollTop;
+  const offX = rootRect.left + window.scrollX + marginGeometry.offsetX;
+  const offY = rootRect.top + window.scrollY + marginGeometry.offsetY;
+  const layoutWidth = marginGeometry.contentWidth ?? rootRect.width;
+  const layoutScale = computeLayoutScale(layoutWidth, pageWidthPt, mLeft, mRight);
 
   const nodes: NodeRec[] = [];
   const range = document.createRange();
 
   function docRect(r: DOMRect): { x: number; y: number; w: number; h: number } {
     return {
-      x: (r.left + window.scrollX - offX) * layoutScale,
-      y: (r.top + window.scrollY - offY) * layoutScale,
+      x: (r.left + window.scrollX - offX + rootScrollX) * layoutScale,
+      y: (r.top + window.scrollY - offY + rootScrollY) * layoutScale,
       w: r.width * layoutScale,
       h: r.height * layoutScale,
     };
@@ -2406,6 +2458,15 @@ function buildInlineRunsWithLangFont(
     // re-measuring now — see the comment by imgRectAtConvert above.
     const rawRect = (isImg && imgRectAtConvert.get(el)) || el.getBoundingClientRect();
     const r = docRect(rawRect);
+    if (parentId === -1 && marginGeometry.contentWidth != null && marginGeometry.contentHeight != null) {
+      r.x = 0;
+      r.y = 0;
+      r.w = marginGeometry.contentWidth * layoutScale;
+      r.h = marginGeometry.contentHeight * layoutScale;
+    }
+    const hrefAttr = el.tagName === 'A' ? el.getAttribute('href')?.trim() : '';
+    const resolvedHref = hrefAttr ? (el as HTMLAnchorElement).href.trim() : '';
+    const href = resolvedHref && !/^javascript:/i.test(resolvedHref) ? resolvedHref : undefined;
 
     const kind = isImg ? 2 : 0;
     const strategy: RenderStrategy = isImg ? 'vector' : classifyRenderStrategy(el, cs);
@@ -2421,8 +2482,8 @@ function buildInlineRunsWithLangFont(
           height: raster.height,
           format: raster.format,
         });
-        const rawX = raster.rawLeft + window.scrollX - offX;
-        const rawY = raster.rawTop + window.scrollY - offY;
+        const rawX = raster.rawLeft + window.scrollX - offX + rootScrollX;
+        const rawY = raster.rawTop + window.scrollY - offY + rootScrollY;
         // Layout size comes from the CSS box, NOT the supersampled pixel count —
         // otherwise a 2-3x raster would scale the element up by the same factor.
         const scaledW = raster.cssWidth * layoutScale;
@@ -2440,6 +2501,7 @@ function buildInlineRunsWithLangFont(
           renderMode: 0,
           divisionDisable: el.hasAttribute('divisionDisable'),
           pageBreak: el.hasAttribute('pageBreak'),
+          href,
           imageId,
           objectFit: 0,
         });
@@ -2522,7 +2584,9 @@ function buildInlineRunsWithLangFont(
       (parseFloat(cs.borderBottomLeftRadius) || 0) * layoutScale,
     ];
     const hasRadius = (radius[0] + radius[1] + radius[2] + radius[3]) > 0;
-    const overflowHidden = clipsOverflow(cs);
+    // The exported root represents the full document, including scrollable
+    // off-screen content. Nested clipping containers keep their CSS behavior.
+    const overflowHidden = parentId !== -1 && clipsOverflow(cs);
     const opacity = parseFloat(cs.opacity);
     const hasOpacity = opacity < 1;
 
@@ -2540,9 +2604,11 @@ function buildInlineRunsWithLangFont(
     if (overflowHidden) flags |= F_OVERFLOW;
     if (hasOpacity) flags |= F_OPACITY;
     if (isImg) flags |= F_IMAGE;
+    if (isImg) flags |= F_AVOID_IMAGE_SPLIT;
     if (renderMode !== 0) flags |= F_RENDER_MODE;
     if (divisionDisable) flags |= F_DIVISION_DISABLE;
     if (pageBreak) flags |= F_PAGE_BREAK;
+    if (href) flags |= F_LINK;
 
     const node: NodeRec = {
       id,
@@ -2565,6 +2631,7 @@ function buildInlineRunsWithLangFont(
       renderMode,
       divisionDisable,
       pageBreak,
+      href,
       imageId: isImg ? imgToId.get(el) : undefined,
       objectFit: isImg ? objectFitNum(cs.objectFit) : undefined,
     };
@@ -2898,7 +2965,7 @@ function writeOptWatermark(w: BinWriter, watermark: ResolvedWatermark | null) {
 function encode(a: EncodeArgs): Uint8Array {
   const w = new BinWriter();
   w.bytes(new Uint8Array([0x44, 0x32, 0x50, 0x31])); // "D2P1"
-  w.u32(10); // version 10 (adds image watermark support)
+  w.u32(11); // version 11 (adds hyperlink annotations)
   w.f32(a.pageWidthPt);
   w.f32(a.pageHeightPt);
   w.f32(a.mTop);
@@ -2970,6 +3037,7 @@ function encode(a: EncodeArgs): Uint8Array {
     if (n.renderMode !== 0) flags |= F_RENDER_MODE;
     if (n.divisionDisable) flags |= F_DIVISION_DISABLE;
     if (n.pageBreak) flags |= F_PAGE_BREAK;
+    if (n.href) flags |= F_LINK;
     w.u16(flags);
     if (n.bg) {
       w.f32(n.bg[0]); w.f32(n.bg[1]); w.f32(n.bg[2]); w.f32(n.bg[3]);
@@ -3011,6 +3079,11 @@ function encode(a: EncodeArgs): Uint8Array {
       w.u8(n.objectFit ?? 0);
     }
     if (n.renderMode !== 0) w.u8(n.renderMode);
+    if (n.href) {
+      const hrefLen = BinWriter.utf8Len(n.href);
+      w.u32(hrefLen);
+      w.utf8(n.href);
+    }
     if (n.kind === 1) {
       const text = n.text ?? '';
       const tlen = BinWriter.utf8Len(text);
@@ -3045,11 +3118,8 @@ export function computePageBreaks(root: HTMLElement, options: ExportOptions = {}
   const [fmtW, fmtH] = resolvePageSize(normalizedOptions.format);
   const pageWidthPt = normalizedOptions.pageWidthPt ?? fmtW;
   const pageHeightPt = normalizedOptions.pageHeightPt ?? fmtH;
-  const m = normalizedOptions.marginPt ?? 36;
-  const mTop = Array.isArray(m) ? m[0] : m;
-  const mRight = Array.isArray(m) ? m[1] : m;
-  const mBottom = Array.isArray(m) ? m[2] : m;
-  const mLeft = Array.isArray(m) ? m[3] : m;
+  const marginGeometry = resolveMarginGeometry(root, normalizedOptions);
+  const [mTop, mRight, mBottom, mLeft] = marginGeometry.margins;
   const pagination = normalizedOptions.pagination ?? false;
   if (!pagination) return [];
   const staticHF = resolveStaticHF(normalizedOptions, pagination);
@@ -3057,12 +3127,13 @@ export function computePageBreaks(root: HTMLElement, options: ExportOptions = {}
   const footerHPt = (staticHF?.footer?.height ?? 0) * PX_TO_PT;
   const contentHpt = pageHeightPt - mTop - mBottom - headerHPt - footerHPt;
   const contentHpx = (contentHpt > 0 ? contentHpt : pageHeightPt - mTop - mBottom) / PX_TO_PT;
-  const layoutScale = computeLayoutScale(root.getBoundingClientRect().width, pageWidthPt, mLeft, mRight);
-  const rootH = root.getBoundingClientRect().height;
+  const rootRect = root.getBoundingClientRect();
+  const layoutWidth = marginGeometry.contentWidth ?? rootRect.width;
+  const layoutScale = computeLayoutScale(layoutWidth, pageWidthPt, mLeft, mRight);
+  const rootH = marginGeometry.contentHeight ?? rootRect.height;
   const breakStep = contentHpx / layoutScale;
   if (!(breakStep > 0) || !(rootH > 0)) return [];
 
-  const rootRect = root.getBoundingClientRect();
   const epsilon = 0.5;
   const breaks: number[] = [];
   let pageStart = 0;
@@ -3087,8 +3158,8 @@ export function computePageBreaks(root: HTMLElement, options: ExportOptions = {}
   const directives = Array.from(root.querySelectorAll<HTMLElement>('[pageBreak], [divisionDisable]'))
     .map((el, order) => {
       const rect = el.getBoundingClientRect();
-      const top = rect.top - rootRect.top;
-      const bottom = rect.bottom - rootRect.top;
+      const top = rect.top - rootRect.top - marginGeometry.offsetY;
+      const bottom = rect.bottom - rootRect.top - marginGeometry.offsetY;
       return {
         bottom: Math.max(0, Math.min(rootH, bottom)),
         divisionDisable: el.hasAttribute('divisionDisable'),
@@ -3115,7 +3186,7 @@ export function computePageBreaks(root: HTMLElement, options: ExportOptions = {}
   }
 
   advanceImplicitPages(rootH);
-  return breaks;
+  return breaks.map(y => y + marginGeometry.offsetY);
 }
 
 // ---- function-form pageConfig support ----

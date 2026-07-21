@@ -15,7 +15,9 @@ use crate::font::{
 };
 use crate::encrypt::PdfSecurity;
 use crate::pdf::PdfWriter;
-use crate::snapshot::{BoxShadow, HFSpec, Image, Node, Snapshot, WatermarkSpec};
+use crate::snapshot::{
+    BoxShadow, HFSpec, Image, Node, Snapshot, WatermarkSpec, F_AVOID_IMAGE_SPLIT,
+};
 
 pub const PX_TO_PT: f32 = 0.75;
 const ASCENT: f32 = 0.8; // approx Helvetica ascent / em, for baseline placement
@@ -57,8 +59,14 @@ thread_local! {
 pub struct PagePlan {
     pub content: String,
     pub image_ids: Vec<u32>,
+    pub links: Vec<LinkAnnotation>,
     /// MediaBox height override (single-page mode); None = use pageHeightPt.
     pub media_h: Option<f32>,
+}
+
+pub struct LinkAnnotation {
+    pub href: String,
+    pub rect: [f32; 4],
 }
 
 fn precision() -> u8 {
@@ -500,6 +508,7 @@ fn apply_break_directives(snap: &mut Snapshot, children: &[Vec<usize>], content_
             break;
         }
     }
+
 }
 
 /// Geometry derived from config + page size.
@@ -566,6 +575,25 @@ pub fn assign_pages(snap: &mut Snapshot) -> u32 {
 
     let content_h_px = geo.content_h_px;
     for idx in 0..snap.nodes.len() {
+        // Evaluate images in document order, after all preceding text has
+        // inserted its real page-break gaps. This makes the decision depend on
+        // the final remaining page height rather than the pre-pagination DOM y.
+        if snap.nodes[idx].kind == 2 && snap.nodes[idx].flags & F_AVOID_IMAGE_SPLIT != 0 {
+            let top = snap.nodes[idx].y;
+            let height = snap.nodes[idx].h;
+            if height > 0.0 && height <= content_h_px {
+                let top_page = (top / content_h_px).floor();
+                let bottom_page = ((top + height - 1e-3) / content_h_px).floor();
+                if bottom_page > top_page {
+                    let target = (top_page + 1.0) * content_h_px;
+                    let gap = target - top;
+                    if gap > 0.0 {
+                        shift_flow_tail(snap, &children, idx, gap);
+                    }
+                }
+            }
+            continue;
+        }
         let (_, right) = snap.nodes.split_at_mut(idx);
         let (node, tail) = right.split_first_mut().unwrap();
         if node.kind != 1 {
@@ -735,6 +763,7 @@ pub fn paginate(
         pages.push(PagePlan {
             content,
             image_ids,
+            links: collect_page_links(snap, &geo, i, current_content_h_px, page_h_pt),
             media_h: single_media_h,
         });
     }
@@ -749,6 +778,47 @@ fn rect_pt(snap: &Snapshot, geo: &Geo, node: &Node, page: u32, content_h_px: f32
     let h = node.h * PX_TO_PT;
     let bottom = top_pt - h;
     (x0, bottom, w, h)
+}
+
+fn collect_page_links(
+    snap: &Snapshot,
+    geo: &Geo,
+    page: u32,
+    content_h_px: f32,
+    page_h_pt: f32,
+) -> Vec<LinkAnnotation> {
+    let band_top = page as f32 * content_h_px;
+    let band_bottom = band_top + content_h_px;
+    let content_left = snap.margin_left;
+    let content_right = snap.page_width_pt - snap.margin_right;
+    let mut links = Vec::new();
+
+    for node in snap.nodes.iter() {
+        let Some(href) = node.href.as_ref() else { continue };
+        if href.is_empty() || node.w <= 0.0 || node.h <= 0.0 || node.render_mode == 2 {
+            continue;
+        }
+        let top_px = node.y.max(band_top);
+        let bottom_px = (node.y + node.h).min(band_bottom);
+        if bottom_px <= top_px {
+            continue;
+        }
+
+        let x0 = (snap.margin_left + node.x * PX_TO_PT).max(content_left);
+        let x1 = (snap.margin_left + (node.x + node.w) * PX_TO_PT).min(content_right);
+        if x1 <= x0 {
+            continue;
+        }
+        let top = page_h_pt - snap.margin_top - geo.header_h_pt
+            - (top_px - band_top) * PX_TO_PT;
+        let bottom = page_h_pt - snap.margin_top - geo.header_h_pt
+            - (bottom_px - band_top) * PX_TO_PT;
+        links.push(LinkAnnotation {
+            href: href.clone(),
+            rect: [x0, bottom, x1, top],
+        });
+    }
+    links
 }
 
 fn find_image<'a>(snap: &'a Snapshot, image_id: u32) -> Option<&'a Image> {
@@ -1342,6 +1412,7 @@ fn draw_text_lines(
         }
         let allow_justify = font.align == 3 && line_idx + 1 < node.lines.len();
         let cid = select_cid_font(fontctx, &font.family, font.weight, font.italic, &normalized);
+        let synthetic_bold = font.weight >= 700 && cid.map(|cf| cf.weight < 700).unwrap_or(false);
         let actual_text_hex = if node.render_mode == 3 || node.opacity.unwrap_or(1.0) <= 0.001 {
             Some(pdf_utf16_hex(&normalized))
         } else {
@@ -1356,6 +1427,9 @@ fn draw_text_lines(
         if let Some(actual_text) = actual_text_hex.as_ref() {
             out.push_str(&format!("/Span << /ActualText <{}> >> BDC\n", actual_text));
         }
+        if synthetic_bold {
+            out.push_str(&format!("{} {} {} RG {} w\n", f(color[0]), f(color[1]), f(color[2]), f((fs_pt * 0.025).max(0.15))));
+        }
         out.push_str("BT\n");
         // Tr (text render mode) is a persistent graphics-state parameter: it is
         // NOT reset by BT/ET, only by q/Q. Always emit it explicitly so an
@@ -1363,6 +1437,8 @@ fn draw_text_lines(
         // never leak render mode 3 into later, normally-visible text.
         if node.render_mode == 3 {
             out.push_str("3 Tr\n");
+        } else if synthetic_bold {
+            out.push_str("2 Tr\n");
         } else {
             out.push_str("0 Tr\n");
         }
@@ -1874,6 +1950,12 @@ pub fn build_pdf(
     let page_count = pages.len() as u32;
     let page_ids_first = w.alloc(page_count);
     let content_ids_first = w.alloc(page_count);
+    let annotation_count = pages.iter().map(|page| page.links.len() as u32).sum::<u32>();
+    let annotation_ids_first = if annotation_count > 0 {
+        w.alloc(annotation_count)
+    } else {
+        0
+    };
     let helvetica_first_id = w.alloc(4);
     let cid_count = fontctx.cid.len() as u32;
     // For each CID font: ToUnicode, FontFile2, FontDescriptor, CIDFont, Type0 = 5 objects.
@@ -2138,6 +2220,7 @@ pub fn build_pdf(
 
     // Page objects.
     let mut kids = String::new();
+    let mut next_annotation_id = annotation_ids_first;
     for i in 0..page_count {
         let pid = page_ids_first + i;
         let cid = content_ids_first + i;
@@ -2173,8 +2256,25 @@ pub fn build_pdf(
             extgstate.push_str(">> ");
         }
         let media_h = p.media_h.unwrap_or(snap.page_height_pt);
+        let mut annots = String::new();
+        if !p.links.is_empty() {
+            annots.push_str("/Annots [");
+            for link in p.links.iter() {
+                let annotation_id = next_annotation_id;
+                next_annotation_id += 1;
+                let rect = link.rect;
+                let uri = w.hex_string(annotation_id, link.href.as_bytes());
+                let annotation = format!(
+                    "<< /Type /Annot /Subtype /Link /Rect [{} {} {} {}] /Border [0 0 0] /A << /S /URI /URI {} >> >>",
+                    f(rect[0]), f(rect[1]), f(rect[2]), f(rect[3]), uri
+                );
+                w.indirect(annotation_id, &annotation);
+                annots.push_str(&format!("{} 0 R ", annotation_id));
+            }
+            annots.push_str("] ");
+        }
         let body = format!(
-            "<< /Type /Page /Parent {pages} 0 R /MediaBox [0 0 {pw} {ph}] /Resources << {font}{xobj}{extgstate}>> /Contents {cid} 0 R >>",
+            "<< /Type /Page /Parent {pages} 0 R /MediaBox [0 0 {pw} {ph}] /Resources << {font}{xobj}{extgstate}>> /Contents {cid} 0 R {annots}>>",
             pages = pages_id,
             pw = f(snap.page_width_pt),
             ph = f(media_h),
@@ -2182,6 +2282,7 @@ pub fn build_pdf(
             xobj = xobj,
             extgstate = extgstate,
             cid = cid,
+            annots = annots,
         );
         w.indirect(pid, &body);
         crate::emit_render_progress(i + 1, page_count);
