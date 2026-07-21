@@ -15,7 +15,9 @@ use crate::font::{
 };
 use crate::encrypt::PdfSecurity;
 use crate::pdf::PdfWriter;
-use crate::snapshot::{BoxShadow, HFSpec, Image, Node, Snapshot, WatermarkSpec};
+use crate::snapshot::{
+    BoxShadow, HFSpec, Image, Node, Snapshot, WatermarkSpec, F_AVOID_IMAGE_SPLIT,
+};
 
 pub const PX_TO_PT: f32 = 0.75;
 const ASCENT: f32 = 0.8; // approx Helvetica ascent / em, for baseline placement
@@ -572,6 +574,25 @@ pub fn assign_pages(snap: &mut Snapshot) -> u32 {
 
     let content_h_px = geo.content_h_px;
     for idx in 0..snap.nodes.len() {
+        // Evaluate images in document order, after all preceding text has
+        // inserted its real page-break gaps. This makes the decision depend on
+        // the final remaining page height rather than the pre-pagination DOM y.
+        if snap.nodes[idx].kind == 2 && snap.nodes[idx].flags & F_AVOID_IMAGE_SPLIT != 0 {
+            let top = snap.nodes[idx].y;
+            let height = snap.nodes[idx].h;
+            if height > 0.0 && height <= content_h_px {
+                let top_page = (top / content_h_px).floor();
+                let bottom_page = ((top + height - 1e-3) / content_h_px).floor();
+                if bottom_page > top_page {
+                    let target = (top_page + 1.0) * content_h_px;
+                    let gap = target - top;
+                    if gap > 0.0 {
+                        shift_flow_tail(snap, &children, idx, gap);
+                    }
+                }
+            }
+            continue;
+        }
         let (_, right) = snap.nodes.split_at_mut(idx);
         let (node, tail) = right.split_first_mut().unwrap();
         if node.kind != 1 {
