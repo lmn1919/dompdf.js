@@ -376,7 +376,7 @@ export interface ExportOptions {
   // ---- advanced pt-level overrides (take precedence over format/margins) ----
   pageWidthPt?: number;
   pageHeightPt?: number;
-  /** Margins in pt: number (all sides) or [top, right, bottom, left]. Default 0. */
+  /** Margins in pt. When omitted or 0, use the root element's CSS margin + padding. */
   marginPt?: number | [number, number, number, number];
   jpegQuality?: number;
 }
@@ -431,6 +431,52 @@ function computeLayoutScale(rootWidthPx: number, pageWidthPt: number, mLeftPt: n
   if (!(rootWidthPx > 0)) return 1;
   const contentWidthPx = Math.max(1, (pageWidthPt - mLeftPt - mRightPt) / PX_TO_PT);
   return Math.min(1, contentWidthPx / rootWidthPx);
+}
+
+function marginPtIsEmpty(value: any) {
+  return value == null || value === '' || value === 0 || (Array.isArray(value) && value.length === 0);
+}
+// In automatic mode the CSS inset becomes the PDF margin, so coordinates must
+// start at the content box to avoid rendering the same padding twice.
+function resolveMarginGeometry(root: HTMLElement, options: ExportOptions = {}) {
+  const supplied = options.marginPt;
+  if (!marginPtIsEmpty(supplied)) {
+    return {
+      margins: Array.isArray(supplied) ? supplied : [supplied, supplied, supplied, supplied],
+      offsetX: 0,
+      offsetY: 0,
+      contentWidth: null,
+      contentHeight: null
+    };
+  }
+  if (root && typeof getComputedStyle === 'function') {
+    const rootStyle = getComputedStyle(root);
+    const sides = ['Top', 'Right', 'Bottom', 'Left'] as const;
+    const spacing = (style: CSSStyleDeclaration, side: typeof sides[number]) =>
+      (parseFloat(style[`margin${side}`]) || 0) + (parseFloat(style[`padding${side}`]) || 0);
+    const cs = rootStyle;
+    const paddingLeft = parseFloat(cs.paddingLeft) || 0;
+    const paddingRight = parseFloat(cs.paddingRight) || 0;
+    const paddingTop = parseFloat(cs.paddingTop) || 0;
+    const paddingBottom = parseFloat(cs.paddingBottom) || 0;
+    const borderLeft = parseFloat(cs.borderLeftWidth) || 0;
+    const borderRight = parseFloat(cs.borderRightWidth) || 0;
+    const borderTop = parseFloat(cs.borderTopWidth) || 0;
+    const borderBottom = parseFloat(cs.borderBottomWidth) || 0;
+    const rootRect = root.getBoundingClientRect();
+    const visibleContentWidth = rootRect.width - borderLeft - borderRight - paddingLeft - paddingRight;
+    const visibleContentHeight = rootRect.height - borderTop - borderBottom - paddingTop - paddingBottom;
+    const scrollContentWidth = root.scrollWidth - paddingLeft - paddingRight;
+    const scrollContentHeight = root.scrollHeight - paddingTop - paddingBottom;
+    return {
+      margins: sides.map(side => spacing(cs, side) * PX_TO_PT),
+      offsetX: borderLeft + paddingLeft,
+      offsetY: borderTop + paddingTop,
+      contentWidth: Math.max(1, visibleContentWidth, scrollContentWidth),
+      contentHeight: Math.max(1, visibleContentHeight, scrollContentHeight)
+    };
+  }
+  return { margins: [36, 36, 36, 36], offsetX: 0, offsetY: 0, contentWidth: null, contentHeight: null };
 }
 
 interface CollectedImage {
@@ -1948,8 +1994,8 @@ export async function collectSnapshotData(
   const [fmtW, fmtH] = resolvePageSize(normalizedOptions.format);
   const pageWidthPt = normalizedOptions.pageWidthPt ?? fmtW;
   const pageHeightPt = normalizedOptions.pageHeightPt ?? fmtH;
-  const m = normalizedOptions.marginPt ?? 0;
-  const [mTop, mRight, mBottom, mLeft] = Array.isArray(m) ? m : [m, m, m, m];
+  const marginGeometry = resolveMarginGeometry(root, normalizedOptions);
+  const [mTop, mRight, mBottom, mLeft] = marginGeometry.margins;
   const quality = normalizedOptions.jpegQuality ?? 0.85;
   const useCORS = normalizedOptions.useCORS ?? false;
   const pagination = normalizedOptions.pagination ?? false;
@@ -2012,17 +2058,20 @@ export async function collectSnapshotData(
   );
 
   const rootRect = root.getBoundingClientRect();
-  const offX = rootRect.left + window.scrollX;
-  const offY = rootRect.top + window.scrollY;
-  const layoutScale = computeLayoutScale(rootRect.width, pageWidthPt, mLeft, mRight);
+  const rootScrollX = root.scrollLeft;
+  const rootScrollY = root.scrollTop;
+  const offX = rootRect.left + window.scrollX + marginGeometry.offsetX;
+  const offY = rootRect.top + window.scrollY + marginGeometry.offsetY;
+  const layoutWidth = marginGeometry.contentWidth ?? rootRect.width;
+  const layoutScale = computeLayoutScale(layoutWidth, pageWidthPt, mLeft, mRight);
 
   const nodes: NodeRec[] = [];
   const range = document.createRange();
 
   function docRect(r: DOMRect): { x: number; y: number; w: number; h: number } {
     return {
-      x: (r.left + window.scrollX - offX) * layoutScale,
-      y: (r.top + window.scrollY - offY) * layoutScale,
+      x: (r.left + window.scrollX - offX + rootScrollX) * layoutScale,
+      y: (r.top + window.scrollY - offY + rootScrollY) * layoutScale,
       w: r.width * layoutScale,
       h: r.height * layoutScale,
     };
@@ -3079,12 +3128,13 @@ export function computePageBreaks(root: HTMLElement, options: ExportOptions = {}
   const footerHPt = (staticHF?.footer?.height ?? 0) * PX_TO_PT;
   const contentHpt = pageHeightPt - mTop - mBottom - headerHPt - footerHPt;
   const contentHpx = (contentHpt > 0 ? contentHpt : pageHeightPt - mTop - mBottom) / PX_TO_PT;
-  const layoutScale = computeLayoutScale(root.getBoundingClientRect().width, pageWidthPt, mLeft, mRight);
-  const rootH = root.getBoundingClientRect().height;
+  const rootRect = root.getBoundingClientRect();
+  const layoutWidth = marginGeometry.contentWidth ?? rootRect.width;
+  const layoutScale = computeLayoutScale(layoutWidth, pageWidthPt, mLeft, mRight);
+  const rootH = marginGeometry.contentHeight ?? rootRect.height;
   const breakStep = contentHpx / layoutScale;
   if (!(breakStep > 0) || !(rootH > 0)) return [];
 
-  const rootRect = root.getBoundingClientRect();
   const epsilon = 0.5;
   const breaks: number[] = [];
   let pageStart = 0;
@@ -3109,8 +3159,8 @@ export function computePageBreaks(root: HTMLElement, options: ExportOptions = {}
   const directives = Array.from(root.querySelectorAll<HTMLElement>('[pageBreak], [divisionDisable]'))
     .map((el, order) => {
       const rect = el.getBoundingClientRect();
-      const top = rect.top - rootRect.top;
-      const bottom = rect.bottom - rootRect.top;
+      const top = rect.top - rootRect.top - marginGeometry.offsetY;
+      const bottom = rect.bottom - rootRect.top - marginGeometry.offsetY;
       return {
         bottom: Math.max(0, Math.min(rootH, bottom)),
         divisionDisable: el.hasAttribute('divisionDisable'),
@@ -3137,7 +3187,7 @@ export function computePageBreaks(root: HTMLElement, options: ExportOptions = {}
   }
 
   advanceImplicitPages(rootH);
-  return breaks;
+  return breaks.map(y => y + marginGeometry.offsetY);
 }
 
 // ---- function-form pageConfig support ----
