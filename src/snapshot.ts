@@ -2009,6 +2009,8 @@ export async function collectSnapshotData(
   );
 
   const rootRect = root.getBoundingClientRect();
+  const rootScrollX = root.scrollLeft;
+  const rootScrollY = root.scrollTop;
   const offX = rootRect.left + window.scrollX;
   const offY = rootRect.top + window.scrollY;
   const layoutScale = computeLayoutScale(rootRect.width, pageWidthPt, mLeft, mRight);
@@ -2421,8 +2423,8 @@ function buildInlineRunsWithLangFont(
           height: raster.height,
           format: raster.format,
         });
-        const rawX = raster.rawLeft + window.scrollX - offX;
-        const rawY = raster.rawTop + window.scrollY - offY;
+        const rawX = raster.rawLeft + window.scrollX - offX + rootScrollX;
+        const rawY = raster.rawTop + window.scrollY - offY + rootScrollY;
         // Layout size comes from the CSS box, NOT the supersampled pixel count —
         // otherwise a 2-3x raster would scale the element up by the same factor.
         const scaledW = raster.cssWidth * layoutScale;
@@ -2522,7 +2524,9 @@ function buildInlineRunsWithLangFont(
       (parseFloat(cs.borderBottomLeftRadius) || 0) * layoutScale,
     ];
     const hasRadius = (radius[0] + radius[1] + radius[2] + radius[3]) > 0;
-    const overflowHidden = clipsOverflow(cs);
+    // The exported root represents the full document, including scrollable
+    // off-screen content. Nested clipping containers keep their CSS behavior.
+    const overflowHidden = parentId !== -1 && clipsOverflow(cs);
     const opacity = parseFloat(cs.opacity);
     const hasOpacity = opacity < 1;
 
