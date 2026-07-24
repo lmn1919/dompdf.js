@@ -80,6 +80,17 @@ impl PdfWriter {
         self.end_obj();
     }
 
+    /// Encode a PDF string as hex, applying object-level encryption when enabled.
+    pub fn hex_string(&self, object_id: u32, value: &[u8]) -> String {
+        let bytes = if let Some(security) = &self.security {
+            security.encrypt_bytes(object_id, 0, value)
+        } else {
+            value.to_vec()
+        };
+        let hex = bytes.iter().map(|byte| format!("{:02X}", byte)).collect::<String>();
+        format!("<{}>", hex)
+    }
+
     pub fn write_encrypt_obj(&mut self) {
         if let (Some(security), Some(id)) = (self.security.as_ref(), self.encrypt_id) {
             let body = security.encrypt_dict();
