@@ -78,27 +78,6 @@ function resetDebugPerfSnapshotState(): void {
   state.snapshot = debugPerfFreshSnapshotState();
   state.backdropRasterCache = new WeakMap<HTMLElement, Promise<RasterRgbResult>>();
 }
-
-function postDebugPerfEvent(
-  hypothesisId: 'A' | 'B' | 'C' | 'D' | 'E',
-  location: string,
-  msg: string,
-  data: Record<string, unknown>,
-): void {
-  fetch('http://127.0.0.1:7777/event', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      sessionId: 'pdf-gen-slow',
-      runId: 'pre-fix',
-      hypothesisId,
-      location,
-      msg: `[DEBUG] ${msg}`,
-      data,
-      ts: Date.now(),
-    }),
-  }).catch(() => {});
-}
 // #endregion
 
 // ---- public option types (dompdf.js-aligned) ----
@@ -4241,26 +4220,6 @@ function buildInlineRunsWithLangFont(
       footerHPx = sf?.heightPx ?? 0;
     }
   }
-
-  const stats = getDebugPerfState().snapshot;
-  postDebugPerfEvent('A', 'src/snapshot.ts:collectSnapshotData', 'snapshot performance summary', {
-    snapshotMs: +(performance.now() - stats.startedAt).toFixed(2),
-    nodeCount: nodes.length,
-    imageCount: images.length,
-    strategyVector: stats.strategyVector,
-    strategyBackgroundRaster: stats.strategyBackgroundRaster,
-    strategyFullRaster: stats.strategyFullRaster,
-    resolveBackdropColorCalls: stats.resolveBackdropColorCalls,
-    resolveBackdropColorMs: +stats.resolveBackdropColorMs.toFixed(2),
-    resolveBackdropImageCalls: stats.resolveBackdropImageCalls,
-    resolveBackdropImageMs: +stats.resolveBackdropImageMs.toFixed(2),
-    resolveBackdropAncestorScans: stats.resolveBackdropAncestorScans,
-    rasterBgCalls: stats.rasterBgCalls,
-    rasterBgMs: +stats.rasterBgMs.toFixed(2),
-    rasterBgMaxDepth: stats.rasterBgMaxDepth,
-    rasterFullCalls: stats.rasterFullCalls,
-    rasterFullMs: +stats.rasterFullMs.toFixed(2),
-  });
 
   return {
     pageWidthPt, pageHeightPt, mTop, mRight, mBottom, mLeft,
