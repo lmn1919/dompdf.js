@@ -79,29 +79,6 @@ let worker: Worker | null = null;
 let seq = 0;
 const pending = new Map<number, PendingRequest>();
 
-// #region debug-point C-D-E:pdf-gen-slow-instrumentation
-function postRenderDebugPerfEvent(
-  hypothesisId: 'A' | 'B' | 'C' | 'D' | 'E',
-  location: string,
-  msg: string,
-  data: Record<string, unknown>,
-): void {
-  fetch('http://127.0.0.1:7777/event', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      sessionId: 'pdf-gen-slow',
-      runId: 'pre-fix',
-      hypothesisId,
-      location,
-      msg: `[DEBUG] ${msg}`,
-      data,
-      ts: Date.now(),
-    }),
-  }).catch(() => {});
-}
-// #endregion
-
 interface WorkerResultResponse {
   type: 'result';
   id: number;
@@ -275,13 +252,6 @@ export async function renderToBytes(
     stage: 'done',
     totalPages,
     currentPage: totalPages,
-  });
-  postRenderDebugPerfEvent('D', 'src/index.ts:renderToBytes', 'render pipeline timing', {
-    totalMs: +(performance.now() - renderStartedAt).toFixed(2),
-    buildSnapshotMs: +buildMs.toFixed(2),
-    workerRenderMs: +workerMs.toFixed(2),
-    totalPages,
-    snapshotBytes: snapshot.byteLength,
   });
   return res.result as Uint8Array;
 }
