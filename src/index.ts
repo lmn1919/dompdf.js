@@ -53,9 +53,11 @@ export {
 } from './snapshot';
 export type {
   FontConfig,
+    HFCoordinatePosition,
   PageConfig,
   PageConfigOptions,
   PageRegionConfig,
+    PageRegionSlot,
   WatermarkConfig,
   WatermarkOptions,
 } from './snapshot';

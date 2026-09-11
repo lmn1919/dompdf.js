@@ -330,6 +330,81 @@ await dompdf(element, {
 
 启用分页但没有传入 `pageConfig` 时，当前版本会默认保留 `50px` 的空页眉区域，并在 `50px` 页脚中输出 `${currentPage}/${totalPages}`。如需完全自定义，请显式传入 `pageConfig`。
 
+### Slots（Phase 1）
+
+`header` / `footer` 现在支持 `slots`，可在同一页眉或页脚中放置多个文本块，并为每个 slot 单独指定字体、颜色、位置：
+
+```ts
+await dompdf(element, {
+  pagination: true,
+  pageConfig: {
+    header: {
+      height: 48,
+      padding: [8, 24, 0, 24],
+      slots: [
+        {
+          content: '季度经营报告',
+          position: 'leftTop',
+          color: '#334155',
+          fontSize: 11,
+          fontFamily: 'Source Han Sans SC',
+          fontWeight: 700,
+        },
+        {
+          content: '第 ${currentPage} / ${totalPages} 页',
+          position: { x: '100%', y: 0, anchor: 'rightTop' },
+          color: '#64748b',
+          fontSize: 10,
+        },
+      ],
+    },
+  },
+});
+```
+
+说明：
+
+- `slots` 存在时，优先于旧版 `content / contentPosition`
+- `position` 既支持语义位置，也支持坐标对象
+- 坐标对象的原点是页眉/页脚内容区左上角，`x/y` 支持数字、`'50%'`、`'100%-24'`
+- `anchor` 默认是 `leftTop`
+
+`slot` 可用字段：
+
+- `content`: 文本内容，支持 `${currentPage}` / `${totalPages}`
+- `position`: 语义位置，或 `{ x, y, anchor }`
+- `color`: 文本颜色
+- `fontSize`: 字号（px）
+- `fontFamily`: 字体名称，需配合 `fontConfig` 中已注册的字体使用
+- `fontWeight`: 字重
+- `italic`: 是否斜体
+
+坐标定位示例：
+
+```ts
+slots: [
+  {
+    content: '左上标题',
+    position: 'leftTop',
+  },
+  {
+    content: '右上页码',
+    position: { x: '100%', y: 0, anchor: 'rightTop' },
+  },
+  {
+    content: '右下说明',
+    position: { x: '100%-24', y: '100%-10', anchor: 'rightBottom' },
+  },
+]
+```
+
+其中：
+
+- `x: '100%'` 表示内容区最右侧参考线
+- `x: '100%-24'` 表示在最右侧基础上向左偏移 `24px`
+- `y: '100%-10'` 表示在内容区底部基础上向上偏移 `10px`
+- `anchor` 决定坐标对应的是文本框的哪个参考点
+
 ### 逐页配置
 
 函数形式会在已知总页数后按页调用，返回 `null` 可禁用该页的页眉页脚：

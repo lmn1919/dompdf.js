@@ -330,6 +330,81 @@ await dompdf(element, {
 
 When pagination is enabled without an explicit `pageConfig`, the current version reserves an empty `50px` header band and renders `${currentPage}/${totalPages}` in a `50px` footer. Pass `pageConfig` explicitly when you need full control.
 
+### Slots (Phase 1)
+
+`header` / `footer` now support `slots`, so you can place multiple text blocks inside the same region and control font, color, and position per slot:
+
+```ts
+await dompdf(element, {
+  pagination: true,
+  pageConfig: {
+    header: {
+      height: 48,
+      padding: [8, 24, 0, 24],
+      slots: [
+        {
+          content: 'Quarterly Business Review',
+          position: 'leftTop',
+          color: '#334155',
+          fontSize: 11,
+          fontFamily: 'Source Han Sans SC',
+          fontWeight: 700,
+        },
+        {
+          content: 'Page ${currentPage} / ${totalPages}',
+          position: { x: '100%', y: 0, anchor: 'rightTop' },
+          color: '#64748b',
+          fontSize: 10,
+        },
+      ],
+    },
+  },
+});
+```
+
+Notes:
+
+- `slots` take precedence over legacy `content / contentPosition`
+- `position` supports both semantic presets and coordinate objects
+- Coordinate objects use the header/footer inner box top-left as the origin; `x/y` accept numbers, `'50%'`, and `'100%-24'`
+- `anchor` defaults to `leftTop`
+
+Available slot fields:
+
+- `content`: text content, with `${currentPage}` / `${totalPages}` placeholders
+- `position`: a semantic preset or `{ x, y, anchor }`
+- `color`: text color
+- `fontSize`: font size in px
+- `fontFamily`: font family name; pair it with a registered font in `fontConfig`
+- `fontWeight`: font weight
+- `italic`: whether italic styling is enabled
+
+Coordinate examples:
+
+```ts
+slots: [
+  {
+    content: 'Top-left title',
+    position: 'leftTop',
+  },
+  {
+    content: 'Top-right page number',
+    position: { x: '100%', y: 0, anchor: 'rightTop' },
+  },
+  {
+    content: 'Bottom-right note',
+    position: { x: '100%-24', y: '100%-10', anchor: 'rightBottom' },
+  },
+]
+```
+
+In this model:
+
+- `x: '100%'` targets the right edge of the inner region
+- `x: '100%-24'` moves `24px` left from that edge
+- `y: '100%-10'` moves `10px` upward from the bottom edge of the inner region
+- `anchor` defines which point of the text box is aligned to the coordinate
+
 ### Per-Page Configuration
 
 The function form is called for every page after the total page count is known. Return `null` to disable the header and footer for a page:

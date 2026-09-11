@@ -1150,20 +1150,40 @@
       pageConfig: {
         excludePages: [1],
         header: {
-          content: getRuntimeStrings().exportHeader,
           height: 50,
-          contentColor: '#334155',
-          contentFontSize: 12,
-          contentPosition: 'center',
-          padding: [0, 0, 0, 0]
+          padding: [10, 24, 0, 24],
+          slots: [
+            {
+              content: getRuntimeStrings().exportHeader,
+              position: 'leftTop',
+              color: '#334155',
+              fontSize: 12
+            },
+            {
+              content: 'Page ${currentPage}/${totalPages}',
+              position: { x: '100%', y: 0, anchor: 'rightTop' },
+              color: '#475569',
+              fontSize: 11
+            }
+          ],
         },
         footer: {
-          content: getRuntimeStrings().exportFooter,
           height: 48,
-          contentColor: '#475569',
-          contentFontSize: 11,
-          contentPosition: 'center',
-          padding: [0, 0, 0, 0]
+          padding: [0, 24, 10, 24],
+          slots: [
+            {
+              content: getRuntimeStrings().exportFooter,
+              position: 'leftBottom',
+              color: '#475569',
+              fontSize: 11
+            },
+            {
+              content: 'Prepared by dompdf.js',
+              position: { x: '100%-24', y: '100%-10', anchor: 'rightBottom' },
+              color: '#94a3b8',
+              fontSize: 10
+            }
+          ]
         }
       }
     };

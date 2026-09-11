@@ -4,7 +4,7 @@
 //!
 //! Header:
 //!   magic: 4 bytes = "D2P1"
-//!   version: u32 = 13
+//!   version: u32 = 14
 //!   pageWidthPt, pageHeightPt, marginTop, marginRight, marginBottom, marginLeft: f32
 //!
 //! Config block:
@@ -16,7 +16,7 @@
 //!   footerHPx: f32           (reserved footer band height, CSS px)
 //!   hasStaticHF: u8          (1 = object-form pageConfig, Rust resolves placeholders)
 //!   if hasStaticHF:
-//!     header: Option<HFSpec> (u8 present + fields)
+//!     header: Option<HFSpec> (u8 present + fields; v14 = multi-slot region)
 //!     footer: Option<HFSpec>
 //!   compress: u8             (v8+: 0 = no compression, 1 = deflate streams)
 //!   staticWatermark: Option<WatermarkSpec> (v9+; image variant added in v10)
@@ -116,17 +116,36 @@ pub struct FontResource {
     pub bytes: Vec<u8>,
 }
 
+/// Header/footer custom slot position relative to the region inner box.
+#[derive(Clone)]
+pub struct HFSlotCustomPosition {
+    pub x_pct: f32,
+    pub x_offset_px: f32,
+    pub y_pct: f32,
+    pub y_offset_px: f32,
+    pub anchor: u8,
+}
+
+/// Header/footer slot spec.
+#[derive(Clone)]
+pub struct HFSlotSpec {
+    pub content: String,
+    pub color: [f32; 4],
+    pub family: String,
+    pub font_size_px: f32,
+    pub weight: u16,
+    pub italic: u8,
+    pub position: u8, // 0..8 semantic, 9 legacy custom [x,y], 10 custom inner-box position
+    pub custom: Option<(f32, f32)>,
+    pub custom_position: Option<HFSlotCustomPosition>,
+}
+
 /// Header/footer spec for one region (header or footer).
 #[derive(Clone)]
 pub struct HFSpec {
-    pub content: String,
     pub height_px: f32,
-    pub color: [f32; 4],
-    pub font_size_px: f32,
-    pub position: u8, // 0 center,1 centerLeft,2 centerRight,3 centerTop,4 centerBottom,
-    // 5 leftTop,6 leftBottom,7 rightTop,8 rightBottom,9 custom
-    pub custom: Option<(f32, f32)>, // px, when position==9
-    pub padding: [f32; 4],          // top,right,bottom,left px
+    pub padding: [f32; 4], // top,right,bottom,left px
+    pub slots: Vec<HFSlotSpec>,
 }
 
 #[derive(Clone)]
@@ -368,7 +387,7 @@ impl<'a> Cursor<'a> {
     }
 }
 
-fn parse_hf(c: &mut Cursor) -> Result<HFSpec, String> {
+fn parse_hf_v13(c: &mut Cursor) -> Result<HFSpec, String> {
     let clen = c.u16()? as usize;
     let content = c.utf8(clen)?;
     let height_px = c.f32()?;
@@ -388,18 +407,81 @@ fn parse_hf(c: &mut Cursor) -> Result<HFSpec, String> {
     let p2 = c.f32()?;
     let p3 = c.f32()?;
     Ok(HFSpec {
-        content,
         height_px,
-        color: [cr, cg, cb, ca],
-        font_size_px,
-        position,
-        custom,
         padding: [p0, p1, p2, p3],
+        slots: vec![HFSlotSpec {
+            content,
+            color: [cr, cg, cb, ca],
+            family: "Helvetica".to_string(),
+            font_size_px,
+            weight: 400,
+            italic: 0,
+            position,
+            custom,
+            custom_position: None,
+        }],
     })
 }
 
-fn parse_opt_hf(c: &mut Cursor) -> Result<Option<HFSpec>, String> {
-    Ok(if c.u8()? != 0 { Some(parse_hf(c)?) } else { None })
+fn parse_hf(c: &mut Cursor) -> Result<HFSpec, String> {
+    let height_px = c.f32()?;
+    let p0 = c.f32()?;
+    let p1 = c.f32()?;
+    let p2 = c.f32()?;
+    let p3 = c.f32()?;
+    let slot_count = c.u16()? as usize;
+    let mut slots = Vec::with_capacity(slot_count);
+    for _ in 0..slot_count {
+        let clen = c.u16()? as usize;
+        let content = c.utf8(clen)?;
+        let color = [c.f32()?, c.f32()?, c.f32()?, c.f32()?];
+        let flen = c.u16()? as usize;
+        let family = c.utf8(flen)?;
+        let font_size_px = c.f32()?;
+        let weight = c.u16()?;
+        let italic = c.u8()?;
+        let position = c.u8()?;
+        let custom = if position == 9 {
+            Some((c.f32()?, c.f32()?))
+        } else {
+            None
+        };
+        let custom_position = if position == 10 {
+            Some(HFSlotCustomPosition {
+                x_pct: c.f32()?,
+                x_offset_px: c.f32()?,
+                y_pct: c.f32()?,
+                y_offset_px: c.f32()?,
+                anchor: c.u8()?,
+            })
+        } else {
+            None
+        };
+        slots.push(HFSlotSpec {
+            content,
+            color,
+            family,
+            font_size_px,
+            weight,
+            italic,
+            position,
+            custom,
+            custom_position,
+        });
+    }
+    Ok(HFSpec {
+        height_px,
+        padding: [p0, p1, p2, p3],
+        slots,
+    })
+}
+
+fn parse_opt_hf(c: &mut Cursor, version: u32) -> Result<Option<HFSpec>, String> {
+    Ok(if c.u8()? != 0 {
+        Some(if version >= 14 { parse_hf(c)? } else { parse_hf_v13(c)? })
+    } else {
+        None
+    })
 }
 
 fn parse_watermark_v9(c: &mut Cursor) -> Result<WatermarkSpec, String> {
@@ -555,9 +637,9 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
         return Err(format!("bad magic: {:?}", magic));
     }
     let version = c.u32()?;
-    if version != 7 && version != 8 && version != 9 && version != 10 && version != 11 && version != 12 && version != 13 {
+    if version != 7 && version != 8 && version != 9 && version != 10 && version != 11 && version != 12 && version != 13 && version != 14 {
         return Err(format!(
-            "unsupported version {} (expected 7, 8, 9, 10, 11, 12 or 13)",
+            "unsupported version {} (expected 7, 8, 9, 10, 11, 12, 13 or 14)",
             version
         ));
     }
@@ -582,8 +664,8 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
     let footer_h_px = c.f32()?;
     let has_static_hf = c.u8()?;
     let static_hf = if has_static_hf != 0 {
-        let header = parse_opt_hf(&mut c)?;
-        let footer = parse_opt_hf(&mut c)?;
+        let header = parse_opt_hf(&mut c, version)?;
+        let footer = parse_opt_hf(&mut c, version)?;
         Some((header, footer))
     } else {
         None
@@ -620,8 +702,8 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
     let per_page_count = c.u32()?;
     let mut per_page_hf = Vec::with_capacity(per_page_count as usize);
     for _ in 0..per_page_count {
-        let header = parse_opt_hf(&mut c)?;
-        let footer = parse_opt_hf(&mut c)?;
+        let header = parse_opt_hf(&mut c, version)?;
+        let footer = parse_opt_hf(&mut c, version)?;
         per_page_hf.push(PageHF { header, footer });
     }
     let per_page_watermark = if version >= 9 {

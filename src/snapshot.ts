@@ -97,10 +97,27 @@ export interface FontConfig {
   fontBytes?: Uint8Array;
 }
 
-export type ContentPosition =
+export type HFSemanticPosition =
   | 'center' | 'centerLeft' | 'centerRight' | 'centerTop' | 'centerBottom'
-  | 'leftTop' | 'leftBottom' | 'rightTop' | 'rightBottom'
-  | [number, number];
+  | 'leftTop' | 'leftBottom' | 'rightTop' | 'rightBottom';
+
+export type ContentPosition = HFSemanticPosition | [number, number];
+
+export interface HFCoordinatePosition {
+  x: number | string;
+  y: number | string;
+  anchor?: HFSemanticPosition;
+}
+
+export interface PageRegionSlot {
+  content: string;
+  position?: HFSemanticPosition | HFCoordinatePosition;
+  color?: string;
+  fontFamily?: string;
+  fontSize?: number;
+  fontWeight?: number;
+  italic?: boolean;
+}
 
 interface ExcludedPagesConfig {
   /** Legacy object-form pageConfig field: skip header/footer on a page or pages. */
@@ -121,6 +138,7 @@ export interface PageRegionConfig {
   contentFontSize?: number;
   contentPosition?: ContentPosition;
   padding?: [number, number, number, number];
+  slots?: PageRegionSlot[];
 }
 
 export type PageConfig = PageConfigOptions | ((pageNum: number, totalPages: number) => PageConfigOptions | null);
@@ -1136,8 +1154,28 @@ function analyzeFormControl(
   return null;
 }
 
-// header/footer position enum (must match Rust HFSpec.position)
-function positionNum(p: ContentPosition | undefined): number {
+function isHFSemanticPosition(value: unknown): value is HFSemanticPosition {
+  return value === 'center'
+    || value === 'centerLeft'
+    || value === 'centerRight'
+    || value === 'centerTop'
+    || value === 'centerBottom'
+    || value === 'leftTop'
+    || value === 'leftBottom'
+    || value === 'rightTop'
+    || value === 'rightBottom';
+}
+
+function isHFCoordinatePosition(value: unknown): value is HFCoordinatePosition {
+  return !!value
+    && typeof value === 'object'
+    && !Array.isArray(value)
+    && 'x' in value
+    && 'y' in value;
+}
+
+// header/footer position enum (must match Rust HFSpec.position / HFSlotCustomPosition.anchor)
+function positionNum(p: HFSemanticPosition | ContentPosition | undefined): number {
   if (Array.isArray(p)) return 9;
   switch (p) {
     case 'center': return 0;
@@ -1151,6 +1189,29 @@ function positionNum(p: ContentPosition | undefined): number {
     case 'rightBottom': return 8;
     default: return 0;
   }
+}
+
+function parseHFCoordinateValue(value: number | string | undefined): { pct: number; offsetPx: number } | null {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? { pct: 0, offsetPx: value } : null;
+  }
+  if (typeof value !== 'string') return null;
+  const compact = value.trim().toLowerCase().replace(/\s+/g, '');
+  if (!compact) return null;
+  const pctMatch = /^([+-]?\d+(?:\.\d+)?)%(?:(\+|-)(\d+(?:\.\d+)?)(?:px)?)?$/.exec(compact);
+  if (pctMatch) {
+    const pct = parseFloat(pctMatch[1]);
+    const offset = pctMatch[2]
+      ? (pctMatch[2] === '-' ? -1 : 1) * parseFloat(pctMatch[3])
+      : 0;
+    return Number.isFinite(pct) && Number.isFinite(offset)
+      ? { pct: pct / 100, offsetPx: offset }
+      : null;
+  }
+  const pxMatch = /^([+-]?\d+(?:\.\d+)?)(?:px)?$/.exec(compact);
+  if (!pxMatch) return null;
+  const offset = parseFloat(pxMatch[1]);
+  return Number.isFinite(offset) ? { pct: 0, offsetPx: offset } : null;
 }
 
 // ---- color parsing via canvas ----
@@ -3071,14 +3132,30 @@ function convertBackgroundImageToImage(
 
 }
 
-interface ResolvedHF {
+interface ResolvedHFSlotCustomPosition {
+  xPct: number;
+  xOffsetPx: number;
+  yPct: number;
+  yOffsetPx: number;
+  anchor: number;
+}
+
+interface ResolvedHFSlot {
   content: string;
-  heightPx: number;
   color: [number, number, number, number];
+  fontFamily: string;
   fontSizePx: number;
+  fontWeight: number;
+  italic: number;
   position: number;
   custom: [number, number] | null;
+  customPosition: ResolvedHFSlotCustomPosition | null;
+}
+
+interface ResolvedHF {
+  heightPx: number;
   padding: [number, number, number, number];
+  slots: ResolvedHFSlot[];
 }
 
 interface ResolvedWatermarkBase {
@@ -3115,23 +3192,77 @@ interface WatermarkImageAsset {
   height: number;
 }
 
+function resolveHFSlotPosition(
+  position: HFSemanticPosition | HFCoordinatePosition | ContentPosition | undefined,
+): Pick<ResolvedHFSlot, 'position' | 'custom' | 'customPosition'> {
+  if (Array.isArray(position)) {
+    return {
+      position: 9,
+      custom: position,
+      customPosition: null,
+    };
+  }
+  if (isHFCoordinatePosition(position)) {
+    const x = parseHFCoordinateValue(position.x) ?? { pct: 0, offsetPx: 0 };
+    const y = parseHFCoordinateValue(position.y) ?? { pct: 0, offsetPx: 0 };
+    return {
+      position: 10,
+      custom: null,
+      customPosition: {
+        xPct: x.pct,
+        xOffsetPx: x.offsetPx,
+        yPct: y.pct,
+        yOffsetPx: y.offsetPx,
+        anchor: positionNum(position.anchor ?? 'leftTop'),
+      },
+    };
+  }
+  return {
+    position: positionNum(isHFSemanticPosition(position) ? position : undefined),
+    custom: null,
+    customPosition: null,
+  };
+}
+
+function resolveHFSlot(
+  slot: PageRegionSlot,
+  region: PageRegionConfig,
+  fallbackPosition: HFSemanticPosition | ContentPosition | undefined,
+): ResolvedHFSlot {
+  const position = resolveHFSlotPosition(slot.position ?? fallbackPosition);
+  return {
+    content: slot.content,
+    color: parseColor(slot.color ?? region.contentColor ?? '#333333'),
+    fontFamily: slot.fontFamily?.trim() || 'Helvetica',
+    fontSizePx: slot.fontSize ?? region.contentFontSize ?? 16,
+    fontWeight: Math.max(1, Math.round(slot.fontWeight ?? 400)),
+    italic: slot.italic ? 1 : 0,
+    position: position.position,
+    custom: position.custom,
+    customPosition: position.customPosition,
+  };
+}
+
 function resolveRegion(
   region: PageRegionConfig | undefined,
   isFooter: boolean,
 ): ResolvedHF | null {
   if (!region) return null;
-  const content = typeof region.content === 'string' ? region.content
-    : isFooter ? '${currentPage}/${totalPages}'
-    : '';
-  const pos = region.contentPosition;
+  const slots = Array.isArray(region.slots)
+    ? region.slots.map((slot) => resolveHFSlot(slot, region, region.contentPosition))
+    : [];
+  if (slots.length === 0) {
+    const content = typeof region.content === 'string' ? region.content
+      : isFooter ? '${currentPage}/${totalPages}'
+      : '';
+    if (content) {
+      slots.push(resolveHFSlot({ content }, region, region.contentPosition));
+    }
+  }
   return {
-    content,
     heightPx: region.height ?? 50,
-    color: parseColor(region.contentColor ?? '#333333'),
-    fontSizePx: region.contentFontSize ?? 16,
-    position: positionNum(pos),
-    custom: Array.isArray(pos) ? pos : null,
     padding: region.padding ?? [0, 24, 0, 24],
+    slots,
   };
 }
 
@@ -4501,17 +4632,31 @@ export interface EncodeArgs {
 }
 
 function writeHF(w: BinWriter, hf: ResolvedHF) {
-  const clen = BinWriter.utf8Len(hf.content);
-  w.u16(clen);
-  w.utf8(hf.content);
   w.f32(hf.heightPx);
-  w.f32(hf.color[0]); w.f32(hf.color[1]); w.f32(hf.color[2]); w.f32(hf.color[3]);
-  w.f32(hf.fontSizePx);
-  w.u8(hf.position);
-  if (hf.position === 9 && hf.custom) {
-    w.f32(hf.custom[0]); w.f32(hf.custom[1]);
-  }
   w.f32(hf.padding[0]); w.f32(hf.padding[1]); w.f32(hf.padding[2]); w.f32(hf.padding[3]);
+  w.u16(hf.slots.length);
+  for (const slot of hf.slots) {
+    const clen = BinWriter.utf8Len(slot.content);
+    const flen = BinWriter.utf8Len(slot.fontFamily);
+    w.u16(clen);
+    w.utf8(slot.content);
+    w.f32(slot.color[0]); w.f32(slot.color[1]); w.f32(slot.color[2]); w.f32(slot.color[3]);
+    w.u16(flen);
+    w.utf8(slot.fontFamily);
+    w.f32(slot.fontSizePx);
+    w.u16(slot.fontWeight);
+    w.u8(slot.italic);
+    w.u8(slot.position);
+    if (slot.position === 9 && slot.custom) {
+      w.f32(slot.custom[0]); w.f32(slot.custom[1]);
+    } else if (slot.position === 10 && slot.customPosition) {
+      w.f32(slot.customPosition.xPct);
+      w.f32(slot.customPosition.xOffsetPx);
+      w.f32(slot.customPosition.yPct);
+      w.f32(slot.customPosition.yOffsetPx);
+      w.u8(slot.customPosition.anchor);
+    }
+  }
 }
 
 function writeOptHF(w: BinWriter, hf: ResolvedHF | null) {
@@ -4597,7 +4742,7 @@ function writeFormField(w: BinWriter, field: CollectedFormField): void {
 function encode(a: EncodeArgs): Uint8Array {
   const w = new BinWriter();
   w.bytes(new Uint8Array([0x44, 0x32, 0x50, 0x31])); // "D2P1"
-  w.u32(13); // version 13 (adds object-position for image nodes)
+  w.u32(14); // version 14 (header/footer slots + custom slot positioning)
   w.f32(a.pageWidthPt);
   w.f32(a.pageHeightPt);
   w.f32(a.mTop);
@@ -4900,10 +5045,22 @@ export function resolvePerPageHFText(
 ): ResolvedPageHF[] {
   return perPage.map((hf, p) => ({
     header: hf.header
-      ? { ...hf.header, content: resolvePlaceholder(hf.header.content, p, totalPages) }
+      ? {
+        ...hf.header,
+        slots: hf.header.slots.map((slot) => ({
+          ...slot,
+          content: resolvePlaceholder(slot.content, p, totalPages),
+        })),
+      }
       : null,
     footer: hf.footer
-      ? { ...hf.footer, content: resolvePlaceholder(hf.footer.content, p, totalPages) }
+      ? {
+        ...hf.footer,
+        slots: hf.footer.slots.map((slot) => ({
+          ...slot,
+          content: resolvePlaceholder(slot.content, p, totalPages),
+        })),
+      }
       : null,
   }));
 }

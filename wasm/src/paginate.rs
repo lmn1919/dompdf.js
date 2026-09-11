@@ -15,7 +15,7 @@ use crate::font::{
 };
 use crate::encrypt::PdfSecurity;
 use crate::pdf::PdfWriter;
-use crate::snapshot::{BoxShadow, FormField, HFSpec, Image, Node, Snapshot, WatermarkSpec};
+use crate::snapshot::{BoxShadow, FormField, HFSlotSpec, HFSpec, Image, Node, Snapshot, WatermarkSpec};
 
 pub const PX_TO_PT: f32 = 0.75;
 const ASCENT: f32 = 0.8; // approx Helvetica ascent / em, for baseline placement
@@ -1695,12 +1695,16 @@ fn collect_used_cid_gids(snap: &Snapshot, fontctx: &FontCtx, total: u32) {
             (None, None)
         };
         if let Some(h) = header {
-            let content = resolve_placeholders(&h.content, page, total);
-            collect_used_cid_run(fontctx, "Helvetica", 400, 0, &content);
+            for slot in h.slots.iter() {
+                let content = resolve_placeholders(&slot.content, page, total);
+                collect_used_cid_run(fontctx, &slot.family, slot.weight, slot.italic, &content);
+            }
         }
         if let Some(f) = footer {
-            let content = resolve_placeholders(&f.content, page, total);
-            collect_used_cid_run(fontctx, "Helvetica", 400, 0, &content);
+            for slot in f.slots.iter() {
+                let content = resolve_placeholders(&slot.content, page, total);
+                collect_used_cid_run(fontctx, &slot.family, slot.weight, slot.italic, &content);
+            }
         }
         if let Some(watermark) = resolve_page_watermark(snap, page) {
             if watermark.kind != 0 {
@@ -1927,25 +1931,42 @@ fn draw_text_lines(
     }
 }
 
-/// Draw a single header/footer region text into `out`.
-fn draw_hf_region(
+fn hf_anchor_factors(position: u8) -> (f32, f32) {
+    match position {
+        0 => (0.5, 0.5), // center
+        1 => (0.0, 0.5), // centerLeft
+        2 => (1.0, 0.5), // centerRight
+        3 => (0.5, 0.0), // centerTop
+        4 => (0.5, 1.0), // centerBottom
+        5 => (0.0, 0.0), // leftTop
+        6 => (0.0, 1.0), // leftBottom
+        7 => (1.0, 0.0), // rightTop
+        8 => (1.0, 1.0), // rightBottom
+        _ => (0.0, 0.0),
+    }
+}
+
+fn draw_hf_slot(
     snap: &Snapshot,
     fontctx: &FontCtx,
     spec: &HFSpec,
+    slot: &HFSlotSpec,
     page: u32,
     total: u32,
-    _geo: &Geo,
     page_h_pt: f32,
     is_header: bool,
     out: &mut String,
 ) {
-    let content = resolve_placeholders(&spec.content, page, total);
+    let content = resolve_placeholders(&slot.content, page, total);
     let normalized = normalize_text_for_pdf(&content, false);
     if normalized.is_empty() {
         return;
     }
-    let fs_pt = spec.font_size_px * PX_TO_PT;
-    let color = spec.color;
+    let fs_pt = slot.font_size_px * PX_TO_PT;
+    let color = slot.color;
+    let family = if slot.family.is_empty() { "Helvetica" } else { &slot.family };
+    let weight = slot.weight;
+    let italic = slot.italic;
     let [pt, pr, pb, pl] = spec.padding;
 
     // Band rect in PDF coords.
@@ -1965,12 +1986,7 @@ fn draw_hf_region(
     let inner_h = (inner_top - inner_bottom).max(0.0);
 
     // Choose font + measure width.
-    let non_latin = has_non_latin(&normalized);
-    let cid_primary = if non_latin {
-        fontctx.fallback_cid(400, 0).or_else(|| fontctx.first_cid())
-    } else {
-        None
-    };
+    let cid_primary = select_cid_font(fontctx, family, weight, italic, &normalized);
     let (bytes, text_w_pt, cid_runs) = if let Some(cf) = cid_primary {
         let primary_idx = (cf.key - 2) as usize;
         let runs = encode_cid_with_fallback(fontctx, primary_idx, &normalized, false);
@@ -1989,26 +2005,37 @@ fn draw_hf_region(
         return;
     }
 
-    // Horizontal placement.
-    let x_pt = match spec.position {
-        1 => inner_left,                                  // centerLeft
-        2 => inner_right - text_w_pt,                     // centerRight
-        5 => inner_left,                                  // leftTop
-        6 => inner_left,                                  // leftBottom
-        7 => inner_right - text_w_pt,                     // rightTop
-        8 => inner_right - text_w_pt,                     // rightBottom
-        9 => spec.custom.map(|(x, _)| snap.margin_left + x * PX_TO_PT).unwrap_or(inner_left),
-        _ => inner_left + (inner_w - text_w_pt) / 2.0,    // center / centerTop / centerBottom
-    };
-    // Vertical baseline placement.
-    let y_pt = match spec.position {
-        3 | 5 | 7 => inner_top - ASCENT * fs_pt,          // top-aligned
-        4 | 6 | 8 => inner_bottom + (1.0 - ASCENT) * fs_pt, // bottom-aligned
-        9 => spec
+    let (x_pt, y_pt) = if slot.position == 9 {
+        let x_pt = slot.custom.map(|(x, _)| snap.margin_left + x * PX_TO_PT).unwrap_or(inner_left);
+        let y_pt = slot
             .custom
             .map(|(_, y)| band_bottom + (band_top - band_bottom) - y * PX_TO_PT - ASCENT * fs_pt)
-            .unwrap_or_else(|| inner_bottom + inner_h / 2.0 - (fs_pt / 2.0) + ASCENT * fs_pt / 2.0),
-        _ => inner_bottom + (inner_h - fs_pt) / 2.0 + ASCENT * fs_pt, // vertically centered
+            .unwrap_or_else(|| inner_bottom + (inner_h - fs_pt) / 2.0 + ASCENT * fs_pt);
+        (x_pt, y_pt)
+    } else {
+        let (target_x, target_y, anchor) = if slot.position == 10 {
+            if let Some(custom) = slot.custom_position.as_ref() {
+                (
+                    inner_left + inner_w * custom.x_pct + custom.x_offset_px * PX_TO_PT,
+                    inner_top - inner_h * custom.y_pct - custom.y_offset_px * PX_TO_PT,
+                    custom.anchor,
+                )
+            } else {
+                (inner_left, inner_top, 5)
+            }
+        } else {
+            let anchor = slot.position;
+            let (ax, ay) = hf_anchor_factors(anchor);
+            (
+                inner_left + inner_w * ax,
+                inner_bottom + inner_h * (1.0 - ay),
+                anchor,
+            )
+        };
+        let (anchor_x, anchor_y) = hf_anchor_factors(anchor);
+        let box_left = target_x - text_w_pt * anchor_x;
+        let box_top = target_y + fs_pt * anchor_y;
+        (box_left, box_top - ASCENT * fs_pt)
     };
 
     out.push_str(&format!(
@@ -2024,7 +2051,7 @@ fn draw_hf_region(
                 EncodedFontKind::Cid(font_idx) => {
                     format!("/F{} {} Tf\n", fontctx.cid[font_idx].key, f(fs_pt))
                 }
-                EncodedFontKind::Latin => format!("{} {} Tf\n", latin_font_token(400, 0), f(fs_pt)),
+                EncodedFontKind::Latin => format!("{} {} Tf\n", latin_font_token(weight, italic), f(fs_pt)),
             };
             out.push_str(&font_op);
             out.push_str(&format!("1 0 0 1 {} {} Tm\n", f(x_pt + pen_pt), f(y_pt)));
@@ -2035,13 +2062,30 @@ fn draw_hf_region(
         let font_op = if cid_primary.is_some() {
             format!("/F{} {} Tf\n", cid_primary.unwrap().key, f(fs_pt))
         } else {
-            format!("{} {} Tf\n", latin_font_token(400, 0), f(fs_pt))
+            format!("{} {} Tf\n", latin_font_token(weight, italic), f(fs_pt))
         };
         out.push_str(&font_op);
         out.push_str(&format!("1 0 0 1 {} {} Tm\n", f(x_pt), f(y_pt)));
         out.push_str(&format!("<{}> Tj\n", hex(&bytes)));
     }
     out.push_str("ET\n");
+}
+
+/// Draw a single header/footer region into `out`.
+fn draw_hf_region(
+    snap: &Snapshot,
+    fontctx: &FontCtx,
+    spec: &HFSpec,
+    page: u32,
+    total: u32,
+    _geo: &Geo,
+    page_h_pt: f32,
+    is_header: bool,
+    out: &mut String,
+) {
+    for slot in spec.slots.iter() {
+        draw_hf_slot(snap, fontctx, spec, slot, page, total, page_h_pt, is_header, out);
+    }
 }
 
 fn resolve_page_watermark<'a>(snap: &'a Snapshot, page: u32) -> Option<&'a WatermarkSpec> {
