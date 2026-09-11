@@ -264,9 +264,8 @@ export async function exportPDF(
   options?: ExportOptions,
 ): Promise<Blob> {
   const bytes = await renderToBytes(root, options);
-  const ab = new ArrayBuffer(bytes.byteLength);
-  new Uint8Array(ab).set(bytes);
-  return new Blob([ab], { type: 'application/pdf' });
+  // renderPdf returns an independent, exact-length buffer that the worker transfers.
+  return new Blob([bytes.buffer as ArrayBuffer], { type: 'application/pdf' });
 }
 
 /** Trigger a browser download of the exported PDF. */

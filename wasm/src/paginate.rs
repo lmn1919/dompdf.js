@@ -955,6 +955,7 @@ pub fn paginate(
             draw_node(
                 snap,
                 &fontctx,
+                &geo,
                 &children,
                 &subtree_min_y,
                 &subtree_max_y,
@@ -1152,6 +1153,7 @@ fn image_needs_clip(
 fn draw_node(
     snap: &Snapshot,
     fontctx: &FontCtx,
+    geo: &Geo,
     children: &[Vec<usize>],
     subtree_min_y: &[f32],
     subtree_max_y: &[f32],
@@ -1173,7 +1175,6 @@ fn draw_node(
         return;
     }
     let vis = node.y < band_bottom && (node.y + node.h) > band_top;
-    let geo = compute_geo(snap);
     let opacity = node.opacity.unwrap_or(1.0).clamp(0.0, 1.0);
     let use_opacity = opacity < 0.999;
     if use_opacity {
@@ -1184,12 +1185,12 @@ fn draw_node(
     match node.kind {
         0 => {
             if vis && node.render_mode == 0 {
-                draw_box(snap, &geo, node, page, content_h_px, page_h_pt, out);
+                draw_box(snap, geo, node, page, content_h_px, page_h_pt, out);
             }
             let clip = vis && node.overflow_hidden;
             if clip {
                 out.push_str("q\n");
-                if let Some(frag) = box_fragment_pt(snap, &geo, node, page, content_h_px, page_h_pt) {
+                if let Some(frag) = box_fragment_pt(snap, geo, node, page, content_h_px, page_h_pt) {
                     if let Some(radii) = fragment_radii_pt(node, frag.w, frag.h, frag.first, frag.last) {
                         push_rounded_rect_path(out, frag.x0, frag.bottom, frag.w, frag.h, radii);
                         out.push_str("W n\n");
@@ -1208,6 +1209,7 @@ fn draw_node(
                 draw_node(
                     snap,
                     fontctx,
+                    geo,
                     children,
                     subtree_min_y,
                     subtree_max_y,
@@ -1225,15 +1227,15 @@ fn draw_node(
         }
         1 => {
             if node.render_mode != 2 {
-                draw_text_lines(snap, fontctx, &geo, node, page, content_h_px, page_h_pt, out);
+                draw_text_lines(snap, fontctx, geo, node, page, content_h_px, page_h_pt, out);
             }
         }
         2 => {
             if vis && node.render_mode != 2 {
-                draw_box_bg(snap, &geo, node, page, content_h_px, page_h_pt, out);
+                draw_box_bg(snap, geo, node, page, content_h_px, page_h_pt, out);
                 if let Some(img) = node.image.as_ref() {
                     if let Some(src) = find_image(snap, img.id) {
-                        let (x0, bottom, w, h) = rect_pt(snap, &geo, node, page, content_h_px, page_h_pt);
+                        let (x0, bottom, w, h) = rect_pt(snap, geo, node, page, content_h_px, page_h_pt);
                         let (draw_x, draw_y, draw_w, draw_h) = image_draw_rect_pt(node, src, x0, bottom, w, h);
                         let needs_clip = image_needs_clip(node, draw_x, draw_y, draw_w, draw_h, x0, bottom, w, h);
                         if needs_clip {
@@ -1267,7 +1269,7 @@ fn draw_node(
                         }
                     }
                 }
-                draw_box_border(snap, &geo, node, page, content_h_px, page_h_pt, out);
+                draw_box_border(snap, geo, node, page, content_h_px, page_h_pt, out);
             }
         }
         _ => {}
