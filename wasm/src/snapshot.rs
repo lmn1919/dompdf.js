@@ -4,7 +4,7 @@
 //!
 //! Header:
 //!   magic: 4 bytes = "D2P1"
-//!   version: u32 = 12
+//!   version: u32 = 13
 //!   pageWidthPt, pageHeightPt, marginTop, marginRight, marginBottom, marginLeft: f32
 //!
 //! Config block:
@@ -51,7 +51,9 @@
 //!     if hasFont: familyLen u16 + utf8 ; sizePx f32 ; weight u16 ; italic u8 ;
 //!                 cr,cg,cb,ca f32 ; lineHeightPx f32 ; align u8 ;
 //!                 letterSpacingPx f32 ; wordSpacingPx f32 ; preserveWhitespace u8
-//!     if hasImage: imageId u32 ; objectFit u8
+//!     if hasImage: imageId u32 ; objectFit u8 ;
+//!                  objectPositionXPct f32 ; objectPositionXOffsetPx f32 ;
+//!                  objectPositionYPct f32 ; objectPositionYOffsetPx f32
 //!     if hasRenderMode: renderMode u8
 //!     if kind==text: textLen u32 + utf8 ; lineCount u32 ;
 //!                    lines: lineCount x (x,y,w,h f32 ; start u32 ; end u32)
@@ -228,6 +230,10 @@ pub struct Font {
 pub struct ImageRef {
     pub id: u32,
     pub object_fit: u8,
+    pub object_position_x_pct: f32,
+    pub object_position_x_offset_px: f32,
+    pub object_position_y_pct: f32,
+    pub object_position_y_offset_px: f32,
 }
 
 #[derive(Clone, Copy)]
@@ -549,9 +555,9 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
         return Err(format!("bad magic: {:?}", magic));
     }
     let version = c.u32()?;
-    if version != 7 && version != 8 && version != 9 && version != 10 && version != 11 && version != 12 {
+    if version != 7 && version != 8 && version != 9 && version != 10 && version != 11 && version != 12 && version != 13 {
         return Err(format!(
-            "unsupported version {} (expected 7, 8, 9, 10, 11 or 12)",
+            "unsupported version {} (expected 7, 8, 9, 10, 11, 12 or 13)",
             version
         ));
     }
@@ -735,6 +741,10 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
             Some(ImageRef {
                 id: image_id,
                 object_fit,
+                object_position_x_pct: if version >= 13 { c.f32()? } else { 0.5 },
+                object_position_x_offset_px: if version >= 13 { c.f32()? } else { 0.0 },
+                object_position_y_pct: if version >= 13 { c.f32()? } else { 0.5 },
+                object_position_y_offset_px: if version >= 13 { c.f32()? } else { 0.0 },
             })
         } else {
             None

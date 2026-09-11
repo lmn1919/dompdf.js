@@ -745,6 +745,10 @@ interface NodeRec {
   };
   imageId?: number;
   objectFit?: number; // 0 fill, 1 contain, 2 cover, 3 none, 4 scale-down
+  objectPositionXPct?: number; // 0 = left, 0.5 = center, 1 = right
+  objectPositionXOffsetPx?: number;
+  objectPositionYPct?: number; // 0 = top, 0.5 = center, 1 = bottom
+  objectPositionYOffsetPx?: number;
   renderMode: number;
   divisionDisable: boolean;
   pageBreak: boolean;
@@ -1244,6 +1248,225 @@ function objectFitNum(v: string): number {
   }
 }
 
+type ObjectPositionAxis = {
+  pct: number;
+  offsetPx: number;
+};
+
+function objectPositionAxisDefault(): ObjectPositionAxis {
+  return { pct: 0.5, offsetPx: 0 };
+}
+
+type ParsedPositionToken =
+  | { kind: 'pct'; value: number }
+  | { kind: 'px'; value: number }
+  | { kind: 'mixed'; pct: number; offsetPx: number };
+
+function splitPositionTokens(value: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let start = -1;
+  for (let i = 0; i < value.length; i++) {
+    const ch = value[i];
+    if (ch === '(') depth++;
+    else if (ch === ')') depth = Math.max(0, depth - 1);
+    if (/\s/.test(ch) && depth === 0) {
+      if (start !== -1) {
+        out.push(value.slice(start, i));
+        start = -1;
+      }
+      continue;
+    }
+    if (start === -1) start = i;
+  }
+  if (start !== -1) out.push(value.slice(start));
+  return out;
+}
+
+function parsePositionToken(token: string): ParsedPositionToken | null {
+  const trimmed = (token || '').trim().toLowerCase();
+  if (!trimmed) return null;
+  const calcMatch = /^calc\(\s*(-?\d+(?:\.\d+)?)%\s*([+-])\s*(-?\d+(?:\.\d+)?)px\s*\)$/i.exec(trimmed);
+  if (calcMatch) {
+    const pct = parseFloat(calcMatch[1]);
+    const px = parseFloat(calcMatch[3]);
+    if (Number.isFinite(pct) && Number.isFinite(px)) {
+      return {
+        kind: 'mixed',
+        pct: pct / 100,
+        offsetPx: calcMatch[2] === '+' ? px : -px,
+      };
+    }
+  }
+  if (trimmed.endsWith('%')) {
+    const n = parseFloat(trimmed.slice(0, -1));
+    return Number.isFinite(n) ? { kind: 'pct', value: n / 100 } : null;
+  }
+  const n = parseFloat(trimmed);
+  return Number.isFinite(n) ? { kind: 'px', value: n } : null;
+}
+
+function isXPositionKeyword(token: string): boolean {
+  return token === 'left' || token === 'right' || token === 'center';
+}
+
+function isYPositionKeyword(token: string): boolean {
+  return token === 'top' || token === 'bottom' || token === 'center';
+}
+
+function parseObjectPositionAxis(
+  keywordToken: string | null,
+  valueToken: string | null,
+  axis: 'x' | 'y',
+): ObjectPositionAxis | null {
+  const keyword = (keywordToken || '').trim().toLowerCase();
+  const parsedValue = valueToken ? parsePositionToken(valueToken) : null;
+  const positiveEdge = axis === 'x' ? 'right' : 'bottom';
+  const negativeEdge = axis === 'x' ? 'left' : 'top';
+
+  if (!keyword) {
+    if (!parsedValue) return null;
+    if (parsedValue.kind === 'mixed') {
+      return { pct: parsedValue.pct, offsetPx: parsedValue.offsetPx };
+    }
+    return parsedValue.kind === 'pct'
+      ? { pct: parsedValue.value, offsetPx: 0 }
+      : { pct: 0, offsetPx: parsedValue.value };
+  }
+  if (keyword === 'center') {
+    if (!parsedValue) return { pct: 0.5, offsetPx: 0 };
+    if (parsedValue.kind === 'mixed') {
+      return { pct: 0.5 + parsedValue.pct, offsetPx: parsedValue.offsetPx };
+    }
+    return parsedValue.kind === 'pct'
+      ? { pct: 0.5 + parsedValue.value, offsetPx: 0 }
+      : { pct: 0.5, offsetPx: parsedValue.value };
+  }
+  if (keyword === negativeEdge) {
+    if (!parsedValue) return { pct: 0, offsetPx: 0 };
+    if (parsedValue.kind === 'mixed') {
+      return { pct: parsedValue.pct, offsetPx: parsedValue.offsetPx };
+    }
+    return parsedValue.kind === 'pct'
+      ? { pct: parsedValue.value, offsetPx: 0 }
+      : { pct: 0, offsetPx: parsedValue.value };
+  }
+  if (keyword === positiveEdge) {
+    if (!parsedValue) return { pct: 1, offsetPx: 0 };
+    if (parsedValue.kind === 'mixed') {
+      return { pct: 1 - parsedValue.pct, offsetPx: -parsedValue.offsetPx };
+    }
+    return parsedValue.kind === 'pct'
+      ? { pct: 1 - parsedValue.value, offsetPx: 0 }
+      : { pct: 1, offsetPx: -parsedValue.value };
+  }
+  return null;
+}
+
+function parseObjectPosition(value: string): { x: ObjectPositionAxis; y: ObjectPositionAxis } {
+  const tokens = splitPositionTokens((value || '').trim().toLowerCase());
+  const x = objectPositionAxisDefault();
+  const y = objectPositionAxisDefault();
+  if (tokens.length === 0) return { x, y };
+
+  const applyAxis = (target: ObjectPositionAxis, next: ObjectPositionAxis | null): void => {
+    if (!next) return;
+    target.pct = next.pct;
+    target.offsetPx = next.offsetPx;
+  };
+
+  if (tokens.length >= 4) {
+    const firstKeyword = tokens[0];
+    const secondKeyword = tokens[2];
+    const firstValue = parsePositionToken(tokens[1]);
+    const secondValue = parsePositionToken(tokens[3]);
+    if (firstValue && secondValue) {
+      if (firstKeyword !== 'center' && secondKeyword !== 'center') {
+        if (isXPositionKeyword(firstKeyword) && isYPositionKeyword(secondKeyword)) {
+          applyAxis(x, parseObjectPositionAxis(firstKeyword, tokens[1], 'x'));
+          applyAxis(y, parseObjectPositionAxis(secondKeyword, tokens[3], 'y'));
+          return { x, y };
+        }
+        if (isYPositionKeyword(firstKeyword) && isXPositionKeyword(secondKeyword)) {
+          applyAxis(y, parseObjectPositionAxis(firstKeyword, tokens[1], 'y'));
+          applyAxis(x, parseObjectPositionAxis(secondKeyword, tokens[3], 'x'));
+          return { x, y };
+        }
+      }
+    }
+  }
+
+  if (tokens.length === 1) {
+    const token = tokens[0];
+    if (token === 'top' || token === 'bottom') applyAxis(y, parseObjectPositionAxis(token, null, 'y'));
+    else if (token === 'left' || token === 'right') applyAxis(x, parseObjectPositionAxis(token, null, 'x'));
+    else if (token === 'center') {
+      applyAxis(x, parseObjectPositionAxis(token, null, 'x'));
+      applyAxis(y, parseObjectPositionAxis(token, null, 'y'));
+    } else {
+      applyAxis(x, parseObjectPositionAxis(null, token, 'x'));
+    }
+    return { x, y };
+  }
+
+  if (tokens.length === 2) {
+    const [t0, t1] = tokens;
+    if ((t0 === 'top' || t0 === 'bottom') && isXPositionKeyword(t1)) {
+      applyAxis(y, parseObjectPositionAxis(t0, null, 'y'));
+      applyAxis(x, parseObjectPositionAxis(t1, null, 'x'));
+      return { x, y };
+    }
+    if ((t1 === 'top' || t1 === 'bottom') && isXPositionKeyword(t0)) {
+      applyAxis(x, parseObjectPositionAxis(t0, null, 'x'));
+      applyAxis(y, parseObjectPositionAxis(t1, null, 'y'));
+      return { x, y };
+    }
+    if (t0 === 'top' || t0 === 'bottom') {
+      applyAxis(y, parseObjectPositionAxis(t0, null, 'y'));
+      applyAxis(x, parseObjectPositionAxis(null, t1, 'x'));
+      return { x, y };
+    }
+    if (t1 === 'top' || t1 === 'bottom') {
+      applyAxis(x, parseObjectPositionAxis(null, t0, 'x'));
+      applyAxis(y, parseObjectPositionAxis(t1, null, 'y'));
+      return { x, y };
+    }
+    applyAxis(x, parseObjectPositionAxis(t0, null, 'x') ?? parseObjectPositionAxis(null, t0, 'x'));
+    applyAxis(y, parseObjectPositionAxis(t1, null, 'y') ?? parseObjectPositionAxis(null, t1, 'y'));
+    return { x, y };
+  }
+
+  if (tokens.length === 3) {
+    const [t0, t1, t2] = tokens;
+    if ((t0 === 'left' || t0 === 'right') && parsePositionToken(t1) && isYPositionKeyword(t2)) {
+      applyAxis(x, parseObjectPositionAxis(t0, t1, 'x'));
+      applyAxis(y, parseObjectPositionAxis(t2, null, 'y'));
+      return { x, y };
+    }
+    if ((t0 === 'top' || t0 === 'bottom') && parsePositionToken(t1) && isXPositionKeyword(t2)) {
+      applyAxis(y, parseObjectPositionAxis(t0, t1, 'y'));
+      applyAxis(x, parseObjectPositionAxis(t2, null, 'x'));
+      return { x, y };
+    }
+    if (isXPositionKeyword(t0) && (t1 === 'top' || t1 === 'bottom') && parsePositionToken(t2)) {
+      applyAxis(x, parseObjectPositionAxis(t0, null, 'x'));
+      applyAxis(y, parseObjectPositionAxis(t1, t2, 'y'));
+      return { x, y };
+    }
+    if (isYPositionKeyword(t0) && (t1 === 'left' || t1 === 'right') && parsePositionToken(t2)) {
+      applyAxis(y, parseObjectPositionAxis(t0, null, 'y'));
+      applyAxis(x, parseObjectPositionAxis(t1, t2, 'x'));
+      return { x, y };
+    }
+  }
+
+  applyAxis(x, parseObjectPositionAxis(tokens[0], null, 'x') ?? parseObjectPositionAxis(null, tokens[0], 'x'));
+  if (tokens.length > 1) {
+    applyAxis(y, parseObjectPositionAxis(tokens[1], null, 'y') ?? parseObjectPositionAxis(null, tokens[1], 'y'));
+  }
+  return { x, y };
+}
+
 function borderStyleNum(style: string): number {
   return style === 'dashed' ? BORDER_DASHED : BORDER_SOLID;
 }
@@ -1368,11 +1591,14 @@ async function convertImage(
       await sourceImg.decode().catch(() => null);
     }
     const rect = img.getBoundingClientRect();
-    const cssW = Math.max(1, Math.round(rect.width || img.width || sourceImg.naturalWidth || img.naturalWidth || 0));
-    const cssH = Math.max(1, Math.round(rect.height || img.height || sourceImg.naturalHeight || img.naturalHeight || 0));
-    const ss = superSampleFactor(cssW, cssH);
-    const w = Math.max(1, Math.round(cssW * ss));
-    const h = Math.max(1, Math.round(cssH * ss));
+    const naturalW = Math.max(1, Math.round(sourceImg.naturalWidth || img.naturalWidth || sourceImg.width || img.width || 0));
+    const naturalH = Math.max(1, Math.round(sourceImg.naturalHeight || img.naturalHeight || sourceImg.height || img.height || 0));
+    const cssW = Math.max(1, Math.round(rect.width || img.width || naturalW || 0));
+    const cssH = Math.max(1, Math.round(rect.height || img.height || naturalH || 0));
+    // Preserve the source image's intrinsic aspect ratio here; layout-driven
+    // fitting like object-fit/object-position is applied later during PDF draw.
+    const w = naturalW || cssW;
+    const h = naturalH || cssH;
     if (!w || !h) return null;
     const canvas = document.createElement('canvas');
     canvas.width = w;
@@ -3833,6 +4059,7 @@ function buildInlineRunsWithLangFont(
 
     const dm = el.dataset.dom2pdfMode;
     const renderMode = dm === 'raster' ? 1 : dm === 'skip' ? 2 : 0;
+    const objectPosition = isImg ? parseObjectPosition(cs.objectPosition) : null;
 
     const breakInside = cs.breakInside || cs.getPropertyValue('break-inside');
     const pageBreakInside = cs.getPropertyValue('page-break-inside');
@@ -3880,6 +4107,10 @@ function buildInlineRunsWithLangFont(
       href,
       imageId: isImg ? imgToId.get(el) : undefined,
       objectFit: isImg ? objectFitNum(cs.objectFit) : undefined,
+      objectPositionXPct: objectPosition?.x.pct,
+      objectPositionXOffsetPx: objectPosition?.x.offsetPx,
+      objectPositionYPct: objectPosition?.y.pct,
+      objectPositionYOffsetPx: objectPosition?.y.offsetPx,
     };
 
     if (isRasterTag(el, cs)) {
@@ -4366,7 +4597,7 @@ function writeFormField(w: BinWriter, field: CollectedFormField): void {
 function encode(a: EncodeArgs): Uint8Array {
   const w = new BinWriter();
   w.bytes(new Uint8Array([0x44, 0x32, 0x50, 0x31])); // "D2P1"
-  w.u32(12); // version 12 (adds hyperlink annotations and form field padding)
+  w.u32(13); // version 13 (adds object-position for image nodes)
   w.f32(a.pageWidthPt);
   w.f32(a.pageHeightPt);
   w.f32(a.mTop);
@@ -4478,6 +4709,10 @@ function encode(a: EncodeArgs): Uint8Array {
     if (n.imageId !== undefined) {
       w.u32(n.imageId);
       w.u8(n.objectFit ?? 0);
+      w.f32(n.objectPositionXPct ?? 0.5);
+      w.f32(n.objectPositionXOffsetPx ?? 0);
+      w.f32(n.objectPositionYPct ?? 0.5);
+      w.f32(n.objectPositionYOffsetPx ?? 0);
     }
     if (n.renderMode !== 0) w.u8(n.renderMode);
     if (n.href) {

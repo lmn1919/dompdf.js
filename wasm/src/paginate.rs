@@ -1096,7 +1096,8 @@ fn find_image<'a>(snap: &'a Snapshot, image_id: u32) -> Option<&'a Image> {
 fn image_draw_rect_pt(node: &Node, img: &Image, box_x: f32, box_bottom: f32, box_w: f32, box_h: f32) -> (f32, f32, f32, f32) {
     let natural_w = (img.width as f32).max(1.0) * PX_TO_PT;
     let natural_h = (img.height as f32).max(1.0) * PX_TO_PT;
-    let fit = node.image.as_ref().map(|r| r.object_fit).unwrap_or(0);
+    let image_ref = node.image.as_ref();
+    let fit = image_ref.map(|r| r.object_fit).unwrap_or(0);
     let (draw_w, draw_h) = match fit {
         1 => {
             let s = (box_w / natural_w).min(box_h / natural_h);
@@ -1113,15 +1114,39 @@ fn image_draw_rect_pt(node: &Node, img: &Image, box_x: f32, box_bottom: f32, box
         }
         _ => (box_w, box_h),
     };
-    let draw_x = box_x + (box_w - draw_w) / 2.0;
-    let draw_y = box_bottom + (box_h - draw_h) / 2.0;
+    let free_w = box_w - draw_w;
+    let free_h = box_h - draw_h;
+    let x_pct = image_ref.map(|r| r.object_position_x_pct).unwrap_or(0.5);
+    let x_offset_pt = image_ref
+        .map(|r| r.object_position_x_offset_px)
+        .unwrap_or(0.0)
+        * PX_TO_PT;
+    let y_pct = image_ref.map(|r| r.object_position_y_pct).unwrap_or(0.5);
+    let y_offset_pt = image_ref
+        .map(|r| r.object_position_y_offset_px)
+        .unwrap_or(0.0)
+        * PX_TO_PT;
+    let draw_x = box_x + free_w * x_pct + x_offset_pt;
+    let draw_y = box_bottom + free_h * (1.0 - y_pct) - y_offset_pt;
     (draw_x, draw_y, draw_w, draw_h)
 }
 
-fn image_needs_clip(node: &Node, draw_w: f32, draw_h: f32, box_w: f32, box_h: f32) -> bool {
+fn image_needs_clip(
+    node: &Node,
+    draw_x: f32,
+    draw_y: f32,
+    draw_w: f32,
+    draw_h: f32,
+    box_x: f32,
+    box_bottom: f32,
+    box_w: f32,
+    box_h: f32,
+) -> bool {
     node.radius.is_some()
-        || draw_w > box_w + 0.01
-        || draw_h > box_h + 0.01
+        || draw_x < box_x - 0.01
+        || draw_y < box_bottom - 0.01
+        || draw_x + draw_w > box_x + box_w + 0.01
+        || draw_y + draw_h > box_bottom + box_h + 0.01
 }
 
 fn draw_node(
@@ -1210,7 +1235,7 @@ fn draw_node(
                     if let Some(src) = find_image(snap, img.id) {
                         let (x0, bottom, w, h) = rect_pt(snap, &geo, node, page, content_h_px, page_h_pt);
                         let (draw_x, draw_y, draw_w, draw_h) = image_draw_rect_pt(node, src, x0, bottom, w, h);
-                        let needs_clip = image_needs_clip(node, draw_w, draw_h, w, h);
+                        let needs_clip = image_needs_clip(node, draw_x, draw_y, draw_w, draw_h, x0, bottom, w, h);
                         if needs_clip {
                             out.push_str("q\n");
                             if let Some(radii) = rounded_rect_radii_pt(node, w, h) {
@@ -2870,4 +2895,89 @@ pub fn build_pdf(
     w.write_encrypt_obj();
     w.finish(catalog_id);
     w.into_bytes()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{image_draw_rect_pt, PX_TO_PT};
+    use crate::snapshot::{Image, ImageRef, Node};
+
+    fn image_node(image: ImageRef) -> Node {
+        Node {
+            id: 0,
+            parent: -1,
+            kind: 2,
+            x: 0.0,
+            y: 0.0,
+            w: 0.0,
+            h: 0.0,
+            flags: 0,
+            bg: None,
+            border: None,
+            shadow: Vec::new(),
+            radius: None,
+            overflow_hidden: false,
+            opacity: None,
+            font: None,
+            image: Some(image),
+            render_mode: 0,
+            division_disable: false,
+            page_break: false,
+            href: None,
+            text: None,
+            lines: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn image_draw_rect_honors_cover_top_left_position() {
+        let node = image_node(ImageRef {
+            id: 1,
+            object_fit: 2,
+            object_position_x_pct: 0.0,
+            object_position_x_offset_px: 0.0,
+            object_position_y_pct: 0.0,
+            object_position_y_offset_px: 0.0,
+        });
+        let image = Image {
+            id: 1,
+            width: 100,
+            height: 50,
+            format: 0,
+            bytes: Vec::new(),
+        };
+
+        let (x, y, w, h) = image_draw_rect_pt(&node, &image, 10.0, 20.0, 60.0, 60.0);
+
+        assert!((x - 10.0).abs() < 0.01);
+        assert!((y - 50.0).abs() < 0.01);
+        assert!((w - 120.0).abs() < 0.01);
+        assert!((h - 60.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn image_draw_rect_honors_right_bottom_offsets() {
+        let node = image_node(ImageRef {
+            id: 1,
+            object_fit: 3,
+            object_position_x_pct: 1.0,
+            object_position_x_offset_px: -10.0,
+            object_position_y_pct: 1.0,
+            object_position_y_offset_px: -8.0,
+        });
+        let image = Image {
+            id: 1,
+            width: 40,
+            height: 20,
+            format: 0,
+            bytes: Vec::new(),
+        };
+
+        let (x, y, w, h) = image_draw_rect_pt(&node, &image, 10.0, 20.0, 100.0, 80.0);
+
+        assert!((w - 40.0 * PX_TO_PT).abs() < 0.01);
+        assert!((h - 20.0 * PX_TO_PT).abs() < 0.01);
+        assert!((x - (10.0 + 100.0 - w - 10.0 * PX_TO_PT)).abs() < 0.01);
+        assert!((y - (20.0 + 8.0 * PX_TO_PT)).abs() < 0.01);
+    }
 }

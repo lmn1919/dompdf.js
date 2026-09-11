@@ -74,8 +74,12 @@
     <!-- Library Scripts -->
     <script src="./vendor/dompurify.min.js"></script>
     <script src="./vendor/marked.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dompdf.js@latest/dist/dompdf.min.js"></script>
-    <!-- <script src="../dist/dompdf.js"></script> -->
+    <script src="../dist/dompdf.js"></script>
+    <script>
+      if (!window.dompdf) {
+        document.write('<script src="https://cdn.jsdelivr.net/npm/dompdf.js@latest/dist/dompdf.min.js"><\/script>');
+      }
+    </script>
     <script src="./vendor/vditor/dist/index.min.js"></script>
   </head>
 
@@ -783,6 +787,63 @@
                   font-size: 10px;
                   font-weight: 700;
                   color: #fff;
+                }
+
+                .ds-object-fit-grid {
+                  display: grid;
+                  grid-template-columns: repeat(2, minmax(0, 1fr));
+                  gap: 14px;
+                  margin-top: 18px;
+                }
+
+                .ds-object-fit-card {
+                  border: 1px solid #e2e8f0;
+                  border-radius: 12px;
+                  background: #ffffff;
+                  padding: 14px;
+                }
+
+                .ds-object-fit-card h4 {
+                  margin: 0 0 6px;
+                  font-size: 13px;
+                  font-weight: 700;
+                  color: #0f172a;
+                }
+
+                .ds-object-fit-card p {
+                  margin: 0 0 10px;
+                  font-size: 11px;
+                  line-height: 1.6;
+                  color: #64748b;
+                }
+
+                .ds-object-fit-frame {
+                  width: 100%;
+                  height: 168px;
+                  border-radius: 10px;
+                  overflow: hidden;
+                  border: 1px solid #cbd5e1;
+                  background:
+                    linear-gradient(45deg, #f8fafc 25%, transparent 25%),
+                    linear-gradient(-45deg, #f8fafc 25%, transparent 25%),
+                    linear-gradient(45deg, transparent 75%, #f8fafc 75%),
+                    linear-gradient(-45deg, transparent 75%, #f8fafc 75%);
+                  background-color: #e2e8f0;
+                  background-size: 16px 16px;
+                  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+                }
+
+                .ds-object-fit-frame img {
+                  width: 100%;
+                  height: 100%;
+                  display: block;
+                }
+
+                .ds-object-fit-meta {
+                  margin-top: 8px;
+                  font-size: 10px;
+                  color: #475569;
+                  font-family: "JetBrains Mono", monospace;
                 }
 
                 .ds-timeline {
@@ -2199,6 +2260,78 @@
                     该图为 JPEG
                     位图样本，用来确认非矢量资源在导出后的颜色、尺寸与压缩表现。
                   </p>
+
+                  <div class="ds-object-fit-grid">
+                    <div class="ds-object-fit-card">
+                      <h4>`contain center`</h4>
+                      <p>
+                        保持完整图像，四周留出空白，验证 `object-fit: contain`
+                        的缩放和默认居中定位。
+                      </p>
+                      <div class="ds-object-fit-frame">
+                        <img
+                          data-raster-sample
+                          alt="object-fit contain center demo"
+                          style="object-fit: contain; object-position: center center"
+                        />
+                      </div>
+                      <div class="ds-object-fit-meta">
+                        object-fit: contain; object-position: center;
+                      </div>
+                    </div>
+
+                    <div class="ds-object-fit-card">
+                      <h4>`cover left top`</h4>
+                      <p>
+                        让图像铺满裁剪框并固定在左上角，方便对比顶部和左侧裁切是否正确。
+                      </p>
+                      <div class="ds-object-fit-frame">
+                        <img
+                          data-raster-sample
+                          alt="object-fit cover left top demo"
+                          style="object-fit: cover; object-position: left top"
+                        />
+                      </div>
+                      <div class="ds-object-fit-meta">
+                        object-fit: cover; object-position: left top;
+                      </div>
+                    </div>
+
+                    <div class="ds-object-fit-card">
+                      <h4>`cover right bottom`</h4>
+                      <p>
+                        同样使用铺满裁剪，但把锚点切到右下角，用来检查偏移基准是否跟浏览器一致。
+                      </p>
+                      <div class="ds-object-fit-frame">
+                        <img
+                          data-raster-sample
+                          alt="object-fit cover right bottom demo"
+                          style="object-fit: cover; object-position: right bottom"
+                        />
+                      </div>
+                      <div class="ds-object-fit-meta">
+                        object-fit: cover; object-position: right bottom;
+                      </div>
+                    </div>
+
+                    <div class="ds-object-fit-card">
+                      <h4>`none right 18px bottom 12px`</h4>
+                      <p>
+                        不缩放原图，只依赖 `object-position` 的像素偏移来定位，适合验证 `none`
+                        模式下的裁剪窗口。
+                      </p>
+                      <div class="ds-object-fit-frame">
+                        <img
+                          data-raster-sample
+                          alt="object-fit none with offsets demo"
+                          style="object-fit: none; object-position: right 18px bottom 12px"
+                        />
+                      </div>
+                      <div class="ds-object-fit-meta">
+                        object-fit: none; object-position: right 18px bottom 12px;
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </section>
               <section class="report-section" style="margin-top: 42px">

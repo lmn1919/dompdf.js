@@ -1780,7 +1780,11 @@
   buildRecordsTable();
   buildLongList();
   updateDocPageInfo();
-  document.getElementById('sample-img').src = createChartDataUrl();
+  var sampleImageUrl = createChartDataUrl();
+  document.getElementById('sample-img').src = sampleImageUrl;
+  Array.prototype.forEach.call(document.querySelectorAll('[data-raster-sample]'), function (img) {
+    img.src = sampleImageUrl;
+  });
   applyStaticTranslations(currentLocale);
   window.addEventListener('resize', updateDocPageInfo);
 
