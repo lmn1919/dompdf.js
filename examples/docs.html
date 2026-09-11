@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>dompdf.js Docs</title>
+    <meta
+      name="description"
+      content="VuePress-style documentation page for dompdf.js with English and Chinese support."
+    />
+    <link rel="stylesheet" href="./docs.css" />
+    <script src="./vendor/marked.min.js" defer></script>
+    <script src="./vendor/dompurify.min.js" defer></script>
+    <script
+      src="./vendor/vditor/dist/js/highlight.js/highlight.min.js"
+      defer
+    ></script>
+    <script src="./docs.js" defer></script>
+  </head>
+  <body>
+    <div class="docs-shell">
+      <header class="docs-topbar">
+        <div class="docs-brand-wrap">
+          <button
+            class="docs-menu-btn"
+            type="button"
+            id="docs-menu-btn"
+            aria-label="Toggle navigation"
+            aria-expanded="false"
+          >
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+          <a class="docs-brand" href="./docs.html">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M4 4h7v7H4V4Zm9 0h7v7h-7V4ZM4 13h7v7H4v-7Zm9 4.2 1.8-2.1 1.6 1.8L20 12.5"
+                stroke="currentColor"
+                stroke-width="1.7"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <span>dompdf.js</span>
+            <span class="docs-brand-badge">Docs</span>
+          </a>
+        </div>
+
+        <div class="docs-topbar-actions">
+          <nav class="docs-quick-links" aria-label="Quick links">
+            <a href="./index.html" data-i18n="navDemo">Live Demo</a>
+            <a
+              href="https://github.com/lmn1919/dompdf.js"
+              target="_blank"
+              rel="noreferrer"
+            >
+              GitHub
+            </a>
+          </nav>
+
+          <div class="lang-switch" role="group" aria-label="Language switch">
+            <button
+              class="lang-switch-btn"
+              id="lang-btn-en"
+              type="button"
+              data-lang="en"
+            >
+              EN
+            </button>
+            <button
+              class="lang-switch-btn"
+              id="lang-btn-zh"
+              type="button"
+              data-lang="zh"
+            >
+              中
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div class="docs-overlay"></div>
+
+      <div class="docs-layout">
+        <aside class="docs-sidebar" id="docs-sidebar">
+          <div class="docs-sidebar-inner">
+            <div class="docs-sidebar-panel">
+              <div class="docs-sidebar-kicker" data-i18n="sidebarGuide">
+                Guide
+              </div>
+              <nav class="docs-page-nav" id="docs-page-nav" aria-label="Docs pages"></nav>
+            </div>
+
+            <div class="docs-sidebar-panel">
+              <div class="docs-sidebar-kicker" data-i18n="sidebarSections">
+                Sections
+              </div>
+              <nav class="docs-section-nav" id="docs-section-nav" aria-label="Current page sections"></nav>
+            </div>
+          </div>
+        </aside>
+
+        <main class="docs-main" id="docs-main">
+          <div class="docs-main-inner">
+            <section class="docs-hero">
+              <div class="docs-hero-copy">
+                <div class="docs-hero-eyebrow" id="docs-hero-eyebrow">dompdf.js</div>
+                <h1 id="docs-hero-title">dompdf.js Docs</h1>
+                <p class="docs-hero-lede" id="docs-hero-lede"></p>
+                <p class="docs-hero-note" id="docs-hero-note"></p>
+              </div>
+
+              <div class="docs-hero-highlights" id="docs-hero-highlights"></div>
+            </section>
+
+            <section class="docs-content-wrap">
+              <div class="docs-loading" id="docs-loading">
+                <span class="status-dot loading"></span>
+                <span id="docs-loading-text">Loading documentation...</span>
+              </div>
+              <article class="docs-content" id="docs-content"></article>
+            </section>
+          </div>
+        </main>
+
+        <aside class="docs-outline">
+          <div class="docs-outline-card">
+            <div class="docs-outline-title" data-i18n="outlineTitle">On This Page</div>
+            <nav id="docs-outline-nav" aria-label="On this page"></nav>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </body>
+</html>
