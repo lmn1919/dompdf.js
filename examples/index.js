@@ -616,7 +616,15 @@
     { key: 'sec-10-hyperlink-p1', selector: '#sec-10-hyperlink-p1', type: 'html', en: 'Regular text with an inline <a href="https://example.com">clickable link</a> in the middle.' },
     { key: 'sec-10-hyperlink-p2', selector: '#sec-10-hyperlink-p2', type: 'html', en: '<a href="https://developer.mozilla.org">External documentation link</a> followed by more text.' },
     { key: 'sec-10-compound-1', selector: '#sec-10-compound-1', type: 'text', en: 'Composite glyph test: \u00e1 \u00e9 \u00ef \u00f1 \u00fc \u00e4 \u00f6 mixed into a Chinese paragraph' },
-    { key: 'sec-10-compound-2', selector: '#sec-10-compound-2', type: 'text', en: 'Chinese text after leading composite glyphs: \u4e2d\u534e\u4eba\u6c11\u5171\u548c\u56fd\uff0cabcdefghijklmnopqrstuvwxyz' }
+    { key: 'sec-10-compound-2', selector: '#sec-10-compound-2', type: 'text', en: 'Chinese text after leading composite glyphs: \u4e2d\u534e\u4eba\u6c11\u5171\u548c\u56fd\uff0cabcdefghijklmnopqrstuvwxyz' },
+    { key: 'sec-10-decoration-title', selector: '#sec-10-decoration-title', type: 'text', en: 'Text Decoration Test' },
+    { key: 'sec-10-decoration-summary', selector: '#sec-10-decoration-summary', type: 'html', en: 'Verifies <code>&lt;u&gt;</code>, <code>&lt;s&gt;</code>, <code>&lt;strike&gt;</code>, and CSS <code>text-decoration</code> output in PDF, with multilingual text kept copyable.' },
+    { key: 'sec-10-decoration-1', selector: '#sec-10-decoration-1', type: 'html', en: '1. HTML tags: this is <u>underlined text</u>, and this is <s>strikethrough text</s>.' },
+    { key: 'sec-10-decoration-2', selector: '#sec-10-decoration-2', type: 'html', en: '2. Legacy tag: this is <strike>strikethrough rendered by the strike tag</strike>.' },
+    { key: 'sec-10-decoration-3', selector: '#sec-10-decoration-3', type: 'html', en: '3. CSS styling: this is <span style="text-decoration: underline">underlined via CSS</span>.' },
+    { key: 'sec-10-decoration-4', selector: '#sec-10-decoration-4', type: 'html', en: '4. CSS styling: this is <span style="text-decoration: line-through">strikethrough via CSS</span>.' },
+    { key: 'sec-10-decoration-5', selector: '#sec-10-decoration-5', type: 'html', en: '5. Mixed decoration: this is <span style="text-decoration-line: underline line-through; text-decoration-thickness: 2px; color: #c23a2b">text with both underline and strikethrough</span>.' },
+    { key: 'sec-10-decoration-6', selector: '#sec-10-decoration-6', type: 'html', en: '6. Multilingual mix: <span style="text-decoration: underline">Underlined sample text</span> / <span style="text-decoration: line-through">\u5df2\u5b8c\u6210\u9879\u76ee\u9700\u6c42\u8bc4\u5ba1</span> / <span style="text-decoration: underline">\u4e0b\u5212\u7ebf\u4e2d\u6587\u6837\u672c</span>.' }
   ];
 
   function getSavedLocale() {

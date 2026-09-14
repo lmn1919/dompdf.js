@@ -4,7 +4,7 @@
 //!
 //! Header:
 //!   magic: 4 bytes = "D2P1"
-//!   version: u32 = 14
+//!   version: u32 = 15
 //!   pageWidthPt, pageHeightPt, marginTop, marginRight, marginBottom, marginLeft: f32
 //!
 //! Config block:
@@ -50,7 +50,8 @@
 //!     if hasOpacity: opacity f32
 //!     if hasFont: familyLen u16 + utf8 ; sizePx f32 ; weight u16 ; italic u8 ;
 //!                 cr,cg,cb,ca f32 ; lineHeightPx f32 ; align u8 ;
-//!                 letterSpacingPx f32 ; wordSpacingPx f32 ; preserveWhitespace u8
+//!                 letterSpacingPx f32 ; wordSpacingPx f32 ; preserveWhitespace u8 ;
+//!                 decorationLineMask u8 ; decorationThicknessPx f32   (v15+)
 //!     if hasImage: imageId u32 ; objectFit u8 ;
 //!                  objectPositionXPct f32 ; objectPositionXOffsetPx f32 ;
 //!                  objectPositionYPct f32 ; objectPositionYOffsetPx f32
@@ -243,6 +244,8 @@ pub struct Font {
     pub letter_spacing_px: f32,
     pub word_spacing_px: f32,
     pub preserve_whitespace: bool,
+    pub decoration_line_mask: u8, // bit 0 underline, 1 line-through, 2 overline
+    pub decoration_thickness_px: f32,
 }
 
 #[derive(Clone)]
@@ -637,9 +640,9 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
         return Err(format!("bad magic: {:?}", magic));
     }
     let version = c.u32()?;
-    if version != 7 && version != 8 && version != 9 && version != 10 && version != 11 && version != 12 && version != 13 && version != 14 {
+    if version != 7 && version != 8 && version != 9 && version != 10 && version != 11 && version != 12 && version != 13 && version != 14 && version != 15 {
         return Err(format!(
-            "unsupported version {} (expected 7, 8, 9, 10, 11, 12, 13 or 14)",
+            "unsupported version {} (expected 7, 8, 9, 10, 11, 12, 13, 14 or 15)",
             version
         ));
     }
@@ -802,6 +805,8 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
             let letter_spacing_px = c.f32()?;
             let word_spacing_px = c.f32()?;
             let preserve_whitespace = c.u8()? != 0;
+            let decoration_line_mask = if version >= 15 { c.u8()? } else { 0 };
+            let decoration_thickness_px = if version >= 15 { c.f32()? } else { 0.0 };
             Some(Font {
                 family,
                 size_px,
@@ -813,6 +818,8 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
                 letter_spacing_px,
                 word_spacing_px,
                 preserve_whitespace,
+                decoration_line_mask,
+                decoration_thickness_px,
             })
         } else {
             None

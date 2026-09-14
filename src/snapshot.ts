@@ -760,6 +760,8 @@ interface NodeRec {
     letterSpacingPx: number;
     wordSpacingPx: number;
     preserveWhitespace: number;
+    decorationLineMask: number;
+    decorationThicknessPx: number;
   };
   imageId?: number;
   objectFit?: number; // 0 fill, 1 contain, 2 cover, 3 none, 4 scale-down
@@ -1297,6 +1299,15 @@ function alignNum(a: string): number {
     case 'justify': return 3;
     default: return 0;
   }
+}
+
+function textDecorationMask(cs: CSSStyleDeclaration): number {
+  const value = ((cs.textDecorationLine || cs.textDecoration || '') + '').toLowerCase();
+  let mask = 0;
+  if (value.includes('underline')) mask |= 0x01;
+  if (value.includes('line-through')) mask |= 0x02;
+  if (value.includes('overline')) mask |= 0x04;
+  return mask;
 }
 
 function objectFitNum(v: string): number {
@@ -3797,6 +3808,10 @@ function buildInlineRunsWithLangFont(
     else lh *= layoutScale;
     const letterSpacingPx = (parseFloat(cs.letterSpacing) || 0) * layoutScale;
     const wordSpacingPx = (parseFloat(cs.wordSpacing) || 0) * layoutScale;
+    const decorationThicknessRaw = parseFloat((cs.textDecorationThickness || '').trim());
+    const decorationThicknessPx = Number.isFinite(decorationThicknessRaw) && decorationThicknessRaw > 0
+      ? decorationThicknessRaw * layoutScale
+      : 0;
     const preserveWhitespace = /^(pre|pre-wrap|break-spaces)$/.test((cs.whiteSpace || '').trim()) ? 1 : 0;
     return {
       family: (cs.fontFamily || 'Helvetica').split(',')[0].replace(/['"]/g, '').trim(),
@@ -3809,6 +3824,8 @@ function buildInlineRunsWithLangFont(
       letterSpacingPx,
       wordSpacingPx,
       preserveWhitespace,
+      decorationLineMask: textDecorationMask(cs),
+      decorationThicknessPx,
     };
   }
 
@@ -4742,7 +4759,7 @@ function writeFormField(w: BinWriter, field: CollectedFormField): void {
 function encode(a: EncodeArgs): Uint8Array {
   const w = new BinWriter();
   w.bytes(new Uint8Array([0x44, 0x32, 0x50, 0x31])); // "D2P1"
-  w.u32(14); // version 14 (header/footer slots + custom slot positioning)
+  w.u32(15); // version 15 (text decorations for vector text)
   w.f32(a.pageWidthPt);
   w.f32(a.pageHeightPt);
   w.f32(a.mTop);
@@ -4850,6 +4867,8 @@ function encode(a: EncodeArgs): Uint8Array {
       w.f32(n.font.letterSpacingPx);
       w.f32(n.font.wordSpacingPx);
       w.u8(n.font.preserveWhitespace);
+      w.u8(n.font.decorationLineMask);
+      w.f32(n.font.decorationThicknessPx);
     }
     if (n.imageId !== undefined) {
       w.u32(n.imageId);

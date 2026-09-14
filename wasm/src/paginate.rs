@@ -1655,6 +1655,98 @@ fn collect_used_cid_run(fontctx: &FontCtx, family: &str, weight: u16, italic: u8
     }
 }
 
+const TEXT_DECORATION_UNDERLINE: u8 = 0x01;
+const TEXT_DECORATION_LINE_THROUGH: u8 = 0x02;
+const TEXT_DECORATION_OVERLINE: u8 = 0x04;
+
+fn auto_decoration_thickness_px(font_size_px: f32) -> f32 {
+    (font_size_px / 16.0).max(1.0)
+}
+
+fn draw_text_decoration_segment(
+    color: [f32; 4],
+    thickness_pt: f32,
+    x0_pt: f32,
+    x1_pt: f32,
+    y_pt: f32,
+    out: &mut String,
+) {
+    if thickness_pt <= 0.0 || x1_pt <= x0_pt {
+        return;
+    }
+    out.push_str(&format!(
+        "{} {} {} RG {} w\n{} {} m {} {} l S\n",
+        f(color[0]),
+        f(color[1]),
+        f(color[2]),
+        f(thickness_pt),
+        f(x0_pt),
+        f(y_pt),
+        f(x1_pt),
+        f(y_pt)
+    ));
+}
+
+fn draw_text_decorations(
+    snap: &Snapshot,
+    geo: &Geo,
+    font: &crate::snapshot::Font,
+    line: &crate::snapshot::Line,
+    page: u32,
+    content_h_px: f32,
+    page_h_pt: f32,
+    baseline_px: f32,
+    out: &mut String,
+) {
+    if font.decoration_line_mask == 0 {
+        return;
+    }
+    let thickness_px = if font.decoration_thickness_px > 0.0 {
+        font.decoration_thickness_px
+    } else {
+        auto_decoration_thickness_px(font.size_px)
+    };
+    let thickness_pt = thickness_px * PX_TO_PT;
+    let x0_pt = snap.margin_left + line.x * PX_TO_PT;
+    let x1_pt = x0_pt + line.w * PX_TO_PT;
+    let band_top = page as f32 * content_h_px;
+    let y_to_pt = |doc_y_px: f32| {
+        page_h_pt - snap.margin_top - geo.header_h_pt - (doc_y_px - band_top) * PX_TO_PT
+    };
+
+    if font.decoration_line_mask & TEXT_DECORATION_UNDERLINE != 0 {
+        let underline_offset_px = (font.size_px * 0.08).max(thickness_px * 0.5);
+        draw_text_decoration_segment(
+            font.color,
+            thickness_pt,
+            x0_pt,
+            x1_pt,
+            y_to_pt(baseline_px + underline_offset_px),
+            out,
+        );
+    }
+    if font.decoration_line_mask & TEXT_DECORATION_LINE_THROUGH != 0 {
+        draw_text_decoration_segment(
+            font.color,
+            thickness_pt,
+            x0_pt,
+            x1_pt,
+            y_to_pt(baseline_px - font.size_px * 0.3),
+            out,
+        );
+    }
+    if font.decoration_line_mask & TEXT_DECORATION_OVERLINE != 0 {
+        draw_text_decoration_segment(
+            font.color,
+            thickness_pt,
+            x0_pt,
+            x1_pt,
+            y_to_pt(baseline_px - ASCENT * font.size_px + thickness_px * 0.5),
+            out,
+        );
+    }
+}
+
 fn collect_used_cid_gids(snap: &Snapshot, fontctx: &FontCtx, total: u32) {
     for node in snap.nodes.iter() {
         if node.kind != 1 {
@@ -1929,6 +2021,19 @@ fn draw_text_lines(
         out.push_str("ET\n");
         if actual_text_hex.is_some() {
             out.push_str("EMC\n");
+        }
+        if node.render_mode == 0 {
+            draw_text_decorations(
+                snap,
+                geo,
+                font,
+                line,
+                page,
+                content_h_px,
+                page_h_pt,
+                baseline_px,
+                out,
+            );
         }
     }
 }

@@ -55,14 +55,16 @@ function writeOptHF(w, hf) {
 }
 
 /**
- * Build a v10 snapshot.
- * opts: { pagination, header, footer, fontBytes?, fontFamily?, chinese?, text? }
+ * Build a snapshot (v10 by default; v15 for text-decoration coverage).
+ * opts: { version?, pagination, header, footer, fontBytes?, fontFamily?, chinese?, text?,
+ *         decorationLineMask?, decorationThicknessPx? }
  */
 function buildSnapshot(opts = {}) {
   const w = new Bin();
+  const version = opts.version ?? 10;
   // header
   w.bytes(Buffer.from('D2P1'));
-  w.u32(10); // version 10
+  w.u32(version);
   w.f32(595.28); // pageWidthPt
   w.f32(841.89); // pageHeightPt
   w.f32(36); w.f32(36); w.f32(36); w.f32(36); // margins
@@ -121,6 +123,10 @@ function buildSnapshot(opts = {}) {
   w.f32(16); w.u16(400); w.u8(0);
   w.f32(0); w.f32(0); w.f32(0); w.f32(1);
   w.f32(20); w.u8(0); w.f32(0); w.f32(0); w.u8(0);
+  if (version >= 15) {
+    w.u8(opts.decorationLineMask ?? 0);
+    w.f32(opts.decorationThicknessPx ?? 0);
+  }
   w.u32(tlen); w.utf8(text);
   w.u32(1);
   w.f32(10); w.f32(10); w.f32(200); w.f32(20);
@@ -131,6 +137,14 @@ function buildSnapshot(opts = {}) {
   w.f32(10); w.f32(80); w.f32(100); w.f32(50);
   w.u16(F_IMAGE);
   w.u32(1); w.u8(0);
+  if (version >= 13) {
+    w.f32(0.5); w.f32(0);
+    w.f32(0.5); w.f32(0);
+  }
+
+  if (version >= 11) {
+    w.u32(0); // formFieldCount
+  }
 
   // image 1
   w.u32(1); // imageCount
@@ -293,6 +307,20 @@ if (existsSync(compositeFontPath)) {
 } else {
   console.log('  SKIP: symbol fallback font not found at', compositeFontPath);
 }
+
+// ---- Test 6: underline/strikethrough draw vector decoration lines ----
+console.log('Test 6: text decorations draw vector lines');
+const snap6 = buildSnapshot({
+  version: 15,
+  pagination: true,
+  text: 'Decorated text',
+  decorationLineMask: 0x01 | 0x02,
+});
+const pdf6 = render(snap6);
+const latin6 = Buffer.from(pdf6).toString('latin1');
+const decorationStrokeCount = (latin6.match(/ l S\r?\n/g) || []).length;
+check('decoration stroke color emitted', latin6.includes(' RG '));
+check('underline and strikethrough strokes emitted', decorationStrokeCount >= 2, `(count=${decorationStrokeCount})`);
 
 console.log('');
 if (failures === 0) {

@@ -2379,6 +2379,45 @@
                   前置复合字形后的中文验证：中华人民共和国，abcdefghijklmnopqrstuvwxyz
                 </p>
               </div>
+              <div
+                style="
+                  width: 760px;
+                  padding: 20px 24px;
+                  border: 1px solid #d9e0ec;
+                  border-radius: 12px;
+                  background: #ffffff;
+                "
+              >
+                <h2 id="sec-10-decoration-title" style="margin: 0 0 12px">Text Decoration 测试</h2>
+                <p id="sec-10-decoration-summary" style="margin: 0 0 12px; color: #64748b">
+                  用于验证 <code>&lt;u&gt;</code>、<code>&lt;s&gt;</code>、
+                  <code>&lt;strike&gt;</code> 和 CSS <code>text-decoration</code>
+                  在 PDF 中的导出效果。
+                </p>
+                <p id="sec-10-decoration-1">
+                  1. HTML 标签：这是一段 <u>下划线文本</u>，这是一段 <s>删除线文本</s>。
+                </p>
+                <p id="sec-10-decoration-2">
+                  2. 兼容标签：这里是 <strike>strike 标签的删除线效果</strike>。
+                </p>
+                <p id="sec-10-decoration-3">
+                  3. CSS 样式：这里是
+                  <span style="text-decoration: underline">通过 CSS 添加的下划线</span>。
+                </p>
+                <p id="sec-10-decoration-4">
+                  4. CSS 样式：这里是
+                  <span style="text-decoration: line-through">通过 CSS 添加的删除线</span>。
+                </p>
+                <p id="sec-10-decoration-5">
+                  5. 混合样式：这里是
+                  <span style="text-decoration-line: underline line-through; text-decoration-thickness: 2px; color: #c23a2b">同时带下划线和删除线的文本</span>。
+                </p>
+                <p id="sec-10-decoration-6">
+                  6. 中英文混排：
+                  <span style="text-decoration: underline">Underlined sample text</span>
+                  / <span style="text-decoration: line-through">已完成项目需求评审</span>
+                </p>
+              </div>
               </section>
             </article>
           </div>
