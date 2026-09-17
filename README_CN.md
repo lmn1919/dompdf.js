@@ -833,7 +833,7 @@ dompdf.js/
 
 ## dompdf.js交流群
 
-
+<img src="./assets/wechatqrcode.jpg" alt="dompdf.js 微信交流群二维码" width="300" />
 
 ## 参与贡献
 
