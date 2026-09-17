@@ -83,6 +83,23 @@ function buildSnapshot(opts = {}) {
   if (hasStatic) { writeOptHF(w, opts.header || null); writeOptHF(w, opts.footer || null); }
   w.u8(0); // compress disabled
   w.u8(0); // no static watermark
+  // v16: metadata block (PDF Info dictionary)
+  if (version >= 16) {
+    const md = opts.metadata;
+    if (md) {
+      w.u8(1);
+      const fields = [
+        md.title ?? '', md.author ?? '', md.subject ?? '', md.keywords ?? '',
+        md.creator ?? '', md.producer ?? '', md.creationDate ?? '', md.modDate ?? '',
+      ];
+      for (const v of fields) {
+        w.u32(w.utf8Len(v));
+        w.utf8(v);
+      }
+    } else {
+      w.u8(0);
+    }
+  }
 
   // fonts block
   const fonts = opts.fontBytes ? [{
@@ -321,6 +338,40 @@ const latin6 = Buffer.from(pdf6).toString('latin1');
 const decorationStrokeCount = (latin6.match(/ l S\r?\n/g) || []).length;
 check('decoration stroke color emitted', latin6.includes(' RG '));
 check('underline and strikethrough strokes emitted', decorationStrokeCount >= 2, `(count=${decorationStrokeCount})`);
+
+// ---- Test 7: v16 metadata (PDF Info dictionary) ----
+console.log('Test 7: PDF metadata (Info dictionary)');
+// UTF-16BE + BOM hex, as the writer emits Info strings.
+const mdHex = (s) => 'FEFF' + Buffer.from(s, 'utf16le').swap16().toString('hex').toUpperCase();
+const md = {
+  title: 'My Report',
+  author: '张三',
+  subject: 'Metadata test',
+  keywords: 'pdf, metadata',
+  creator: 'verify.mjs',
+  producer: 'dompdf.js',
+  creationDate: "D:20260102123456+08'00'",
+  modDate: "D:20260102123456+08'00'",
+};
+const snap7 = buildSnapshot({ version: 16, pagination: true, background: true, metadata: md });
+const total7 = countPages(snap7);
+check('metadata doc count_pages >= 1', total7 >= 1, `(got ${total7})`);
+const pdf7 = render(snap7);
+const latin7 = Buffer.from(pdf7).toString('latin1');
+check('trailer references /Info', /\/Info \d+ 0 R/.test(latin7));
+for (const key of ['Title', 'Author', 'Subject', 'Keywords', 'Creator', 'Producer', 'CreationDate', 'ModDate']) {
+  check(`Info has /${key}`, latin7.includes(`/${key} <FEFF`));
+}
+check('ASCII title as UTF-16BE hex', latin7.includes(`/Title <${mdHex('My Report')}>`));
+check('Chinese author as UTF-16BE hex', latin7.includes(`/Author <${mdHex('张三')}>`));
+check('producer value', latin7.includes(`/Producer <${mdHex('dompdf.js')}>`));
+check('creation date value', latin7.includes(`/CreationDate <${mdHex("D:20260102123456+08'00'")}>`));
+// v16 snapshot without metadata: no Info dict, byte-compatible with v15 output.
+const snap7b = buildSnapshot({ version: 16, pagination: true, background: true });
+const pdf7b = render(snap7b);
+const latin7b = Buffer.from(pdf7b).toString('latin1');
+check('no /Info without metadata', !/\/Info \d+ 0 R/.test(latin7b));
+check('no /Author without metadata', !latin7b.includes('/Author'));
 
 console.log('');
 if (failures === 0) {

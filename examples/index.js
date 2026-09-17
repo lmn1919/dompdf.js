@@ -1149,6 +1149,13 @@
       pagination: true,
       compress: benchmarkCompressEnabled,
       form: { mode: 'hybrid' },
+      metadata: {
+        title: 'dompdf.js Studio 演示文档',
+        author: 'dompdf.js',
+        subject: 'dompdf.js 在线演示导出',
+        keywords: ['dompdf.js', 'PDF', 'demo'],
+        creator: 'dompdf.js Studio'
+      },
       marginPt: 0,
       backgroundColor: '#ffffff',
       useCORS: true,

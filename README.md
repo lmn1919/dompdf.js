@@ -24,6 +24,7 @@ In representative long-document benchmarks, `dompdf.js` can generate a 500-page 
 - [Fonts and Multilingual Text](#fonts-and-multilingual-text)
 - [Form Export](#form-export)
 - [PDF Encryption](#pdf-encryption)
+- [PDF Metadata](#pdf-metadata)
 - [Images and Cross-Origin Resources](#images-and-cross-origin-resources)
 - [Progress Reporting](#progress-reporting)
 - [Compatibility and Limitations](#compatibility-and-limitations)
@@ -224,6 +225,7 @@ The following options have implemented behavior:
 | `watermark` | Object or per-page function | None | Text or image watermark |
 | `form` | `boolean \| FormOptions` | Static mode | Form-control export behavior |
 | `encryption` | `PdfEncryptionOptions` | None | PDF passwords and permissions |
+| `metadata` | `PdfMetadataOptions` | None | PDF document properties (Info dictionary) |
 | `onProgress` | `(progress) => void` | None | Export progress callback |
 
 See [`src/snapshot.ts`](./src/snapshot.ts) and the published package's `dist/types` directory for the complete TypeScript definitions.
@@ -617,6 +619,28 @@ Available permissions:
 - `annot-forms`: allow annotations and form filling
 
 Unknown permission names cause an error. Whether PDF permissions are strictly enforced ultimately depends on the reader; permission flags are not a substitute for access control over sensitive data.
+
+## PDF Metadata
+
+Set document properties shown in the PDF reader's document info panel:
+
+```ts
+await dompdf(element, {
+  metadata: {
+    title: 'Quarterly Report',
+    author: 'Alice',
+    subject: 'Q1 summary',
+    keywords: ['report', 'finance'],
+    creator: 'my-app',
+    producer: 'my-app',
+  },
+});
+```
+
+- All fields are optional; `keywords` accepts a string or a string array (arrays are joined with spaces).
+- When `metadata` is provided, `producer` defaults to `dompdf.js`, and `creationDate`/`modDate` are automatically set to the export time.
+- Values are written as UTF-16BE strings, so Chinese and other non-ASCII text is supported.
+- When `metadata` is omitted, no Info dictionary is written and the output stays byte-compatible with previous versions.
 
 ## Images and Cross-Origin Resources
 

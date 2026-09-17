@@ -150,7 +150,7 @@ impl PdfWriter {
     }
 
     /// Finalize: write xref table + trailer. Returns startxref offset.
-    pub fn finish(&mut self, root_id: u32) -> usize {
+    pub fn finish(&mut self, root_id: u32, info_id: Option<u32>) -> usize {
         let xref_offset = self.out.len();
         let count = self.offsets.len();
         self.put(&format!("xref\n0 {}\n", count + 1));
@@ -162,6 +162,9 @@ impl PdfWriter {
         self.put(&body);
         self.put("trailer\n<< ");
         self.put(&format!("/Size {} /Root {} 0 R ", count + 1, root_id));
+        if let Some(info_id) = info_id {
+            self.put(&format!("/Info {} 0 R ", info_id));
+        }
         if let Some(encrypt_id) = self.encrypt_id {
             self.put(&format!("/Encrypt {} 0 R ", encrypt_id));
         }

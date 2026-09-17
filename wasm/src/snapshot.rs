@@ -104,6 +104,21 @@ pub struct Config {
     /// v8: enable real DEFLATE compression for PDF streams.
     pub compress: bool,
     pub static_watermark: Option<WatermarkSpec>,
+    /// v16: PDF Info-dictionary metadata.
+    pub metadata: Option<Metadata>,
+}
+
+/// v16: PDF Info-dictionary metadata ("" = field not set). Dates are
+/// PDF-format strings generated on the JS side (WASM has no clock).
+pub struct Metadata {
+    pub title: String,
+    pub author: String,
+    pub subject: String,
+    pub keywords: String,
+    pub creator: String,
+    pub producer: String,
+    pub creation_date: String,
+    pub mod_date: String,
 }
 
 #[derive(Clone)]
@@ -388,6 +403,11 @@ impl<'a> Cursor<'a> {
             .map(|s| s.to_string())
             .map_err(|e| format!("utf8 error: {}", e))
     }
+    /// u32 length prefix + utf8 bytes (mirrors JS `writeString32`).
+    fn string32(&mut self) -> Result<String, String> {
+        let n = self.u32()? as usize;
+        self.utf8(n)
+    }
 }
 
 fn parse_hf_v13(c: &mut Cursor) -> Result<HFSpec, String> {
@@ -640,9 +660,9 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
         return Err(format!("bad magic: {:?}", magic));
     }
     let version = c.u32()?;
-    if version != 7 && version != 8 && version != 9 && version != 10 && version != 11 && version != 12 && version != 13 && version != 14 && version != 15 {
+    if !(7..=16).contains(&version) {
         return Err(format!(
-            "unsupported version {} (expected 7, 8, 9, 10, 11, 12, 13, 14 or 15)",
+            "unsupported version {} (expected 7-16)",
             version
         ));
     }
@@ -677,6 +697,21 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
     let compress = if version >= 8 { c.u8()? != 0 } else { false };
     let static_watermark = if version >= 9 {
         parse_opt_watermark(&mut c, version)?
+    } else {
+        None
+    };
+    // v16: metadata block (PDF Info dictionary).
+    let metadata = if version >= 16 && c.u8()? != 0 {
+        Some(Metadata {
+            title: c.string32()?,
+            author: c.string32()?,
+            subject: c.string32()?,
+            keywords: c.string32()?,
+            creator: c.string32()?,
+            producer: c.string32()?,
+            creation_date: c.string32()?,
+            mod_date: c.string32()?,
+        })
     } else {
         None
     };
@@ -730,6 +765,7 @@ pub fn parse(data: &[u8]) -> Result<Snapshot, String> {
         static_hf,
         compress,
         static_watermark,
+        metadata,
     };
 
     // Nodes

@@ -24,6 +24,7 @@
 - [字体与多语言](#字体与多语言)
 - [表单导出](#表单导出)
 - [PDF 加密](#pdf-加密)
+- [PDF 文档属性](#pdf-文档属性)
 - [图片与跨域资源](#图片与跨域资源)
 - [进度反馈](#进度反馈)
 - [兼容性与限制](#兼容性与限制)
@@ -224,6 +225,7 @@ const bytesB = await renderToBytes(element);
 | `watermark` | 对象或逐页函数 | 无 | 文字或图片水印 |
 | `form` | `boolean \| FormOptions` | 静态模式 | 表单控件导出方式 |
 | `encryption` | `PdfEncryptionOptions` | 无 | PDF 密码和权限配置 |
+| `metadata` | `PdfMetadataOptions` | 无 | PDF 文档属性（Info 字典） |
 | `onProgress` | `(progress) => void` | 无 | 导出进度回调 |
 
 完整 TypeScript 类型以 [`src/snapshot.ts`](./src/snapshot.ts) 和发布包内的 `dist/types` 为准。
@@ -618,6 +620,28 @@ await dompdf(element, {
 
 传入未知权限会抛出错误。PDF 权限最终是否严格执行还取决于阅读器；权限标志不能替代对敏感数据的访问控制。
 
+## PDF 文档属性
+
+设置 PDF 阅读器“文档属性”面板中显示的文档信息：
+
+```ts
+await dompdf(element, {
+  metadata: {
+    title: '季度报告',
+    author: '刘发财',
+    subject: '一季度汇总',
+    keywords: ['报告', '财务'],
+    creator: 'my-app',
+    producer: 'my-app',
+  },
+});
+```
+
+- 所有字段均可选；`keywords` 接受字符串或字符串数组（数组以空格连接）。
+- 提供 `metadata` 时，`producer` 默认为 `dompdf.js`，并自动将 `creationDate`/`modDate` 设为导出时间。
+- 属性值以 UTF-16BE 字符串写入，支持中文等非 ASCII 文本。
+- 未提供 `metadata` 时不写入 Info 字典，输出与之前版本字节级一致。
+
 ## 图片与跨域资源
 
 同源图片、data URL、Canvas 和可读取的 SVG 可以直接参与导出。跨域图片需要资源服务器返回正确的 CORS 响应头：
@@ -806,6 +830,10 @@ dompdf.js/
 ├── docs/                 # 迁移说明与 PDF 差异系统文档
 └── scripts/              # 构建、验证和 PDF 差异工具
 ```
+
+## dompdf.js交流群
+
+
 
 ## 参与贡献
 

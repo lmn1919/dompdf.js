@@ -214,6 +214,30 @@ export interface PdfEncryptionOptions {
   userPermissions?: EncryptionPermission[];
 }
 
+/** PDF document properties written into the Info dictionary. */
+export interface PdfMetadataOptions {
+  title?: string;
+  author?: string;
+  subject?: string;
+  /** Space-separated keyword list; arrays are joined with spaces. */
+  keywords?: string | string[];
+  creator?: string;
+  /** Defaults to 'dompdf.js' when any metadata is provided. */
+  producer?: string;
+}
+
+/** Normalized metadata for the snapshot wire format ("" = field not set). */
+export interface NormalizedPdfMetadata {
+  title: string;
+  author: string;
+  subject: string;
+  keywords: string;
+  creator: string;
+  producer: string;
+  creationDate: string;
+  modDate: string;
+}
+
 /**
  * Default pageConfig applied when `pagination` is enabled but no `pageConfig`
  * is supplied — mirrors dompdf.js (main branch) so paginated exports get a
@@ -426,6 +450,8 @@ export interface ExportOptions {
   imageTimeout?: number;
   /** PDF encryption config. */
   encryption?: PdfEncryptionOptions;
+  /** PDF document properties (Info dictionary). */
+  metadata?: PdfMetadataOptions;
   /** Legacy logging flag, accepted for compatibility. */
   logging?: boolean;
   /** Coordinate precision (decimal places). Default 2. */
@@ -501,6 +527,7 @@ interface NormalizedExportOptions extends Omit<ExportOptions, 'form'> {
   fontConfig?: FontConfig[];
   langFontConfig?: FontConfig[];
   encryption?: PdfEncryptionOptions;
+  metadata?: PdfMetadataOptions;
   form: NormalizedFormOptions;
 }
 
@@ -590,6 +617,50 @@ export function normalizeEncryptionOptions(
     normalized.userPermissions!.push(permission);
   }
   return normalized;
+}
+
+/**
+ * Normalize PDF metadata options. Non-string fields are ignored; a keyword
+ * array is joined with spaces (PDF convention). Returns undefined when no
+ * field is set, so an empty metadata object emits no Info dictionary.
+ */
+export function normalizeMetadataOptions(
+  metadata?: PdfMetadataOptions,
+): NormalizedPdfMetadata | undefined {
+  if (!metadata) return undefined;
+  const str = (value: unknown): string => (typeof value === 'string' ? value : '');
+  const keywords = Array.isArray(metadata.keywords)
+    ? metadata.keywords.filter((k): k is string => typeof k === 'string').join(' ')
+    : str(metadata.keywords);
+  const normalized: NormalizedPdfMetadata = {
+    title: str(metadata.title),
+    author: str(metadata.author),
+    subject: str(metadata.subject),
+    keywords,
+    creator: str(metadata.creator),
+    producer: str(metadata.producer),
+    creationDate: '',
+    modDate: '',
+  };
+  const hasAny = normalized.title !== ''
+    || normalized.author !== ''
+    || normalized.subject !== ''
+    || normalized.keywords !== ''
+    || normalized.creator !== ''
+    || normalized.producer !== '';
+  return hasAny ? normalized : undefined;
+}
+
+/** Format a Date as a PDF date string: D:YYYYMMDDHHmmSS+HH'mm' (local zone). */
+function pdfDateString(d: Date): string {
+  const p2 = (n: number): string => String(n).padStart(2, '0');
+  const base = `D:${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}`
+    + `${p2(d.getHours())}${p2(d.getMinutes())}${p2(d.getSeconds())}`;
+  const offsetMinutes = d.getTimezoneOffset();
+  if (offsetMinutes === 0) return `${base}Z`;
+  const sign = offsetMinutes < 0 ? '+' : '-';
+  const abs = Math.abs(offsetMinutes);
+  return `${base}${sign}${p2(Math.floor(abs / 60))}'${p2(abs % 60)}'`;
 }
 
 // ---- internal types ----
@@ -3416,6 +3487,15 @@ export async function collectSnapshotData(
   const pagination = normalizedOptions.pagination ?? false;
   const precision = (normalizedOptions.precision ?? 2) | 0;
   const compress = normalizedOptions.compress ?? false;
+  // Metadata: normalize user options, fill defaults (WASM has no clock, so
+  // dates are generated here on the JS side).
+  const metadata = normalizeMetadataOptions(normalizedOptions.metadata);
+  if (metadata) {
+    if (metadata.producer === '') metadata.producer = 'dompdf.js';
+    const now = pdfDateString(new Date());
+    metadata.creationDate = now;
+    metadata.modDate = now;
+  }
   const ignoreElements = normalizedOptions.ignoreElements;
 
   // Fonts
@@ -4613,6 +4693,7 @@ function buildInlineRunsWithLangFont(
     perPageHF: [],
     perPageWatermark: [],
     fonts, nodes, formFields, images,
+    metadata: metadata ?? null,
   };
 }
 
@@ -4640,6 +4721,8 @@ export interface EncodeArgs {
   staticHeader: ResolvedHF | null;
   staticFooter: ResolvedHF | null;
   staticWatermark: ResolvedWatermark | null;
+  /** PDF Info-dictionary fields; null when no metadata was provided (v16). */
+  metadata: NormalizedPdfMetadata | null;
   perPageHF: (ResolvedHF | null)[][]; // each: [header|null, footer|null]
   perPageWatermark: (ResolvedWatermark | null)[];
   fonts: CollectedFont[];
@@ -4759,7 +4842,7 @@ function writeFormField(w: BinWriter, field: CollectedFormField): void {
 function encode(a: EncodeArgs): Uint8Array {
   const w = new BinWriter();
   w.bytes(new Uint8Array([0x44, 0x32, 0x50, 0x31])); // "D2P1"
-  w.u32(15); // version 15 (text decorations for vector text)
+  w.u32(16); // version 16 (PDF metadata / Info dictionary)
   w.f32(a.pageWidthPt);
   w.f32(a.pageHeightPt);
   w.f32(a.mTop);
@@ -4785,6 +4868,19 @@ function encode(a: EncodeArgs): Uint8Array {
   }
   w.u8(a.compress ? 1 : 0);
   writeOptWatermark(w, a.staticWatermark);
+
+  // v16: metadata block
+  w.u8(a.metadata ? 1 : 0);
+  if (a.metadata) {
+    writeString32(w, a.metadata.title);
+    writeString32(w, a.metadata.author);
+    writeString32(w, a.metadata.subject);
+    writeString32(w, a.metadata.keywords);
+    writeString32(w, a.metadata.creator);
+    writeString32(w, a.metadata.producer);
+    writeString32(w, a.metadata.creationDate);
+    writeString32(w, a.metadata.modDate);
+  }
 
   // Fonts block
   w.u32(a.fonts.length);

@@ -146,6 +146,21 @@ fn pdf_text_string(text: &str) -> String {
     format!("<{}>", pdf_utf16_hex(text))
 }
 
+/// One Info-dictionary entry: UTF-16BE + BOM hex string, applying
+/// object-level encryption like any other PDF string. Empty -> omitted.
+fn info_entry(w: &PdfWriter, id: u32, key: &str, value: &str) -> String {
+    if value.is_empty() {
+        String::new()
+    } else {
+        let mut bytes = Vec::with_capacity(2 + value.len() * 2);
+        bytes.extend_from_slice(&[0xFE, 0xFF]);
+        for unit in value.encode_utf16() {
+            bytes.extend_from_slice(&unit.to_be_bytes());
+        }
+        format!(" /{} {}", key, w.hex_string(id, &bytes))
+    }
+}
+
 fn pdf_name_token(name: &str) -> String {
     let mut out = String::new();
     for ch in name.chars() {
@@ -2529,6 +2544,8 @@ pub fn build_pdf(
     }
     let opacity_count = opacity_keys.len() as u32;
     let opacity_first_id = w.alloc(opacity_count);
+    // v16: Info dictionary object (only when metadata was provided).
+    let info_id = snap.config.metadata.as_ref().map(|_| w.alloc(1));
 
     // Image XObjects.
     let mut image_obj_for: std::collections::HashMap<u32, u32> = std::collections::HashMap::new();
@@ -3043,8 +3060,23 @@ pub fn build_pdf(
         ),
     );
 
+    if let (Some(info_id), Some(m)) = (info_id, snap.config.metadata.as_ref()) {
+        let body = format!(
+            "<<{}{}{}{}{}{}{}{} >>",
+            info_entry(&w, info_id, "Title", &m.title),
+            info_entry(&w, info_id, "Author", &m.author),
+            info_entry(&w, info_id, "Subject", &m.subject),
+            info_entry(&w, info_id, "Keywords", &m.keywords),
+            info_entry(&w, info_id, "Creator", &m.creator),
+            info_entry(&w, info_id, "Producer", &m.producer),
+            info_entry(&w, info_id, "CreationDate", &m.creation_date),
+            info_entry(&w, info_id, "ModDate", &m.mod_date)
+        );
+        w.indirect(info_id, &body);
+    }
+
     w.write_encrypt_obj();
-    w.finish(catalog_id);
+    w.finish(catalog_id, info_id);
     w.into_bytes()
 }
 

@@ -38,6 +38,7 @@ export type {
   FormInclude,
   FormMode,
   FormOptions,
+  PdfMetadataOptions,
 } from './snapshot';
 export {
   collectSnapshot,
