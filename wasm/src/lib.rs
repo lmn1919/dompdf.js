@@ -6,8 +6,9 @@
 //!   render_pdf(ptr, len) -> ptr  parse snapshot, emit PDF, return pointer to PDF bytes
 //!   render_pdf_len() -> len     length of the last emitted PDF (0 on error)
 //!   free_pdf(ptr, len)          free a PDF buffer returned by render_pdf
-//!   inspect(ptr, len) -> ptr    parse + paginate, store a debug string, return its pointer
+//!   inspect(ptr, len) -> ptr    parse + paginate, return an owned debug string buffer
 //!   inspect_len() -> len
+//!   free_inspect(ptr, len)      free a buffer returned by inspect
 //!
 //! JS glue lives in packages/dom2pdf/src/wasm-glue.ts.
 
@@ -23,7 +24,6 @@ mod deflate;
 
 static OUT_LEN: AtomicUsize = AtomicUsize::new(0);
 static INSPECT_LEN: AtomicUsize = AtomicUsize::new(0);
-static mut INSPECT_PTR: usize = 0;
 
 #[link(wasm_import_module = "env")]
 unsafe extern "C" {
@@ -127,6 +127,11 @@ pub extern "C" fn render_pdf_len() -> usize {
 /// Free a PDF buffer returned by `render_pdf`.
 #[no_mangle]
 pub extern "C" fn free_pdf(ptr: usize, len: usize) {
+    free_output(ptr, len);
+}
+
+// Both output APIs transfer a Box<[u8]> to the caller.
+fn free_output(ptr: usize, len: usize) {
     if ptr != 0 && len > 0 {
         unsafe {
             let slice = std::slice::from_raw_parts_mut(ptr as *mut u8, len);
@@ -135,7 +140,8 @@ pub extern "C" fn free_pdf(ptr: usize, len: usize) {
     }
 }
 
-/// Inspect a snapshot: store a debug summary string, return its pointer.
+/// Inspect a snapshot. Returns an owned UTF-8 buffer (including error messages).
+/// Read its length with `inspect_len`, then release it with `free_inspect`.
 #[no_mangle]
 pub extern "C" fn inspect(in_ptr: *const u8, in_len: usize) -> usize {
     let data = unsafe { std::slice::from_raw_parts(in_ptr, in_len) };
@@ -148,9 +154,6 @@ pub extern "C" fn inspect(in_ptr: *const u8, in_len: usize) -> usize {
                     let len = s.len();
                     let boxed = s.into_bytes().into_boxed_slice();
                     let ptr = Box::into_raw(boxed) as *mut u8 as usize;
-                    unsafe {
-                        INSPECT_PTR = ptr;
-                    }
                     INSPECT_LEN.store(len, Ordering::SeqCst);
                     return ptr;
                 }
@@ -220,9 +223,6 @@ pub extern "C" fn inspect(in_ptr: *const u8, in_len: usize) -> usize {
     let len = s.len();
     let boxed = s.into_bytes().into_boxed_slice();
     let ptr = Box::into_raw(boxed) as *mut u8 as usize;
-    unsafe {
-        INSPECT_PTR = ptr;
-    }
     INSPECT_LEN.store(len, Ordering::SeqCst);
     ptr
 }
@@ -230,4 +230,10 @@ pub extern "C" fn inspect(in_ptr: *const u8, in_len: usize) -> usize {
 #[no_mangle]
 pub extern "C" fn inspect_len() -> usize {
     INSPECT_LEN.load(Ordering::SeqCst)
+}
+
+/// Free a buffer returned by `inspect` after copying or decoding its contents.
+#[no_mangle]
+pub extern "C" fn free_inspect(ptr: usize, len: usize) {
+    free_output(ptr, len);
 }

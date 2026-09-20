@@ -19,6 +19,7 @@ export interface WasmExports {
   count_pages(ptr: number, len: number): number;
   inspect(ptr: number, len: number): number;
   inspect_len(): number;
+  free_inspect(ptr: number, len: number): void;
 }
 
 let instance: WebAssembly.Instance | null = null;
@@ -114,11 +115,18 @@ export async function inspectSnapshot(snapshot: Uint8Array): Promise<string> {
   await initWasm();
   const wasm = exports();
   const inPtr = copyIn(wasm, snapshot);
-  const ptr = wasm.inspect(inPtr, snapshot.length);
-  const len = wasm.inspect_len();
-  wasm.dealloc(inPtr, snapshot.length);
-  const bytes = new Uint8Array(wasm.memory.buffer, ptr, len);
-  return new TextDecoder().decode(bytes);
+  try {
+    const ptr = wasm.inspect(inPtr, snapshot.length);
+    const len = wasm.inspect_len();
+    try {
+      const bytes = new Uint8Array(wasm.memory.buffer, ptr, len);
+      return new TextDecoder().decode(bytes);
+    } finally {
+      wasm.free_inspect(ptr, len);
+    }
+  } finally {
+    wasm.dealloc(inPtr, snapshot.length);
+  }
 }
 
 /** Count pages for a snapshot (function-form pageConfig needs totalPages). */
