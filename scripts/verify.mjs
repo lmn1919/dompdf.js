@@ -3,11 +3,49 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import assert from 'node:assert/strict';
+import { rollup } from 'rollup';
+import ts from 'typescript';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, '..');
 const wasmPath = path.join(root, 'wasm/pkg/dom2pdf_wasm.wasm');
 const wasmBytes = readFileSync(wasmPath);
+
+// Exercise the real JS glue against the binary built by npm test, rather than
+// the checked-in base64 (which is only refreshed by npm run build).
+async function loadWasmGlue() {
+  const wasmId = '\0verify-wasm';
+  const bundle = await rollup({
+    input: path.join(root, 'src/wasm-glue.ts'),
+    plugins: [
+      {
+        name: 'verify-wasm-glue',
+        resolveId(source) {
+          if (source === './wasm-base64') return wasmId;
+        },
+        load(id) {
+          if (id === wasmId) {
+            return `export const WASM_BASE64 = ${JSON.stringify(wasmBytes.toString('base64'))};
+export const WASM_BYTE_LENGTH = ${wasmBytes.length};`;
+          }
+        },
+        transform(code, id) {
+          if (!id.endsWith('.ts')) return null;
+          return ts.transpileModule(code, {
+            compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.ESNext },
+          }).outputText;
+        },
+      },
+    ],
+  });
+  try {
+    const { output } = await bundle.generate({ format: 'es' });
+    return await import(`data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`);
+  } finally {
+    await bundle.close();
+  }
+}
 
 // ---- minimal binary encoder (mirrors src/format.ts) ----
 class Bin {
@@ -187,10 +225,18 @@ function render(snap) {
   if (!outPtr || !outLen) {
     const ip2 = ex.alloc(snap.length);
     new Uint8Array(ex.memory.buffer, ip2, snap.length).set(snap);
-    const p2 = ex.inspect(ip2, snap.length);
-    const l2 = ex.inspect_len();
-    const msg = new TextDecoder().decode(new Uint8Array(ex.memory.buffer, p2, l2));
-    throw new Error('render_pdf returned empty. inspect says:\n' + msg);
+    try {
+      const p2 = ex.inspect(ip2, snap.length);
+      const l2 = ex.inspect_len();
+      try {
+        const msg = new TextDecoder().decode(new Uint8Array(ex.memory.buffer, p2, l2));
+        throw new Error('render_pdf returned empty. inspect says:\n' + msg);
+      } finally {
+        ex.free_inspect(p2, l2);
+      }
+    } finally {
+      ex.dealloc(ip2, snap.length);
+    }
   }
   const pdf = new Uint8Array(ex.memory.buffer, outPtr, outLen).slice();
   ex.free_pdf(outPtr, outLen);
@@ -372,6 +418,42 @@ const pdf7b = render(snap7b);
 const latin7b = Buffer.from(pdf7b).toString('latin1');
 check('no /Info without metadata', !/\/Info \d+ 0 R/.test(latin7b));
 check('no /Author without metadata', !latin7b.includes('/Author'));
+
+// ---- Test 8: inspect releases its input and result buffers ----
+console.log('Test 8: inspect buffer ownership through the JS glue');
+const glue = await loadWasmGlue();
+const inspectMemory = (await glue.initWasm()).exports.memory;
+const inspectSnap = buildSnapshot({ pagination: true, text: 'Inspect regression. '.repeat(500) });
+const summary = await glue.inspectSnapshot(inspectSnap);
+check('inspect returns the snapshot summary', summary.startsWith('nodes=3 images=1 fonts=0'));
+check('inspect reports invalid snapshots', (await glue.inspectSnapshot(new Uint8Array([0]))).startsWith('error:'));
+
+async function checkInspectMemory(name, run) {
+  // Wasm memory cannot shrink. Warm the allocator, then check that repeated
+  // calls reuse its buffers instead of continually growing linear memory.
+  for (let i = 0; i < 20; i++) await run();
+  const before = inspectMemory.buffer.byteLength;
+  for (let i = 0; i < 200; i++) await run();
+  const after = inspectMemory.buffer.byteLength;
+  check(name, after === before, `(before=${before}, after=${after})`);
+}
+
+await checkInspectMemory('repeated inspect calls reuse memory', async () => {
+  assert.equal(await glue.inspectSnapshot(inspectSnap), summary);
+});
+
+const OriginalTextDecoder = globalThis.TextDecoder;
+try {
+  globalThis.TextDecoder = class extends OriginalTextDecoder {
+    decode() { throw new Error('forced decode failure'); }
+  };
+  await checkInspectMemory('failed decodes release inspect buffers', async () => {
+    await assert.rejects(glue.inspectSnapshot(inspectSnap), /forced decode failure/);
+  });
+} finally {
+  globalThis.TextDecoder = OriginalTextDecoder;
+}
+check('inspect still works after a decode failure', (await glue.inspectSnapshot(inspectSnap)) === summary);
 
 console.log('');
 if (failures === 0) {

@@ -78,11 +78,18 @@ function renderPdf(snapshot) {
 function inspectSnapshot(snapshot) {
   const inPtr = ex.alloc(snapshot.length);
   new Uint8Array(ex.memory.buffer, inPtr, snapshot.length).set(snapshot);
-  const ptr = ex.inspect(inPtr, snapshot.length);
-  const len = ex.inspect_len();
-  ex.dealloc(inPtr, snapshot.length);
-  const bytes = new Uint8Array(ex.memory.buffer, ptr, len);
-  return new TextDecoder().decode(bytes);
+  try {
+    const ptr = ex.inspect(inPtr, snapshot.length);
+    const len = ex.inspect_len();
+    try {
+      const bytes = new Uint8Array(ex.memory.buffer, ptr, len);
+      return new TextDecoder().decode(bytes);
+    } finally {
+      ex.free_inspect(ptr, len);
+    }
+  } finally {
+    ex.dealloc(inPtr, snapshot.length);
+  }
 }
 
 // ---- HFSpec writer (matches snapshot.rs writeOptHF / parse_opt_hf) ----
