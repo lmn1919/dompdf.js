@@ -2148,10 +2148,10 @@ function copyComputedStyles(
   }
 }
 
-function buildPseudoClone(
+async function buildPseudoClone(
   owner: HTMLElement,
   pseudo: '::before' | '::after',
-): HTMLElement | null {
+): Promise<HTMLElement | null> {
   const computed = getComputedStyle(owner, pseudo);
   if (!pseudoHasVisual(computed)) return null;
   const pseudoEl = document.createElement('span');
@@ -2168,6 +2168,7 @@ function buildPseudoClone(
   }
   const text = cssQuotedContentToText(computed.content);
   if (text) pseudoEl.textContent = text;
+  await inlineCloneResources(pseudoEl, owner, pseudo);
   return pseudoEl;
 }
 
@@ -2282,7 +2283,7 @@ function buildMarkerClone(owner: HTMLElement): HTMLElement | null {
   return span;
 }
 
-function cloneElementForRaster(src: HTMLElement): HTMLElement {
+async function cloneElementForRaster(src: HTMLElement): Promise<HTMLElement> {
   if (src instanceof HTMLCanvasElement) {
     const img = document.createElement('img');
     img.src = src.toDataURL('image/png');
@@ -2294,9 +2295,13 @@ function cloneElementForRaster(src: HTMLElement): HTMLElement {
   }
   if (src instanceof HTMLImageElement) {
     const img = document.createElement('img');
-    // Use the resolved currentSrc so file:// and srcset-backed images keep working
-    // after being serialized into a data: SVG foreignObject wrapper.
-    img.src = src.currentSrc || src.src;
+    // Serialized wrappers are rendered as SVG-as-image, which blocks external
+    // requests, so the source must be inlined as a data: URL to stay visible.
+    const sourceSrc = src.currentSrc || src.src;
+    const inlinedSrc = sourceSrc && !sourceSrc.startsWith('data:')
+      ? await fetchResourceAsDataUrl(resolveAbsoluteUrl(sourceSrc))
+      : null;
+    img.src = inlinedSrc || sourceSrc;
     img.width = src.width;
     img.height = src.height;
     const computed = getComputedStyle(src);
@@ -2307,10 +2312,11 @@ function cloneElementForRaster(src: HTMLElement): HTMLElement {
   // Inline <svg> elements live in the SVG namespace. When serialized into an
   // HTML <div> inside an SVG <foreignObject>, the namespace context can be lost
   // and the SVG may not render at all (100% blank icon). Convert inline SVG to
-  // an <img> with a data: URL so it renders reliably as a raster image.
+  // an <img> with a data: URL so it renders reliably as a raster image, pulling
+  // in any <symbol>/<use> references the icon relies on.
   if (src instanceof SVGSVGElement) {
     const img = document.createElement('img');
-    const svgString = new XMLSerializer().serializeToString(src);
+    const svgString = serializeSvgForRaster(src);
     img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgString)}`;
     const rect = src.getBoundingClientRect();
     img.width = Math.max(1, Math.round(rect.width));
@@ -2323,6 +2329,7 @@ function cloneElementForRaster(src: HTMLElement): HTMLElement {
   const clone = src.cloneNode(false) as HTMLElement;
   const computed = getComputedStyle(src);
   copyComputedStyles(clone, computed);
+  await inlineCloneResources(clone, src);
 
   const marker = buildMarkerClone(src);
   if (marker) {
@@ -2331,18 +2338,18 @@ function cloneElementForRaster(src: HTMLElement): HTMLElement {
     clone.appendChild(marker);
   }
 
-  const before = buildPseudoClone(src, '::before');
+  const before = await buildPseudoClone(src, '::before');
   if (before) clone.appendChild(before);
 
   for (let child = src.firstChild; child; child = child.nextSibling) {
     if (child.nodeType === Node.ELEMENT_NODE) {
-      clone.appendChild(cloneElementForRaster(child as HTMLElement));
+      clone.appendChild(await cloneElementForRaster(child as HTMLElement));
     } else if (child.nodeType === Node.TEXT_NODE) {
       clone.appendChild(document.createTextNode((child as Text).data));
     }
   }
 
-  const after = buildPseudoClone(src, '::after');
+  const after = await buildPseudoClone(src, '::after');
   if (after) clone.appendChild(after);
   return clone;
 }
@@ -2353,20 +2360,21 @@ function cloneElementForRaster(src: HTMLElement): HTMLElement {
 // because the box node paints it vectorially (avoids double shadow). Purely
 // decorative ::after overlays (no text content) can also be baked here to avoid
 // unnecessary full-raster fallback for gradient cards / highlight sheens.
-function cloneElementBackgroundOnly(src: HTMLElement): HTMLElement {
+async function cloneElementBackgroundOnly(src: HTMLElement): Promise<HTMLElement> {
   const clone = src.cloneNode(false) as HTMLElement;
   copyComputedStyles(clone, getComputedStyle(src));
   clone.style.boxShadow = 'none';
+  await inlineCloneResources(clone, src);
   const marker = buildMarkerClone(src);
   if (marker) {
     clone.style.listStyleType = 'none';
     clone.appendChild(marker);
   }
-  const before = buildPseudoClone(src, '::before');
+  const before = await buildPseudoClone(src, '::before');
   if (before) clone.appendChild(before);
   const afterComputed = getComputedStyle(src, '::after');
   if (pseudoHasVisual(afterComputed) && !pseudoNeedsForegroundRaster(afterComputed)) {
-    const after = buildPseudoClone(src, '::after');
+    const after = await buildPseudoClone(src, '::after');
     if (after) clone.appendChild(after);
   }
   return clone;
@@ -2381,6 +2389,132 @@ function loadImageFromUrl(url: string, crossOrigin?: string): Promise<HTMLImageE
     img.onerror = () => reject(new Error('failed to load rasterized element image'));
     img.src = url;
   });
+}
+
+// Cache of external resources inlined as data: URLs, keyed by absolute URL.
+// A browser loads `<img src="data:image/svg+xml,...">` in "secure static mode":
+// scripts, fonts, stylesheets and — crucially — every externally referenced
+// sub-resource (background-image url(), <img src>, <use href="sprite.svg#id">)
+// is blocked. Rasterization serializes a clone into exactly such an SVG
+// foreignObject, so any non-data: reference would silently paint nothing
+// (transparent). Inlining the bytes makes the wrapper self-contained.
+const inlinedResourceCache = new Map<string, Promise<string | null>>();
+
+function blobToDataUrl(blob: Blob): Promise<string | null> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null);
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(blob);
+  });
+}
+
+function resolveAbsoluteUrl(url: string): string {
+  try {
+    return new URL(url, document.baseURI).href;
+  } catch {
+    return url;
+  }
+}
+
+function fetchResourceAsDataUrl(url: string): Promise<string | null> {
+  const cached = inlinedResourceCache.get(url);
+  if (cached) return cached;
+  const pending = (async () => {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) return null;
+      const blob = await response.blob();
+      if (!blob.size) return null;
+      return await blobToDataUrl(blob);
+    } catch {
+      // CORS / network failure: leave the original reference in place.
+      return null;
+    }
+  })();
+  inlinedResourceCache.set(url, pending);
+  return pending;
+}
+
+const CSS_URL_PATTERN = /url\(\s*(['"]?)([^'")]+)\1\s*\)/gi;
+
+// Rewrite every url(...) in a CSS value into an inline data: URL so it survives
+// SVG-as-image rasterization. Already-inlined data: URLs pass through untouched.
+async function inlineCssUrls(value: string | null | undefined): Promise<string | null | undefined> {
+  const text = (value || '').trim();
+  if (!text || text === 'none' || !text.includes('url(')) return value;
+  const matches = Array.from(text.matchAll(CSS_URL_PATTERN));
+  if (matches.length === 0) return value;
+  let out = text;
+  for (const match of matches) {
+    const raw = match[2].trim();
+    if (!raw || raw.startsWith('data:')) continue;
+    const dataUrl = await fetchResourceAsDataUrl(resolveAbsoluteUrl(raw));
+    if (dataUrl) out = out.replace(match[0], `url("${dataUrl}")`);
+  }
+  return out;
+}
+
+// Inline an element's (or one of its pseudo-elements') image-bearing CSS
+// references onto its raster clone. Only background/list-style images are
+// handled: those are the layers a clone paints without touching the DOM.
+async function inlineCloneResources(
+  clone: HTMLElement,
+  owner: HTMLElement,
+  pseudo?: '::before' | '::after',
+): Promise<void> {
+  const cs = getComputedStyle(owner, pseudo);
+  const backgroundImage = await inlineCssUrls(cs.backgroundImage);
+  if (backgroundImage !== cs.backgroundImage) {
+    clone.style.backgroundImage = backgroundImage || 'none';
+  }
+  const listStyleImage = await inlineCssUrls(cs.listStyleImage);
+  if (listStyleImage !== cs.listStyleImage) {
+    clone.style.listStyleImage = listStyleImage || 'none';
+  }
+}
+
+const XLINK_NS = 'http://www.w3.org/1999/xlink';
+
+// Serialize an inline <svg> for use as `<img src="data:image/svg+xml,...">`.
+// A bare serialization drops anything the SVG references by id from elsewhere in
+// the document — most importantly the <symbol> definitions behind icon sprites
+// (`<use href="#icon">`), which would otherwise render blank. Pull the
+// referenced nodes (transitively) into a <defs> block on a deep clone first.
+// `currentColor` is also resolved against the source's computed color, since an
+// SVG loaded as an image has no inherited color and would otherwise fall back to
+// black (icon libraries paint almost everything with fill="currentColor").
+function serializeSvgForRaster(source: SVGSVGElement): string {
+  const clone = source.cloneNode(true) as SVGSVGElement;
+  const ownIds = new Set<string>();
+  clone.querySelectorAll('[id]').forEach((node) => ownIds.add(node.id));
+
+  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+  const seen = new Set<string>();
+  const queue: Element[] = Array.from(clone.querySelectorAll('use'));
+  while (queue.length > 0) {
+    const use = queue.shift();
+    if (!use) continue;
+    const ref = use.getAttribute('href')
+      || use.getAttribute('xlink:href')
+      || use.getAttributeNS(XLINK_NS, 'href');
+    if (!ref || !ref.startsWith('#')) continue;
+    const id = ref.slice(1);
+    if (!id || seen.has(id) || ownIds.has(id)) continue;
+    seen.add(id);
+    const target = document.getElementById(id);
+    if (!target) continue;
+    const imported = target.cloneNode(true) as Element;
+    defs.appendChild(imported);
+    queue.push(...Array.from(imported.querySelectorAll('use')));
+  }
+  if (defs.childNodes.length > 0) clone.insertBefore(defs, clone.firstChild);
+
+  let serialized = new XMLSerializer().serializeToString(clone);
+  if (serialized.includes('currentColor')) {
+    serialized = serialized.replace(/currentColor/g, getComputedStyle(source).color || '#000000');
+  }
+  return serialized;
 }
 
 // raw RGB is uncompressed (3 bytes/px); cap total pixels so a supersampled large
@@ -2424,7 +2558,7 @@ async function rasterizeWrapper(
 // Wrapper of fixed CSS size holding the positioned element clone. Opaque backdrop
 // (nearest opaque ancestor bg) fills transparent areas so raw RGB (no alpha)
 // composites correctly instead of going black.
-function buildRasterWrapper(
+async function buildRasterWrapper(
   el: HTMLElement,
   rawRect: DOMRect,
   shadowPad: EdgePadding,
@@ -2433,7 +2567,7 @@ function buildRasterWrapper(
   backgroundOnly: boolean,
   backdropCss?: string,
   backdropImageUrl?: string,
-): HTMLElement {
+): Promise<HTMLElement> {
   const wrapper = document.createElement('div');
   wrapper.style.position = 'relative';
   wrapper.style.width = `${captureWidth}px`;
@@ -2447,7 +2581,7 @@ function buildRasterWrapper(
     wrapper.style.backgroundPosition = '0 0';
   }
 
-  const clone = backgroundOnly ? cloneElementBackgroundOnly(el) : cloneElementForRaster(el);
+  const clone = backgroundOnly ? await cloneElementBackgroundOnly(el) : await cloneElementForRaster(el);
   clone.style.position = 'absolute';
   clone.style.left = `${shadowPad.left}px`;
   clone.style.top = `${shadowPad.top}px`;
@@ -2574,7 +2708,7 @@ async function rasterizeElement(
     const backdropImageUrl = backdropFilter && backdropFilter !== 'none'
       ? await resolveBackdropImage(el, rawRect)
       : null;
-    const wrapper = buildRasterWrapper(el, rawRect, shadowPad, captureWidth, captureHeight, false, backdropCss, backdropImageUrl ?? undefined);
+    const wrapper = await buildRasterWrapper(el, rawRect, shadowPad, captureWidth, captureHeight, false, backdropCss, backdropImageUrl ?? undefined);
     const out = await rasterizeWrapper(wrapper, captureWidth, captureHeight);
     if (!out) return null;
     return {
@@ -2621,7 +2755,7 @@ async function rasterizeElementBackgroundOnly(
     const backdropImageUrl = allowBackdropSampling
       ? await resolveBackdropImage(el, rawRect)
       : null;
-    const wrapper = buildRasterWrapper(el, rawRect, noPad, captureWidth, captureHeight, true, resolvedBackdrop, backdropImageUrl ?? undefined);
+    const wrapper = await buildRasterWrapper(el, rawRect, noPad, captureWidth, captureHeight, true, resolvedBackdrop, backdropImageUrl ?? undefined);
     return await rasterizeWrapper(wrapper, captureWidth, captureHeight);
   } catch {
     return null;
