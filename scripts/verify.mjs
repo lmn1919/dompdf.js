@@ -12,15 +12,15 @@ const root = path.resolve(scriptDir, '..');
 const wasmPath = path.join(root, 'wasm/pkg/dom2pdf_wasm.wasm');
 const wasmBytes = readFileSync(wasmPath);
 
-// Exercise the real JS glue against the binary built by npm test, rather than
-// the checked-in base64 (which is only refreshed by npm run build).
-async function loadWasmGlue() {
+// Bundle the production TS modules for verification. For WASM glue, use the
+// binary built by npm test; the checked-in base64 is refreshed by npm run build.
+async function loadSourceModule(entry) {
   const wasmId = '\0verify-wasm';
   const bundle = await rollup({
-    input: path.join(root, 'src/wasm-glue.ts'),
+    input: path.join(root, 'src', entry),
     plugins: [
       {
-        name: 'verify-wasm-glue',
+        name: 'verify-source',
         resolveId(source) {
           if (source === './wasm-base64') return wasmId;
         },
@@ -47,39 +47,15 @@ export const WASM_BYTE_LENGTH = ${wasmBytes.length};`;
   }
 }
 
-// ---- minimal binary encoder (mirrors src/format.ts) ----
-class Bin {
-  constructor(cap = 1024) {
-    this.buf = new Uint8Array(cap);
-    this.dv = new DataView(this.buf.buffer);
-    this.pos = 0;
-  }
-  ensure(n) {
-    if (this.pos + n <= this.buf.length) return;
-    let cap = this.buf.length;
-    while (cap < this.pos + n) cap *= 2;
-    const nb = new Uint8Array(cap);
-    nb.set(this.buf);
-    this.buf = nb;
-    this.dv = new DataView(this.buf.buffer);
-  }
-  u8(v) { this.ensure(1); this.buf[this.pos++] = v & 0xff; }
-  u16(v) { this.ensure(2); this.dv.setUint16(this.pos, v, true); this.pos += 2; }
-  u32(v) { this.ensure(4); this.dv.setUint32(this.pos, v >>> 0, true); this.pos += 4; }
-  i32(v) { this.ensure(4); this.dv.setInt32(this.pos, v | 0, true); this.pos += 4; }
-  f32(v) { this.ensure(4); this.dv.setFloat32(this.pos, v, true); this.pos += 4; }
-  bytes(b) { this.ensure(b.length); this.buf.set(b, this.pos); this.pos += b.length; }
-  utf8(s) { this.bytes(Buffer.from(s, 'utf8')); }
-  utf8Len(s) { return Buffer.byteLength(s, 'utf8'); }
-  result() { return this.buf.subarray(0, this.pos); }
-}
+// Use the production writer so snapshot fixtures exercise its length prefixes.
+const { BinWriter } = await loadSourceModule('format.ts');
 
 // flag bits (match Rust snapshot.rs)
 const F_BG = 0x01, F_BORDER = 0x02, F_RADIUS = 0x04, F_OVERFLOW = 0x08,
   F_OPACITY = 0x10, F_FONT = 0x20, F_IMAGE = 0x40, F_RENDER_MODE = 0x80;
 
 function writeHF(w, hf) {
-  const clen = w.utf8Len(hf.content);
+  const clen = BinWriter.utf8Len(hf.content);
   w.u16(clen); w.utf8(hf.content);
   w.f32(hf.heightPx);
   w.f32(hf.color[0]); w.f32(hf.color[1]); w.f32(hf.color[2]); w.f32(hf.color[3]);
@@ -98,7 +74,7 @@ function writeOptHF(w, hf) {
  *         decorationLineMask?, decorationThicknessPx? }
  */
 function buildSnapshot(opts = {}) {
-  const w = new Bin();
+  const w = new BinWriter();
   const version = opts.version ?? 10;
   // header
   w.bytes(Buffer.from('D2P1'));
@@ -131,7 +107,7 @@ function buildSnapshot(opts = {}) {
         md.creator ?? '', md.producer ?? '', md.creationDate ?? '', md.modDate ?? '',
       ];
       for (const v of fields) {
-        w.u32(w.utf8Len(v));
+        w.u32(BinWriter.utf8Len(v));
         w.utf8(v);
       }
     } else {
@@ -145,7 +121,7 @@ function buildSnapshot(opts = {}) {
   }] : [];
   w.u32(fonts.length);
   for (const f of fonts) {
-    w.u16(w.utf8Len(f.family)); w.utf8(f.family);
+    w.u16(BinWriter.utf8Len(f.family)); w.utf8(f.family);
     w.u8(f.style); w.u16(f.weight); w.u8(f.iconFont ? 1 : 0);
     w.u32(f.bytes.length); w.bytes(f.bytes);
   }
@@ -157,7 +133,7 @@ function buildSnapshot(opts = {}) {
 
   // nodes
   const text = opts.text ?? (opts.chinese ? '你好，PDF！中文测试。' : 'Hello, PDF!');
-  const tlen = w.utf8Len(text);
+  const tlen = BinWriter.utf8Len(text);
   w.u32(3); // nodeCount
 
   // node 0: box with bg
@@ -174,7 +150,7 @@ function buildSnapshot(opts = {}) {
   w.f32(10); w.f32(10); w.f32(480); w.f32(20);
   w.u16(F_FONT);
   const fam = opts.fontBytes ? opts.fontFamily : 'Helvetica';
-  w.u16(w.utf8Len(fam)); w.utf8(fam);
+  w.u16(BinWriter.utf8Len(fam)); w.utf8(fam);
   w.f32(16); w.u16(400); w.u8(0);
   w.f32(0); w.f32(0); w.f32(0); w.f32(1);
   w.f32(20); w.u8(0); w.f32(0); w.f32(0); w.u8(0);
@@ -421,7 +397,7 @@ check('no /Author without metadata', !latin7b.includes('/Author'));
 
 // ---- Test 8: inspect releases its input and result buffers ----
 console.log('Test 8: inspect buffer ownership through the JS glue');
-const glue = await loadWasmGlue();
+const glue = await loadSourceModule('wasm-glue.ts');
 const inspectMemory = (await glue.initWasm()).exports.memory;
 const inspectSnap = buildSnapshot({ pagination: true, text: 'Inspect regression. '.repeat(500) });
 const summary = await glue.inspectSnapshot(inspectSnap);
@@ -454,6 +430,50 @@ try {
   globalThis.TextDecoder = OriginalTextDecoder;
 }
 check('inspect still works after a decode failure', (await glue.inspectSnapshot(inspectSnap)) === summary);
+
+// ---- Test 9: UTF-8 length prefixes match TextEncoder ----
+console.log('Test 9: UTF-8 lengths and unpaired surrogates');
+const utf8Cases = [
+  ['empty', ''],
+  ['ASCII', 'Hello, PDF!'],
+  ['two-byte characters', '\u0080\u07ff'],
+  ['three-byte characters', '\u0800中文\uffff'],
+  ['emoji', '😀🚀'],
+  ['surrogate pair boundaries', '\ud800\udc00\udbff\udfff'],
+  ['lone high surrogate', '\ud800'],
+  ['last high surrogate', '\udbff'],
+  ['lone low surrogate', '\udc00'],
+  ['last low surrogate', '\udfff'],
+  ['high surrogate before ASCII', '\ud800A'],
+  ['high surrogate before Chinese', '\ud800中'],
+  ['consecutive high surrogates', '\ud800\ud800'],
+  ['reversed surrogate pair', '\udc00\ud800'],
+  ['high surrogate before emoji', '\ud800😀'],
+  ['mixed text', 'A\ud800中😀\udfffZ\udbff'],
+];
+const textEncoder = new TextEncoder();
+for (const [name, text] of utf8Cases) {
+  const expected = textEncoder.encode(text).length;
+  const actual = BinWriter.utf8Len(text);
+  check(`UTF-8 length: ${name}`, actual === expected, `(expected=${expected}, got=${actual})`);
+}
+
+for (const title of ['\ud800', '\udfff', 'A\ud800中😀\udfffZ\udbff']) {
+  const label = JSON.stringify(title);
+  try {
+    const snapshot = buildSnapshot({
+      version: 16,
+      pagination: true,
+      metadata: { title, author: 'After title' },
+    });
+    const pdf = Buffer.from(render(snapshot)).toString('latin1');
+    const normalizedTitle = new TextDecoder().decode(textEncoder.encode(title));
+    check(`metadata title ${label} uses replacement characters`, pdf.includes(`/Title <${mdHex(normalizedTitle)}>`));
+    check(`metadata after ${label} stays aligned`, pdf.includes(`/Author <${mdHex('After title')}>`));
+  } catch (error) {
+    check(`metadata title ${label} renders`, false, error.message);
+  }
+}
 
 console.log('');
 if (failures === 0) {

@@ -63,8 +63,14 @@ export class BinWriter {
       if (c < 0x80) n += 1;
       else if (c < 0x800) n += 2;
       else if (c >= 0xd800 && c <= 0xdbff) {
-        n += 4;
-        i++;
+        const low = s.charCodeAt(i + 1);
+        if (low >= 0xdc00 && low <= 0xdfff) {
+          n += 4;
+          i++;
+        } else {
+          // TextEncoder replaces an unpaired surrogate with U+FFFD (3 bytes).
+          n += 3;
+        }
       } else n += 3;
     }
     return n;
