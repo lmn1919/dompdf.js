@@ -3198,7 +3198,9 @@ mod tests {
         let (x, y, w, h) = image_draw_rect_pt(&node, &image, 10.0, 20.0, 60.0, 60.0);
 
         assert!((x - 10.0).abs() < 0.01);
-        assert!((y - 50.0).abs() < 0.01);
+        // cover makes the drawn image 60pt tall, i.e. exactly the box height, so
+        // `top` aligns the image's bottom edge with the box bottom (20pt).
+        assert!((y - 20.0).abs() < 0.01);
         assert!((w - 120.0).abs() < 0.01);
         assert!((h - 60.0).abs() < 0.01);
     }
