@@ -1,136 +1,2964 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN" data-lang="zh">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>dompdf.js Docs</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="VuePress-style documentation page for dompdf.js with English and Chinese support."
+      content="dompdf.js documentation — browser-native DOM to vector PDF. Bilingual English and Chinese reference migrated from the project README."
     />
+    <title>dompdf.js Docs</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="icon" type="image/x-icon" href="./favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png" />
     <link rel="stylesheet" href="./docs.css" />
-    <script src="./vendor/marked.min.js" defer></script>
-    <script src="./vendor/dompurify.min.js" defer></script>
-    <script
-      src="./vendor/vditor/dist/js/highlight.js/highlight.min.js"
-      defer
-    ></script>
-    <script src="./docs.js" defer></script>
+    <!-- 百度统计 -->
+    <script>
+      var _hmt = _hmt || [];
+      (function () {
+        var hm = document.createElement("script");
+        hm.src = "https://hm.baidu.com/hm.js?a2c4d7af1047b494a380f17c3dbab82f";
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(hm, s);
+      })();
+    </script>
   </head>
   <body>
-    <div class="docs-shell">
-      <header class="docs-topbar">
-        <div class="docs-brand-wrap">
-          <button
-            class="docs-menu-btn"
-            type="button"
-            id="docs-menu-btn"
-            aria-label="Toggle navigation"
-            aria-expanded="false"
-          >
-            <span></span>
-            <span></span>
-            <span></span>
-          </button>
-          <a class="docs-brand" href="./docs.html">
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path
-                d="M4 4h7v7H4V4Zm9 0h7v7h-7V4ZM4 13h7v7H4v-7Zm9 4.2 1.8-2.1 1.6 1.8L20 12.5"
-                stroke="currentColor"
-                stroke-width="1.7"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
-            <span>dompdf.js</span>
-            <span class="docs-brand-badge">Docs</span>
-          </a>
+    <header class="topbar">
+      <button
+        class="icon-btn mobile-menu"
+        id="menuBtn"
+        type="button"
+        aria-controls="docs-sidebar"
+        aria-expanded="false"
+        aria-label="打开菜单"
+      >
+        ☰
+      </button>
+      <a class="brand" href="#overview">
+        <span class="logo">D</span>
+        <span>dompdf.js</span><small>Docs</small>
+      </a>
+      <div class="top-actions">
+        <div class="lang-switch" role="group" aria-label="Language">
+          <button type="button" data-lang="zh" class="active">中</button>
+          <button type="button" data-lang="en">EN</button>
         </div>
+        <button class="icon-btn" id="themeBtn" type="button" aria-label="切换主题">
+          ◐
+        </button>
+        <a
+          class="icon-btn"
+          href="https://github.com/lmn1919/dompdf.js"
+          target="_blank"
+          rel="noreferrer"
+          aria-label="GitHub"
+        >
+          <svg
+            viewBox="0 0 16 16"
+            width="18"
+            height="18"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <path
+              d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.27-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"
+            />
+          </svg>
+        </a>
+      </div>
+    </header>
 
-        <div class="docs-topbar-actions">
-          <nav class="docs-quick-links" aria-label="Quick links">
-            <a href="./index.html" data-i18n="navDemo">Live Demo</a>
+    <div class="layout">
+      <aside class="sidebar" id="docs-sidebar">
+        <div class="group">
+          <div class="group-title">
+            <span data-lang-block="zh">开始</span
+            ><span data-lang-block="en">Getting started</span>
+          </div>
+          <a class="nav-link active" href="#overview"
+            ><span data-lang-block="zh">概览</span
+            ><span data-lang-block="en">Overview</span></a
+          >
+          <a class="nav-link" href="#features"
+            ><span data-lang-block="zh">主要功能</span
+            ><span data-lang-block="en">Features</span></a
+          >
+          <a class="nav-link" href="#installation"
+            ><span data-lang-block="zh">安装</span
+            ><span data-lang-block="en">Installation</span></a
+          >
+          <a class="nav-link" href="#quick-start"
+            ><span data-lang-block="zh">快速开始</span
+            ><span data-lang-block="en">Quick start</span></a
+          >
+        </div>
+        <div class="group">
+          <div class="group-title">
+            <span data-lang-block="zh">核心能力</span
+            ><span data-lang-block="en">Capabilities</span>
+          </div>
+          <a class="nav-link" href="#api"
+            ><span data-lang-block="zh">API</span
+            ><span data-lang-block="en">API</span></a
+          >
+          <a class="nav-link" href="#options"
+            ><span data-lang-block="zh">参数</span
+            ><span data-lang-block="en">Export options</span></a
+          >
+          <a class="nav-link" href="#pagination"
+            ><span data-lang-block="zh">分页与纸张</span
+            ><span data-lang-block="en">Pagination &amp; sizes</span></a
+          >
+          <a class="nav-link" href="#header-footer"
+            ><span data-lang-block="zh">页眉与页脚</span
+            ><span data-lang-block="en">Headers &amp; footers</span></a
+          >
+          <a class="nav-link" href="#watermark"
+            ><span data-lang-block="zh">水印</span
+            ><span data-lang-block="en">Watermarks</span></a
+          >
+          <a class="nav-link" href="#fonts"
+            ><span data-lang-block="zh">字体与多语言</span
+            ><span data-lang-block="en">Fonts</span></a
+          >
+          <a class="nav-link" href="#forms"
+            ><span data-lang-block="zh">表单导出</span
+            ><span data-lang-block="en">Form export</span></a
+          >
+          <a class="nav-link" href="#encryption"
+            ><span data-lang-block="zh">PDF 加密</span
+            ><span data-lang-block="en">Encryption</span></a
+          >
+          <a class="nav-link" href="#metadata"
+            ><span data-lang-block="zh">文档属性</span
+            ><span data-lang-block="en">Metadata</span></a
+          >
+          <a class="nav-link" href="#images"
+            ><span data-lang-block="zh">图片与跨域</span
+            ><span data-lang-block="en">Images &amp; CORS</span></a
+          >
+          <a class="nav-link" href="#progress"
+            ><span data-lang-block="zh">进度反馈</span
+            ><span data-lang-block="en">Progress</span></a
+          >
+        </div>
+        <div class="group">
+          <div class="group-title">
+            <span data-lang-block="zh">参考</span
+            ><span data-lang-block="en">Reference</span>
+          </div>
+          <a class="nav-link" href="#how-it-works"
+            ><span data-lang-block="zh">工作原理</span
+            ><span data-lang-block="en">How it works</span></a
+          >
+          <a class="nav-link" href="#compatibility"
+            ><span data-lang-block="zh">兼容性与限制</span
+            ><span data-lang-block="en">Compatibility</span>
+            <span class="badge"
+              ><span data-lang-block="zh">重要</span
+              ><span data-lang-block="en">Key</span></span
+            ></a
+          >
+          <a class="nav-link" href="#faq"
+            ><span data-lang-block="zh">常见问题</span
+            ><span data-lang-block="en">FAQ</span></a
+          >
+        </div>
+        <div class="group">
+          <div class="group-title">
+            <span data-lang-block="zh">开发与资源</span
+            ><span data-lang-block="en">Development</span>
+          </div>
+          <a class="nav-link" href="#development"
+            ><span data-lang-block="zh">本地开发</span
+            ><span data-lang-block="en">Local development</span></a
+          >
+          <a class="nav-link" href="#examples"
+            ><span data-lang-block="zh">示例与结构</span
+            ><span data-lang-block="en">Examples</span></a
+          >
+          <a class="nav-link" href="#community"
+            ><span data-lang-block="zh">社区与许可</span
+            ><span data-lang-block="en">Community</span></a
+          >
+          <a
+            class="nav-link"
+            href="https://dompdfjs.lisky.com.cn/"
+            target="_blank"
+            rel="noreferrer"
+            ><span data-lang-block="zh">在线 Playground ↗</span
+            ><span data-lang-block="en">Live playground ↗</span></a
+          >
+        </div>
+      </aside>
+
+      <main>
+        <section id="overview">
+          <span class="eyebrow"
+            ><span class="dot"></span
+            ><span data-lang-block="zh">浏览器原生 · 矢量 PDF</span
+            ><span data-lang-block="en">Browser-native · Vector PDF</span></span
+          >
+          <h1>
+            <span data-lang-block="zh">把 DOM 直接变成<br />真正的矢量 PDF。</span>
+            <span data-lang-block="en">Turn the DOM into<br />real vector PDFs.</span>
+          </h1>
+          <p class="lead">
+            <span data-lang-block="zh"
+              ><b>dompdf.js</b> 是一个纯前端 DOM 转 PDF 引擎，由 TypeScript、Web
+              Worker、Rust 和 WebAssembly 驱动。它直接读取浏览器已经计算好的 DOM
+              布局，在浏览器内生成以矢量文本为主的 PDF，不依赖服务端、jsPDF
+              或截图式 PDF 流水线。</span
+            >
+            <span data-lang-block="en"
+              ><b>dompdf.js</b> is a pure-frontend DOM-to-PDF engine powered by
+              TypeScript, Web Workers, Rust, and WebAssembly. It reads the layout
+              already computed by the browser and generates primarily vector-based
+              PDFs directly in the browser, without a server, jsPDF, or a
+              screenshot-based PDF pipeline.</span
+            >
+          </p>
+          <p>
+            <span data-lang-block="zh"
+              >它适合需要可选中文本、长文档分页、中文和自定义字体、页眉页脚、水印、表单、压缩或加密的浏览器端导出场景。</span
+            >
+            <span data-lang-block="en"
+              >It is designed for browser-side exports that need selectable text,
+              long-document pagination, Chinese and custom fonts, headers and
+              footers, watermarks, forms, compression, or encryption.</span
+            >
+          </p>
+          <p>
+            <span data-lang-block="zh"
+              >在典型长文档测试中，<code>dompdf.js</code> 可在约 2 秒内生成 500 页
+              PDF；在内容结构和设备资源允许的情况下，单次导出规模可扩展到上万页。实际耗时和可生成页数会受到
+              DOM 复杂度、图片数量、字体体积、压缩配置、浏览器及设备性能影响。</span
+            >
+            <span data-lang-block="en"
+              >In representative long-document benchmarks, <code>dompdf.js</code> can
+              generate a 500-page PDF in about two seconds. With suitable document
+              structure and sufficient device resources, a single export can scale to
+              tens of thousands of pages. Actual rendering time and page limits depend
+              on DOM complexity, image count, font size, compression settings, browser,
+              and device performance.</span
+            >
+          </p>
+          <div class="hero-actions">
+            <a class="btn primary" href="#quick-start"
+              ><span data-lang-block="zh">5 分钟快速开始 →</span
+              ><span data-lang-block="en">Quick start in 5 minutes →</span></a
+            >
             <a
-              href="https://github.com/lmn1919/dompdf.js"
+              class="btn"
+              href="https://dompdfjs.lisky.com.cn/"
               target="_blank"
               rel="noreferrer"
+              ><span data-lang-block="zh">打开在线 Demo ↗</span
+              ><span data-lang-block="en">Open the live demo ↗</span></a
             >
-              GitHub
-            </a>
-          </nav>
-
-          <div class="lang-switch" role="group" aria-label="Language switch">
-            <button
-              class="lang-switch-btn"
-              id="lang-btn-en"
-              type="button"
-              data-lang="en"
+            <a class="btn" href="#compatibility"
+              ><span data-lang-block="zh">查看兼容性</span
+              ><span data-lang-block="en">Compatibility notes</span></a
             >
-              EN
-            </button>
-            <button
-              class="lang-switch-btn"
-              id="lang-btn-zh"
-              type="button"
-              data-lang="zh"
-            >
-              中
-            </button>
           </div>
+          <div class="hero-meta">
+            <span
+              ><span data-lang-block="zh">✓ 纯前端</span
+              ><span data-lang-block="en">✓ Pure frontend</span></span
+            ><span
+              ><span data-lang-block="zh">✓ 可搜索文本</span
+              ><span data-lang-block="en">✓ Searchable text</span></span
+            ><span
+              ><span data-lang-block="zh">✓ TypeScript</span
+              ><span data-lang-block="en">✓ TypeScript</span></span
+            ><span
+              ><span data-lang-block="zh">✓ MIT License</span
+              ><span data-lang-block="en">✓ MIT License</span></span
+            >
+          </div>
+          <div class="stats">
+            <div class="stat">
+              <strong>0 backend</strong
+              ><span
+                ><span data-lang-block="zh">浏览器内完成导出</span
+                ><span data-lang-block="en">Export runs in the browser</span></span
+              >
+            </div>
+            <div class="stat">
+              <strong>Vector</strong
+              ><span
+                ><span data-lang-block="zh">文本可选择、复制、搜索</span
+                ><span data-lang-block="en">Selectable, copyable, searchable</span></span
+              >
+            </div>
+            <div class="stat">
+              <strong>WASM</strong
+              ><span
+                ><span data-lang-block="zh">Rust 渲染核心</span
+                ><span data-lang-block="en">Rust rendering core</span></span
+              >
+            </div>
+            <div class="stat">
+              <strong>~2s / 500p</strong
+              ><span
+                ><span data-lang-block="zh">面向超长文档场景</span
+                ><span data-lang-block="en">Built for very long documents</span></span
+              >
+            </div>
+          </div>
+        </section>
+
+        <section id="features">
+          <h2>
+            <span data-lang-block="zh">主要功能</span>
+            <span data-lang-block="en">Features</span>
+          </h2>
+          <div class="grid-3">
+            <article class="card">
+              <div class="card-icon">01</div>
+              <h3>
+                <span data-lang-block="zh">纯浏览器端</span>
+                <span data-lang-block="en">Runs in the browser</span>
+              </h3>
+              <p>
+                <span data-lang-block="zh"
+                  >完全在浏览器端运行，不上传待导出的文档。</span
+                >
+                <span data-lang-block="en"
+                  >Runs entirely in the browser without uploading the document being
+                  exported.</span
+                >
+              </p>
+            </article>
+            <article class="card">
+              <div class="card-icon">02</div>
+              <h3>
+                <span data-lang-block="zh">矢量文本</span>
+                <span data-lang-block="en">Vector text</span>
+              </h3>
+              <p>
+                <span data-lang-block="zh"
+                  >输出可搜索、可复制的矢量文本，而不是整页截图。</span
+                >
+                <span data-lang-block="en"
+                  >Produces searchable, selectable vector text instead of full-page
+                  screenshots.</span
+                >
+              </p>
+            </article>
+            <article class="card">
+              <div class="card-icon">03</div>
+              <h3>
+                <span data-lang-block="zh">Worker + WASM</span>
+                <span data-lang-block="en">Worker + WASM</span>
+              </h3>
+              <p>
+                <span data-lang-block="zh"
+                  >使用 Web Worker 和 WASM 执行 PDF 渲染，降低主线程阻塞。</span
+                >
+                <span data-lang-block="en"
+                  >Uses Web Workers and WASM for PDF rendering to reduce main-thread
+                  blocking.</span
+                >
+              </p>
+            </article>
+            <article class="card">
+              <div class="card-icon">04</div>
+              <h3>
+                <span data-lang-block="zh">为大规模文档优化</span>
+                <span data-lang-block="en">Built for large documents</span>
+              </h3>
+              <p>
+                <span data-lang-block="zh"
+                  >面向大规模文档优化，典型测试约 2 秒生成 500 页，极限规模可达上万页。</span
+                >
+                <span data-lang-block="en"
+                  >About two seconds for 500 pages in representative benchmarks, with
+                  extreme workloads reaching tens of thousands of pages.</span
+                >
+              </p>
+            </article>
+            <article class="card">
+              <div class="card-icon">05</div>
+              <h3>
+                <span data-lang-block="zh">单页与分页</span>
+                <span data-lang-block="en">Continuous or paginated</span>
+              </h3>
+              <p>
+                <span data-lang-block="zh">支持单页长画布和标准纸张分页。</span>
+                <span data-lang-block="en"
+                  >Supports both continuous single-page output and standard paginated
+                  documents.</span
+                >
+              </p>
+            </article>
+            <article class="card">
+              <div class="card-icon">06</div>
+              <h3>
+                <span data-lang-block="zh">纸张尺寸</span>
+                <span data-lang-block="en">Page sizes</span>
+              </h3>
+              <p>
+                <span data-lang-block="zh"
+                  >支持 A/B/C 系列、Letter、Legal、Tabloid 等纸张，也可传入自定义尺寸。</span
+                >
+                <span data-lang-block="en"
+                  >Supports A/B/C series, Letter, Legal, Tabloid, and custom page
+                  sizes.</span
+                >
+              </p>
+            </article>
+            <article class="card">
+              <div class="card-icon">07</div>
+              <h3>
+                <span data-lang-block="zh">页眉与页脚</span>
+                <span data-lang-block="en">Headers and footers</span>
+              </h3>
+              <p>
+                <span data-lang-block="zh"
+                  >支持页眉、页脚、页码占位符和逐页配置。</span
+                >
+                <span data-lang-block="en"
+                  >Supports headers, footers, page-number placeholders, and per-page
+                  configuration.</span
+                >
+              </p>
+            </article>
+            <article class="card">
+              <div class="card-icon">08</div>
+              <h3>
+                <span data-lang-block="zh">水印</span>
+                <span data-lang-block="en">Watermarks</span>
+              </h3>
+              <p>
+                <span data-lang-block="zh"
+                  >支持文字水印、图片水印、上下层叠放和逐页控制。</span
+                >
+                <span data-lang-block="en"
+                  >Supports text and image watermarks, under/over layering, and per-page
+                  control.</span
+                >
+              </p>
+            </article>
+            <article class="card">
+              <div class="card-icon">09</div>
+              <h3>
+                <span data-lang-block="zh">字体与多语言</span>
+                <span data-lang-block="en">Fonts and fallback</span>
+              </h3>
+              <p>
+                <span data-lang-block="zh"
+                  >支持 Unicode、TTF 字体、字体子集、粗体、斜体、图标字体和语言字体回退。</span
+                >
+                <span data-lang-block="en"
+                  >Supports Unicode, TTF fonts, font subsetting, bold, italic, icon
+                  fonts, and language-based font fallback.</span
+                >
+              </p>
+            </article>
+            <article class="card">
+              <div class="card-icon">10</div>
+              <h3>
+                <span data-lang-block="zh">视觉效果</span>
+                <span data-lang-block="en">Visual effects</span>
+              </h3>
+              <p>
+                <span data-lang-block="zh"
+                  >支持图片、SVG、Canvas、背景、边框、圆角、阴影、透明度和渐变等常见视觉效果。</span
+                >
+                <span data-lang-block="en"
+                  >Supports images, SVG, Canvas, backgrounds, borders, rounded corners,
+                  shadows, opacity, gradients, and other common visual effects.</span
+                >
+              </p>
+            </article>
+            <article class="card">
+              <div class="card-icon">11</div>
+              <h3>
+                <span data-lang-block="zh">超链接注释</span>
+                <span data-lang-block="en">Link annotations</span>
+              </h3>
+              <p>
+                <span data-lang-block="zh">支持超链接 PDF 注释。</span>
+                <span data-lang-block="en"
+                  >Preserves hyperlinks as PDF link annotations.</span
+                >
+              </p>
+            </article>
+            <article class="card">
+              <div class="card-icon">12</div>
+              <h3>
+                <span data-lang-block="zh">表单导出</span>
+                <span data-lang-block="en">Form export</span>
+              </h3>
+              <p>
+                <span data-lang-block="zh"
+                  >支持静态表单外观和 PDF AcroForm 交互字段。</span
+                >
+                <span data-lang-block="en"
+                  >Supports static form appearance and interactive PDF AcroForm
+                  fields.</span
+                >
+              </p>
+            </article>
+            <article class="card">
+              <div class="card-icon">13</div>
+              <h3>
+                <span data-lang-block="zh">压缩与加密</span>
+                <span data-lang-block="en">Compression and encryption</span>
+              </h3>
+              <p>
+                <span data-lang-block="zh"
+                  >支持 DEFLATE 压缩、用户密码、所有者密码和 PDF 权限控制。</span
+                >
+                <span data-lang-block="en"
+                  >Supports DEFLATE compression, user and owner passwords, and PDF
+                  permission flags.</span
+                >
+              </p>
+            </article>
+            <article class="card">
+              <div class="card-icon">14</div>
+              <h3>
+                <span data-lang-block="zh">完整 API 与类型</span>
+                <span data-lang-block="en">APIs and types</span>
+              </h3>
+              <p>
+                <span data-lang-block="zh"
+                  >提供 <code>Blob</code>、<code>Uint8Array</code>、直接下载和底层快照
+                  API，并提供 TypeScript 类型声明。</span
+                >
+                <span data-lang-block="en"
+                  >Provides <code>Blob</code>, <code>Uint8Array</code>,
+                  direct-download, and low-level snapshot APIs, plus TypeScript
+                  declarations.</span
+                >
+              </p>
+            </article>
+          </div>
+          <div class="callout">
+            <span>ℹ</span>
+            <div>
+              <span data-lang-block="zh"
+                ><b>布局仍由浏览器负责。</b><br /><code>dompdf.js</code>
+                使用浏览器计算后的几何位置来还原页面，因此 CSS 仍由浏览器负责布局。PDF
+                渲染器会尽量保留常见视觉效果，但它不是完整的浏览器排版引擎，复杂滤镜、动画、视频和部分高级
+                CSS 可能被栅格化或降级。</span
+              >
+              <span data-lang-block="en"
+                ><b>CSS layout stays the browser's job.</b><br /><code>dompdf.js</code>
+                reconstructs the page from geometry already computed by the browser, so
+                CSS layout remains the browser's responsibility. The PDF renderer
+                preserves common visual effects where possible, but it is not a complete
+                browser rendering engine. Complex filters, animations, video, and some
+                advanced CSS may be rasterized or degraded.</span
+              >
+            </div>
+          </div>
+        </section>
+
+        <section id="installation">
+          <h2>
+            <span data-lang-block="zh">安装</span>
+            <span data-lang-block="en">Installation</span>
+          </h2>
+          <div data-lang-block="zh">
+            <h3>npm</h3>
+            <div class="code-card plain">
+              <pre><code>npm install dompdf.js</code></pre>
+            </div>
+            <p>
+              运行环境需要现代浏览器以及 <code>Worker</code>、<code>WebAssembly</code>、<code>Blob</code>
+              等 Web API。包本身要求 Node.js 18+ 用于安装、构建和开发，但导出 API 依赖
+              DOM，不能直接在纯 Node.js 环境中调用。
+            </p>
+            <h3>CDN</h3>
+            <div class="code-card plain">
+              <pre><code>&lt;script src="https://cdn.jsdelivr.net/npm/dompdf.js@latest/dist/dompdf.min.js"&gt;&lt;/script&gt;</code></pre>
+            </div>
+            <p>
+              通过 <code>&lt;script&gt;</code> 引入后，API 会挂载到全局
+              <code>dompdf</code>。
+            </p>
+          </div>
+          <div data-lang-block="en">
+            <h3>npm</h3>
+            <div class="code-card plain">
+              <pre><code>npm install dompdf.js</code></pre>
+            </div>
+            <p>
+              The runtime requires a modern browser with Web Workers, WebAssembly,
+              <code>Blob</code>, and related Web APIs. The package requires Node.js 18+
+              for installation, builds, and development, but its export APIs depend on
+              the DOM and cannot be called directly in a plain Node.js environment.
+            </p>
+            <h3>CDN</h3>
+            <div class="code-card plain">
+              <pre><code>&lt;script src="https://cdn.jsdelivr.net/npm/dompdf.js@latest/dist/dompdf.min.js"&gt;&lt;/script&gt;</code></pre>
+            </div>
+            <p>
+              When loaded through a <code>&lt;script&gt;</code> tag, the API is exposed
+              globally as <code>dompdf</code>.
+            </p>
+          </div>
+        </section>
+
+        <section id="quick-start">
+          <h2>
+            <span data-lang-block="zh">快速开始</span>
+            <span data-lang-block="en">Quick start</span>
+          </h2>
+          <p>
+            <span data-lang-block="zh"
+              >默认导出函数返回 <code>Promise&lt;Blob&gt;</code>。下面三个标签页分别对应获取
+              Blob、直接下载和通过 CDN 引入。</span
+            >
+            <span data-lang-block="en"
+              >The default export returns a <code>Promise&lt;Blob&gt;</code>. The three
+              tabs below cover getting a Blob, downloading directly, and using the CDN
+              build.</span
+            >
+          </p>
+          <div class="code-card">
+            <div class="code-head">
+              <div class="tabs">
+                <button class="tab active" type="button" data-tab="blob"
+                  ><span data-lang-block="zh">Blob</span
+                  ><span data-lang-block="en">Blob</span></button
+                >
+                <button class="tab" type="button" data-tab="download"
+                  ><span data-lang-block="zh">下载</span
+                  ><span data-lang-block="en">Download</span></button
+                >
+                <button class="tab" type="button" data-tab="cdn"
+                  ><span data-lang-block="zh">CDN</span
+                  ><span data-lang-block="en">CDN</span></button
+                >
+              </div>
+              <button class="copy" id="copyBtn" type="button">复制代码</button>
+            </div>
+            <pre id="codeBlock"><code>import dompdf from 'dompdf.js';
+
+const element = document.querySelector('#capture');
+if (!element) throw new Error('没有找到 #capture');
+
+const blob = await dompdf(element, {
+  format: 'a4',
+  pagination: true,
+  backgroundColor: '#ffffff',
+});
+
+const url = URL.createObjectURL(blob);
+window.open(url, '_blank');
+
+setTimeout(() => URL.revokeObjectURL(url), 30_000);</code></pre>
+          </div>
+          <div class="callout">
+            <span>⚠</span>
+            <div>
+              <span data-lang-block="zh"
+                ><b>不要在 <code>window.open</code> 之后立刻释放 URL。</b><br
+                />预览窗口需要时间加载，请延迟调用 <code>URL.revokeObjectURL</code>，否则可能得到空白页面。</span
+              >
+              <span data-lang-block="en"
+                ><b>Do not revoke the URL right after <code>window.open</code>.</b
+                ><br />The preview window needs time to load; revoking
+                <code>URL.revokeObjectURL</code> too early can produce a blank page.</span
+              >
+            </div>
+          </div>
+        </section>
+
+        <section id="api">
+          <h2>
+            <span data-lang-block="zh">API</span>
+            <span data-lang-block="en">API</span>
+          </h2>
+          <p>
+            <span data-lang-block="zh"
+              >常规业务优先使用下面五个高层 API。底层 Snapshot API 更适合调试、分页覆盖层或自定义流水线。</span
+            >
+            <span data-lang-block="en"
+              >Prefer the five high-level APIs below for application code. The low-level
+              snapshot APIs are intended for diagnostics, pagination overlays, and custom
+              pipelines.</span
+            >
+          </p>
+          <div class="api-row">
+            <div>
+              <h3><code>dompdf(root, options?)</code></h3>
+              <p>
+                <span data-lang-block="zh"
+                  >默认导出，也是最简入口。行为与 <code>exportPDF</code> 相同。</span
+                >
+                <span data-lang-block="en"
+                  >The default export and simplest entry point. It behaves the same as
+                  <code>exportPDF</code>.</span
+                >
+              </p>
+            </div>
+            <span class="pill">recommended</span>
+          </div>
+          <div class="api-row">
+            <div>
+              <h3><code>exportPDF(root, options?)</code></h3>
+              <p>
+                <span data-lang-block="zh"
+                  >采集 DOM、生成 PDF，并返回 MIME 类型为
+                  <code>application/pdf</code> 的 <code>Blob</code>。适合预览、上传或自行下载。</span
+                >
+                <span data-lang-block="en"
+                  >Collects the DOM, generates the PDF, and returns a
+                  <code>Blob</code> with the MIME type
+                  <code>application/pdf</code>. Use it for previews, uploads, or a custom
+                  download flow.</span
+                >
+              </p>
+            </div>
+            <span class="pill">Blob</span>
+          </div>
+          <div class="api-row">
+            <div>
+              <h3><code>renderToBytes(root, options?)</code></h3>
+              <p>
+                <span data-lang-block="zh"
+                  >返回 PDF 原始字节。适合交给文件系统 API、上传接口或其他二进制处理流程。</span
+                >
+                <span data-lang-block="en"
+                  >Returns the raw PDF bytes. Use it with the File System API, an upload
+                  endpoint, or another binary-processing pipeline.</span
+                >
+              </p>
+            </div>
+            <span class="pill">Uint8Array</span>
+          </div>
+          <div class="api-row">
+            <div>
+              <h3><code>downloadPDF(root, options?, filename?)</code></h3>
+              <p>
+                <span data-lang-block="zh"
+                  >生成 PDF 并触发浏览器下载。默认文件名为 <code>export.pdf</code>。</span
+                >
+                <span data-lang-block="en"
+                  >Generates the PDF and triggers a browser download. The default filename
+                  is <code>export.pdf</code>.</span
+                >
+              </p>
+            </div>
+            <span class="pill">download</span>
+          </div>
+          <div class="api-row">
+            <div>
+              <h3><code>inspect(root, options?)</code></h3>
+              <p>
+                <span data-lang-block="zh"
+                  >返回 WASM 侧的快照摘要，包含节点、图片、字体和页数等信息。它主要用于诊断，不会生成可下载的
+                  PDF。</span
+                >
+                <span data-lang-block="en"
+                  >Returns a WASM-side snapshot summary containing node, image, font, and
+                  page counts. It is intended for diagnostics and does not create a
+                  downloadable PDF.</span
+                >
+              </p>
+            </div>
+            <span class="pill">diagnostics</span>
+          </div>
+          <div class="code-card plain">
+            <pre><code>function dompdf(
+  root: HTMLElement,
+  options?: ExportOptions,
+): Promise&lt;Blob&gt;;</code></pre>
+          </div>
+          <div data-lang-block="zh">
+            <div class="code-card plain">
+              <pre><code>import dompdf, { exportPDF, renderToBytes, downloadPDF, inspect } from 'dompdf.js';
+
+// 默认导出：返回 Blob
+const blob = await dompdf(element, options);
+
+// 与默认导出等价
+const sameBlob = await exportPDF(element, options);
+
+// 原始字节
+const bytes: Uint8Array = await renderToBytes(element, options);
+
+// 触发浏览器下载
+await downloadPDF(element, options, 'invoice.pdf');
+
+// 诊断摘要
+console.log(await inspect(element, { pagination: true }));</code></pre>
+            </div>
+            <h3>高级快照 API</h3>
+            <p>包还导出了以下底层函数：</p>
+            <ul>
+              <li>
+                <code>collectSnapshot(root, options?) -&gt; Promise&lt;Uint8Array&gt;</code>：采集并编码
+                DOM 快照
+              </li>
+              <li><code>collectSnapshotData(root, options?)</code>：返回编码前的中间数据</li>
+              <li>
+                <code>encodeSnapshot(data, perPageHF, perPageWatermark?) -&gt; Uint8Array</code>：编码中间数据
+              </li>
+              <li>
+                <code>computePageBreaks(root, options?) -&gt; number[]</code>：计算相对根元素顶部的分页 Y 坐标
+              </li>
+              <li>
+                <code>pageConfigNeedsPerPageResolution</code>、<code>watermarkNeedsPerPageResolution</code>：判断配置是否需要逐页解析
+              </li>
+              <li>
+                <code>resolvePerPageHF</code>、<code>resolveStaticPageConfigHF</code>：解析逐页页眉页脚
+              </li>
+              <li>
+                <code>resolvePerPageWatermark</code>、<code>resolveStaticWatermarkPages</code>：解析逐页水印
+              </li>
+            </ul>
+            <p>
+              这些接口面向调试、可视化分页和自定义流水线。快照二进制格式属于项目内部协议，普通业务代码应优先使用
+              <code>dompdf</code>、<code>exportPDF</code>、<code>renderToBytes</code> 或
+              <code>downloadPDF</code>。
+            </p>
+          </div>
+          <div data-lang-block="en">
+            <div class="code-card plain">
+              <pre><code>import dompdf, { exportPDF, renderToBytes, downloadPDF, inspect } from 'dompdf.js';
+
+// Default export: returns a Blob
+const blob = await dompdf(element, options);
+
+// Equivalent to the default export
+const sameBlob = await exportPDF(element, options);
+
+// Raw bytes
+const bytes: Uint8Array = await renderToBytes(element, options);
+
+// Triggers a browser download
+await downloadPDF(element, options, 'invoice.pdf');
+
+// Diagnostic summary
+console.log(await inspect(element, { pagination: true }));</code></pre>
+            </div>
+            <h3>Advanced snapshot APIs</h3>
+            <p>The package also exports these lower-level functions:</p>
+            <ul>
+              <li>
+                <code>collectSnapshot(root, options?) -&gt; Promise&lt;Uint8Array&gt;</code>:
+                collect and encode a DOM snapshot
+              </li>
+              <li>
+                <code>collectSnapshotData(root, options?)</code>: return the intermediate
+                data before encoding
+              </li>
+              <li>
+                <code>encodeSnapshot(data, perPageHF, perPageWatermark?) -&gt; Uint8Array</code>:
+                encode intermediate data
+              </li>
+              <li>
+                <code>computePageBreaks(root, options?) -&gt; number[]</code>: calculate
+                page-break Y coordinates relative to the root element
+              </li>
+              <li>
+                <code>pageConfigNeedsPerPageResolution</code> and
+                <code>watermarkNeedsPerPageResolution</code>: determine whether a
+                configuration needs per-page resolution
+              </li>
+              <li>
+                <code>resolvePerPageHF</code> and <code>resolveStaticPageConfigHF</code>:
+                resolve per-page headers and footers
+              </li>
+              <li>
+                <code>resolvePerPageWatermark</code> and
+                <code>resolveStaticWatermarkPages</code>: resolve per-page watermarks
+              </li>
+            </ul>
+            <p>
+              These APIs are intended for diagnostics, pagination overlays, and custom
+              pipelines. The snapshot binary format is an internal protocol; normal
+              application code should prefer <code>dompdf</code>, <code>exportPDF</code>,
+              <code>renderToBytes</code>, or <code>downloadPDF</code>.
+            </p>
+          </div>
+          <p>
+            <span data-lang-block="zh"
+              >默认导出对象也附带了常用方法，因此下面两种写法等价：</span
+            >
+            <span data-lang-block="en"
+              >Common methods are also attached to the default export, so these forms are
+              equivalent:</span
+            >
+          </p>
+          <div class="code-card plain">
+            <pre><code>import dompdf, { renderToBytes } from 'dompdf.js';
+
+const bytesA = await dompdf.renderToBytes(element);
+const bytesB = await renderToBytes(element);</code></pre>
+          </div>
+        </section>
+
+        <section id="options">
+          <h2>
+            <span data-lang-block="zh">参数</span>
+            <span data-lang-block="en">Export options</span>
+          </h2>
+          <p>
+            <span data-lang-block="zh">以下参数均已实现并生效：</span>
+            <span data-lang-block="en"
+              >The following options are implemented and take effect:</span
+            >
+          </p>
+          <div data-lang-block="zh">
+            <table>
+              <thead>
+                <tr>
+                  <th>选项</th>
+                  <th>类型</th>
+                  <th>默认值</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>format</code></td>
+                  <td><code>string | [number, number]</code></td>
+                  <td><code>'a4'</code></td>
+                  <td>纸张名称或 <code>[宽, 高]</code>，单位为 pt</td>
+                </tr>
+                <tr>
+                  <td><code>pageWidthPt</code></td>
+                  <td><code>number</code></td>
+                  <td>由 <code>format</code> 决定</td>
+                  <td>直接覆盖页面宽度</td>
+                </tr>
+                <tr>
+                  <td><code>pageHeightPt</code></td>
+                  <td><code>number</code></td>
+                  <td>由 <code>format</code> 决定</td>
+                  <td>直接覆盖页面高度</td>
+                </tr>
+                <tr>
+                  <td><code>marginPt</code></td>
+                  <td><code>number | [上, 右, 下, 左]</code></td>
+                  <td><code>0</code></td>
+                  <td>PDF 页边距，单位为 pt</td>
+                </tr>
+                <tr>
+                  <td><code>pagination</code></td>
+                  <td><code>boolean</code></td>
+                  <td><code>false</code></td>
+                  <td>是否按纸张高度分页</td>
+                </tr>
+                <tr>
+                  <td><code>backgroundColor</code></td>
+                  <td><code>string | null</code></td>
+                  <td><code>null</code></td>
+                  <td>页面背景色；<code>null</code> 表示透明</td>
+                </tr>
+                <tr>
+                  <td><code>precision</code></td>
+                  <td><code>number</code></td>
+                  <td><code>2</code></td>
+                  <td>PDF 坐标保留的小数位数</td>
+                </tr>
+                <tr>
+                  <td><code>compress</code></td>
+                  <td><code>boolean</code></td>
+                  <td><code>false</code></td>
+                  <td>使用 DEFLATE 压缩 PDF 流</td>
+                </tr>
+                <tr>
+                  <td><code>jpegQuality</code></td>
+                  <td><code>number</code></td>
+                  <td><code>0.85</code></td>
+                  <td>图片转 JPEG 时的质量</td>
+                </tr>
+                <tr>
+                  <td><code>useCORS</code></td>
+                  <td><code>boolean</code></td>
+                  <td><code>false</code></td>
+                  <td>跨域图片按匿名 CORS 方式加载</td>
+                </tr>
+                <tr>
+                  <td><code>ignoreElements</code></td>
+                  <td><code>(element) =&gt; boolean</code></td>
+                  <td>无</td>
+                  <td>返回 <code>true</code> 时跳过该元素及其内容</td>
+                </tr>
+                <tr>
+                  <td><code>fontConfig</code></td>
+                  <td><code>FontConfig | FontConfig[]</code></td>
+                  <td>无</td>
+                  <td>注册自定义字体</td>
+                </tr>
+                <tr>
+                  <td><code>langFontConfig</code></td>
+                  <td><code>FontConfig[]</code></td>
+                  <td>无</td>
+                  <td>按 Unicode 范围配置字体回退</td>
+                </tr>
+                <tr>
+                  <td><code>pageConfig</code></td>
+                  <td>对象或逐页函数</td>
+                  <td>见下文</td>
+                  <td>页眉和页脚配置</td>
+                </tr>
+                <tr>
+                  <td><code>watermark</code></td>
+                  <td>对象或逐页函数</td>
+                  <td>无</td>
+                  <td>文字或图片水印</td>
+                </tr>
+                <tr>
+                  <td><code>form</code></td>
+                  <td><code>boolean | FormOptions</code></td>
+                  <td>静态模式</td>
+                  <td>表单控件导出方式</td>
+                </tr>
+                <tr>
+                  <td><code>encryption</code></td>
+                  <td><code>PdfEncryptionOptions</code></td>
+                  <td>无</td>
+                  <td>PDF 密码和权限配置</td>
+                </tr>
+                <tr>
+                  <td><code>metadata</code></td>
+                  <td><code>PdfMetadataOptions</code></td>
+                  <td>无</td>
+                  <td>PDF 文档属性（Info 字典）</td>
+                </tr>
+                <tr>
+                  <td><code>onProgress</code></td>
+                  <td><code>(progress) =&gt; void</code></td>
+                  <td>无</td>
+                  <td>导出进度回调</td>
+                </tr>
+              </tbody>
+            </table>
+            <p>
+              完整 TypeScript 类型以 <a href="../src/snapshot.ts"><code>src/snapshot.ts</code></a>
+              和发布包内的 <code>dist/types</code> 为准。
+            </p>
+          </div>
+          <div data-lang-block="en">
+            <table>
+              <thead>
+                <tr>
+                  <th>Option</th>
+                  <th>Type</th>
+                  <th>Default</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>format</code></td>
+                  <td><code>string | [number, number]</code></td>
+                  <td><code>'a4'</code></td>
+                  <td>Page-size name or <code>[width, height]</code> in pt</td>
+                </tr>
+                <tr>
+                  <td><code>pageWidthPt</code></td>
+                  <td><code>number</code></td>
+                  <td>From <code>format</code></td>
+                  <td>Override page width directly</td>
+                </tr>
+                <tr>
+                  <td><code>pageHeightPt</code></td>
+                  <td><code>number</code></td>
+                  <td>From <code>format</code></td>
+                  <td>Override page height directly</td>
+                </tr>
+                <tr>
+                  <td><code>marginPt</code></td>
+                  <td><code>number | [top, right, bottom, left]</code></td>
+                  <td><code>0</code></td>
+                  <td>PDF margins in pt</td>
+                </tr>
+                <tr>
+                  <td><code>pagination</code></td>
+                  <td><code>boolean</code></td>
+                  <td><code>false</code></td>
+                  <td>Paginate using the configured page height</td>
+                </tr>
+                <tr>
+                  <td><code>backgroundColor</code></td>
+                  <td><code>string | null</code></td>
+                  <td><code>null</code></td>
+                  <td>Page background; <code>null</code> means transparent</td>
+                </tr>
+                <tr>
+                  <td><code>precision</code></td>
+                  <td><code>number</code></td>
+                  <td><code>2</code></td>
+                  <td>Decimal places retained for PDF coordinates</td>
+                </tr>
+                <tr>
+                  <td><code>compress</code></td>
+                  <td><code>boolean</code></td>
+                  <td><code>false</code></td>
+                  <td>Compress PDF streams with DEFLATE</td>
+                </tr>
+                <tr>
+                  <td><code>jpegQuality</code></td>
+                  <td><code>number</code></td>
+                  <td><code>0.85</code></td>
+                  <td>JPEG quality used when converting images</td>
+                </tr>
+                <tr>
+                  <td><code>useCORS</code></td>
+                  <td><code>boolean</code></td>
+                  <td><code>false</code></td>
+                  <td>Load cross-origin images with anonymous CORS</td>
+                </tr>
+                <tr>
+                  <td><code>ignoreElements</code></td>
+                  <td><code>(element) =&gt; boolean</code></td>
+                  <td>None</td>
+                  <td>
+                    Skip an element and its content when it returns <code>true</code>
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>fontConfig</code></td>
+                  <td><code>FontConfig | FontConfig[]</code></td>
+                  <td>None</td>
+                  <td>Register custom fonts</td>
+                </tr>
+                <tr>
+                  <td><code>langFontConfig</code></td>
+                  <td><code>FontConfig[]</code></td>
+                  <td>None</td>
+                  <td>Configure Unicode-range font fallback</td>
+                </tr>
+                <tr>
+                  <td><code>pageConfig</code></td>
+                  <td>Object or per-page function</td>
+                  <td>See below</td>
+                  <td>Header and footer configuration</td>
+                </tr>
+                <tr>
+                  <td><code>watermark</code></td>
+                  <td>Object or per-page function</td>
+                  <td>None</td>
+                  <td>Text or image watermark</td>
+                </tr>
+                <tr>
+                  <td><code>form</code></td>
+                  <td><code>boolean | FormOptions</code></td>
+                  <td>Static mode</td>
+                  <td>Form-control export behavior</td>
+                </tr>
+                <tr>
+                  <td><code>encryption</code></td>
+                  <td><code>PdfEncryptionOptions</code></td>
+                  <td>None</td>
+                  <td>PDF passwords and permissions</td>
+                </tr>
+                <tr>
+                  <td><code>metadata</code></td>
+                  <td><code>PdfMetadataOptions</code></td>
+                  <td>None</td>
+                  <td>PDF document properties (Info dictionary)</td>
+                </tr>
+                <tr>
+                  <td><code>onProgress</code></td>
+                  <td><code>(progress) =&gt; void</code></td>
+                  <td>None</td>
+                  <td>Export progress callback</td>
+                </tr>
+              </tbody>
+            </table>
+            <p>
+              See <a href="../src/snapshot.ts"><code>src/snapshot.ts</code></a> and the
+              published package's <code>dist/types</code> directory for the complete
+              TypeScript definitions.
+            </p>
+          </div>
+        </section>
+
+        <section id="pagination">
+          <h2>
+            <span data-lang-block="zh">分页与纸张</span>
+            <span data-lang-block="en">Pagination and page sizes</span>
+          </h2>
+          <div data-lang-block="zh">
+            <h3>单页与分页模式</h3>
+            <ul>
+              <li>
+                <code>pagination: false</code>：生成一张内容驱动高度的长页面，适合票据、截图替代和连续文档
+              </li>
+              <li>
+                <code>pagination: true</code>：根据纸张、页边距、页眉和页脚的可用区域生成多页 PDF
+              </li>
+            </ul>
+            <div class="code-card plain">
+              <pre><code>await dompdf(element, {
+  format: 'a4',
+  pagination: true,
+  marginPt: [36, 36, 36, 36],
+});</code></pre>
+            </div>
+            <p>
+              为了获得稳定的分页结果，建议让待导出容器的 CSS 宽度接近目标纸张的内容宽度。A4 在 96 DPI 下为约
+              <code>794px × 1123px</code>；如果设置了页边距，还要从中减去对应宽度。
+            </p>
+            <p>
+              常见纸张尺寸见
+              <a
+                href="https://github.com/lmn1919/dompdf.js/blob/main/page_sizes.md"
+                target="_blank"
+                rel="noreferrer"
+                ><code>page_sizes.md</code></a
+              >。当前支持：
+            </p>
+            <ul>
+              <li><code>a0</code> 到 <code>a10</code></li>
+              <li><code>b0</code> 到 <code>b10</code></li>
+              <li><code>c0</code> 到 <code>c10</code></li>
+              <li><code>letter</code>、<code>government-letter</code></li>
+              <li><code>legal</code>、<code>junior-legal</code>、<code>government-legal</code></li>
+              <li><code>tabloid</code>、<code>ledger</code></li>
+            </ul>
+            <p>自定义横向 A4 可以直接交换宽高：</p>
+            <div class="code-card plain">
+              <pre><code>await dompdf(element, {
+  format: [842.25, 595.5],
+  pagination: true,
+});</code></pre>
+            </div>
+            <p>
+              也可以使用 <code>pageWidthPt</code> 和 <code>pageHeightPt</code> 覆盖
+              <code>format</code>。<code>orientation</code> 目前只是旧版兼容参数，不会自动交换纸张宽高。
+            </p>
+            <h3>强制分页与避免拆分</h3>
+            <p>在元素上添加 <code>pageBreak</code> 属性，可要求分页器在该元素前换页：</p>
+            <div class="code-card plain">
+              <pre><code>&lt;section&gt;第一页内容&lt;/section&gt;
+&lt;section pageBreak&gt;从新页面开始&lt;/section&gt;</code></pre>
+            </div>
+            <p>
+              添加 <code>divisionDisable</code> 属性，可尽量避免整个元素跨页拆分：
+            </p>
+            <div class="code-card plain">
+              <pre><code>&lt;article divisionDisable&gt;
+  这部分内容会尽量保持在同一页。
+&lt;/article&gt;</code></pre>
+            </div>
+            <p>
+              当元素本身高于一整页可用高度时，分页器仍可能拆分它，避免产生无法放置的内容。
+            </p>
+          </div>
+          <div data-lang-block="en">
+            <h3>Continuous and paginated modes</h3>
+            <ul>
+              <li>
+                <code>pagination: false</code>: create one content-driven continuous page,
+                useful for receipts, screenshot replacement, and continuous documents
+              </li>
+              <li>
+                <code>pagination: true</code>: create a multi-page PDF using the available
+                area left by the page size, margins, header, and footer
+              </li>
+            </ul>
+            <div class="code-card plain">
+              <pre><code>await dompdf(element, {
+  format: 'a4',
+  pagination: true,
+  marginPt: [36, 36, 36, 36],
+});</code></pre>
+            </div>
+            <p>
+              For stable pagination, keep the export container's CSS width close to the
+              target page's content width. A4 is approximately
+              <code>794px x 1123px</code> at 96 DPI; configured margins must be subtracted
+              from that width.
+            </p>
+            <p>
+              See
+              <a
+                href="https://github.com/lmn1919/dompdf.js/blob/main/page_sizes.md"
+                target="_blank"
+                rel="noreferrer"
+                ><code>page_sizes.md</code></a
+              >
+              for common dimensions. Supported names include:
+            </p>
+            <ul>
+              <li><code>a0</code> through <code>a10</code></li>
+              <li><code>b0</code> through <code>b10</code></li>
+              <li><code>c0</code> through <code>c10</code></li>
+              <li><code>letter</code> and <code>government-letter</code></li>
+              <li>
+                <code>legal</code>, <code>junior-legal</code>, and
+                <code>government-legal</code>
+              </li>
+              <li><code>tabloid</code> and <code>ledger</code></li>
+            </ul>
+            <p>For landscape A4, swap the dimensions explicitly:</p>
+            <div class="code-card plain">
+              <pre><code>await dompdf(element, {
+  format: [842.25, 595.5],
+  pagination: true,
+});</code></pre>
+            </div>
+            <p>
+              You can also override <code>format</code> with <code>pageWidthPt</code> and
+              <code>pageHeightPt</code>. The <code>orientation</code> option is currently
+              retained only for legacy compatibility and does not swap the page dimensions
+              automatically.
+            </p>
+            <h3>Forced breaks and avoiding splits</h3>
+            <p>Add a <code>pageBreak</code> attribute to request a page break before an element:</p>
+            <div class="code-card plain">
+              <pre><code>&lt;section&gt;First-page content&lt;/section&gt;
+&lt;section pageBreak&gt;Start on a new page&lt;/section&gt;</code></pre>
+            </div>
+            <p>
+              Add a <code>divisionDisable</code> attribute to keep an element on one page
+              where possible:
+            </p>
+            <div class="code-card plain">
+              <pre><code>&lt;article divisionDisable&gt;
+  This block will be kept together when possible.
+&lt;/article&gt;</code></pre>
+            </div>
+            <p>
+              An element taller than the entire available page area may still be split so
+              that the content remains placeable.
+            </p>
+          </div>
+        </section>
+
+        <section id="header-footer">
+          <h2>
+            <span data-lang-block="zh">页眉与页脚</span>
+            <span data-lang-block="en">Headers and footers</span>
+          </h2>
+          <div data-lang-block="zh">
+            <h3>固定配置</h3>
+            <div class="code-card plain">
+              <pre><code>await dompdf(element, {
+  pagination: true,
+  pageConfig: {
+    excludePages: [1],
+    header: {
+      content: '季度经营报告',
+      height: 48,
+      contentColor: '#334155',
+      contentFontSize: 11,
+      contentPosition: 'centerLeft',
+      padding: [0, 24, 0, 24],
+    },
+    footer: {
+      content: '第 ${currentPage} / ${totalPages} 页',
+      height: 48,
+      contentColor: '#64748b',
+      contentFontSize: 10,
+      contentPosition: 'center',
+      padding: [0, 24, 0, 24],
+    },
+  },
+});</code></pre>
+            </div>
+            <p><code>content</code> 支持以下占位符：</p>
+            <ul>
+              <li><code>${currentPage}</code>：当前页码，从 1 开始</li>
+              <li><code>${totalPages}</code>：总页数</li>
+            </ul>
+            <p><code>contentPosition</code> 支持：</p>
+            <ul>
+              <li><code>center</code>、<code>centerLeft</code>、<code>centerRight</code></li>
+              <li><code>centerTop</code>、<code>centerBottom</code></li>
+              <li><code>leftTop</code>、<code>leftBottom</code></li>
+              <li><code>rightTop</code>、<code>rightBottom</code></li>
+              <li><code>[x, y]</code> 自定义坐标</li>
+            </ul>
+            <p>
+              <code>padding</code> 顺序为 <code>[上, 右, 下, 左]</code>。<code>excludePage</code>
+              可以接收单个页码或页码数组，<code>excludePages</code> 接收页码数组。
+            </p>
+            <p>
+              启用分页但没有传入 <code>pageConfig</code> 时，当前版本会默认保留
+              <code>50px</code> 的空页眉区域，并在 <code>50px</code> 页脚中输出
+              <code>${currentPage}/${totalPages}</code>。如需完全自定义，请显式传入
+              <code>pageConfig</code>。
+            </p>
+            <h3>Slots（Phase 1）</h3>
+            <p>
+              <code>header</code> / <code>footer</code> 现在支持
+              <code>slots</code>，可在同一页眉或页脚中放置多个文本块，并为每个 slot
+              单独指定字体、颜色、位置：
+            </p>
+            <div class="code-card plain">
+              <pre><code>await dompdf(element, {
+  pagination: true,
+  pageConfig: {
+    header: {
+      height: 48,
+      padding: [8, 24, 0, 24],
+      slots: [
+        {
+          content: '季度经营报告',
+          position: 'leftTop',
+          color: '#334155',
+          fontSize: 11,
+          fontFamily: 'Source Han Sans SC',
+          fontWeight: 700,
+        },
+        {
+          content: '第 ${currentPage} / ${totalPages} 页',
+          position: { x: '100%', y: 0, anchor: 'rightTop' },
+          color: '#64748b',
+          fontSize: 10,
+        },
+      ],
+    },
+  },
+});</code></pre>
+            </div>
+            <p>说明：</p>
+            <ul>
+              <li><code>slots</code> 存在时，优先于旧版 <code>content / contentPosition</code></li>
+              <li><code>position</code> 既支持语义位置，也支持坐标对象</li>
+              <li>
+                坐标对象的原点是页眉/页脚内容区左上角，<code>x/y</code> 支持数字、<code>'50%'</code>、<code>'100%-24'</code>
+              </li>
+              <li><code>anchor</code> 默认是 <code>leftTop</code></li>
+            </ul>
+            <p><code>slot</code> 可用字段：</p>
+            <ul>
+              <li><code>content</code>: 文本内容，支持 <code>${currentPage}</code> / <code>${totalPages}</code></li>
+              <li><code>position</code>: 语义位置，或 <code>{ x, y, anchor }</code></li>
+              <li><code>color</code>: 文本颜色</li>
+              <li><code>fontSize</code>: 字号（px）</li>
+              <li><code>fontFamily</code>: 字体名称，需配合 <code>fontConfig</code> 中已注册的字体使用</li>
+              <li><code>fontWeight</code>: 字重</li>
+              <li><code>italic</code>: 是否斜体</li>
+            </ul>
+            <p>坐标定位示例：</p>
+            <div class="code-card plain">
+              <pre><code>slots: [
+  {
+    content: '左上标题',
+    position: 'leftTop',
+  },
+  {
+    content: '右上页码',
+    position: { x: '100%', y: 0, anchor: 'rightTop' },
+  },
+  {
+    content: '右下说明',
+    position: { x: '100%-24', y: '100%-10', anchor: 'rightBottom' },
+  },
+]</code></pre>
+            </div>
+            <p>其中：</p>
+            <ul>
+              <li><code>x: '100%'</code> 表示内容区最右侧参考线</li>
+              <li><code>x: '100%-24'</code> 表示在最右侧基础上向左偏移 <code>24px</code></li>
+              <li><code>y: '100%-10'</code> 表示在内容区底部基础上向上偏移 <code>10px</code></li>
+              <li><code>anchor</code> 决定坐标对应的是文本框的哪个参考点</li>
+            </ul>
+            <h3>逐页配置</h3>
+            <p>
+              函数形式会在已知总页数后按页调用，返回 <code>null</code> 可禁用该页的页眉页脚：
+            </p>
+            <div class="code-card plain">
+              <pre><code>await dompdf(element, {
+  pagination: true,
+  pageConfig(pageNum, totalPages) {
+    if (pageNum === 1) return null;
+
+    return {
+      header: {
+        content: '内部资料',
+        height: 40,
+        contentPosition: 'rightTop',
+      },
+      footer: {
+        content: `${pageNum} / ${totalPages}`,
+        height: 40,
+        contentPosition: 'center',
+      },
+    };
+  },
+});</code></pre>
+            </div>
+            <p>
+              <code>PageRegionConfig.content</code>
+              的函数签名是旧版兼容入口，目前不会获得可操作的 PDF renderer。需要动态内容时，请使用
+              <code>pageConfig(pageNum, totalPages)</code> 返回字符串内容。
+            </p>
+          </div>
+          <div data-lang-block="en">
+            <h3>Static configuration</h3>
+            <div class="code-card plain">
+              <pre><code>await dompdf(element, {
+  pagination: true,
+  pageConfig: {
+    excludePages: [1],
+    header: {
+      content: 'Quarterly Operations Report',
+      height: 48,
+      contentColor: '#334155',
+      contentFontSize: 11,
+      contentPosition: 'centerLeft',
+      padding: [0, 24, 0, 24],
+    },
+    footer: {
+      content: 'Page ${currentPage} / ${totalPages}',
+      height: 48,
+      contentColor: '#64748b',
+      contentFontSize: 10,
+      contentPosition: 'center',
+      padding: [0, 24, 0, 24],
+    },
+  },
+});</code></pre>
+            </div>
+            <p><code>content</code> supports these placeholders:</p>
+            <ul>
+              <li><code>${currentPage}</code>: current page number, starting at 1</li>
+              <li><code>${totalPages}</code>: total number of pages</li>
+            </ul>
+            <p><code>contentPosition</code> supports:</p>
+            <ul>
+              <li><code>center</code>, <code>centerLeft</code>, and <code>centerRight</code></li>
+              <li><code>centerTop</code> and <code>centerBottom</code></li>
+              <li><code>leftTop</code> and <code>leftBottom</code></li>
+              <li><code>rightTop</code> and <code>rightBottom</code></li>
+              <li><code>[x, y]</code> for custom coordinates</li>
+            </ul>
+            <p>
+              <code>padding</code> uses the order <code>[top, right, bottom, left]</code>.
+              <code>excludePage</code> accepts one page number or an array, while
+              <code>excludePages</code> accepts an array of page numbers.
+            </p>
+            <p>
+              When pagination is enabled without an explicit <code>pageConfig</code>, the
+              current version reserves an empty <code>50px</code> header band and renders
+              <code>${currentPage}/${totalPages}</code> in a <code>50px</code> footer. Pass
+              <code>pageConfig</code> explicitly when you need full control.
+            </p>
+            <h3>Slots (Phase 1)</h3>
+            <p>
+              <code>header</code> / <code>footer</code> now support <code>slots</code>, so
+              you can place multiple text blocks inside the same region and control font,
+              color, and position per slot:
+            </p>
+            <div class="code-card plain">
+              <pre><code>await dompdf(element, {
+  pagination: true,
+  pageConfig: {
+    header: {
+      height: 48,
+      padding: [8, 24, 0, 24],
+      slots: [
+        {
+          content: 'Quarterly Business Review',
+          position: 'leftTop',
+          color: '#334155',
+          fontSize: 11,
+          fontFamily: 'Source Han Sans SC',
+          fontWeight: 700,
+        },
+        {
+          content: 'Page ${currentPage} / ${totalPages}',
+          position: { x: '100%', y: 0, anchor: 'rightTop' },
+          color: '#64748b',
+          fontSize: 10,
+        },
+      ],
+    },
+  },
+});</code></pre>
+            </div>
+            <p>Notes:</p>
+            <ul>
+              <li><code>slots</code> take precedence over legacy <code>content / contentPosition</code></li>
+              <li><code>position</code> supports both semantic presets and coordinate objects</li>
+              <li>
+                Coordinate objects use the header/footer inner box top-left as the origin;
+                <code>x/y</code> accept numbers, <code>'50%'</code>, and <code>'100%-24'</code>
+              </li>
+              <li><code>anchor</code> defaults to <code>leftTop</code></li>
+            </ul>
+            <p>Available slot fields:</p>
+            <ul>
+              <li><code>content</code>: text content, with <code>${currentPage}</code> / <code>${totalPages}</code> placeholders</li>
+              <li><code>position</code>: a semantic preset or <code>{ x, y, anchor }</code></li>
+              <li><code>color</code>: text color</li>
+              <li><code>fontSize</code>: font size in px</li>
+              <li><code>fontFamily</code>: font family name; pair it with a registered font in <code>fontConfig</code></li>
+              <li><code>fontWeight</code>: font weight</li>
+              <li><code>italic</code>: whether italic styling is enabled</li>
+            </ul>
+            <p>Coordinate examples:</p>
+            <div class="code-card plain">
+              <pre><code>slots: [
+  {
+    content: 'Top-left title',
+    position: 'leftTop',
+  },
+  {
+    content: 'Top-right page number',
+    position: { x: '100%', y: 0, anchor: 'rightTop' },
+  },
+  {
+    content: 'Bottom-right note',
+    position: { x: '100%-24', y: '100%-10', anchor: 'rightBottom' },
+  },
+]</code></pre>
+            </div>
+            <p>In this model:</p>
+            <ul>
+              <li><code>x: '100%'</code> targets the right edge of the inner region</li>
+              <li><code>x: '100%-24'</code> moves <code>24px</code> left from that edge</li>
+              <li><code>y: '100%-10'</code> moves <code>10px</code> upward from the bottom edge of the inner region</li>
+              <li><code>anchor</code> defines which point of the text box is aligned to the coordinate</li>
+            </ul>
+            <h3>Per-page configuration</h3>
+            <p>
+              The function form is called for every page after the total page count is
+              known. Return <code>null</code> to disable the header and footer for a page:
+            </p>
+            <div class="code-card plain">
+              <pre><code>await dompdf(element, {
+  pagination: true,
+  pageConfig(pageNum, totalPages) {
+    if (pageNum === 1) return null;
+
+    return {
+      header: {
+        content: 'Internal Use Only',
+        height: 40,
+        contentPosition: 'rightTop',
+      },
+      footer: {
+        content: `${pageNum} / ${totalPages}`,
+        height: 40,
+        contentPosition: 'center',
+      },
+    };
+  },
+});</code></pre>
+            </div>
+            <p>
+              The function signature accepted by <code>PageRegionConfig.content</code> is a
+              legacy compatibility entry point and does not receive an operable PDF
+              renderer. For dynamic content, use
+              <code>pageConfig(pageNum, totalPages)</code> and return string content.
+            </p>
+          </div>
+        </section>
+
+        <section id="watermark">
+          <h2>
+            <span data-lang-block="zh">水印</span>
+            <span data-lang-block="en">Watermarks</span>
+          </h2>
+          <div data-lang-block="zh">
+            <h3>文字水印</h3>
+            <div class="code-card plain">
+              <pre><code>await dompdf(element, {
+  pagination: true,
+  watermark: {
+    text: '内部资料 ${currentPage}/${totalPages}',
+    color: 'rgba(185, 28, 28, 0.14)',
+    fontFamily: 'Helvetica',
+    fontSize: 28,
+    fontWeight: 700,
+    angle: -35,
+    spacing: [180, 130],
+    offset: [40, 40],
+    layer: 'under',
+    excludePages: [1],
+  },
+});</code></pre>
+            </div>
+            <p>
+              文字水印默认值包括：角度 <code>35</code>、字号 <code>28px</code>、颜色
+              <code>rgba(0, 0, 0, 0.12)</code>、间距 <code>[160, 120]</code>、偏移
+              <code>[36, 36]</code>、层级 <code>under</code>。
+            </p>
+            <h3>图片水印</h3>
+            <div class="code-card plain">
+              <pre><code>await dompdf(element, {
+  pagination: true,
+  useCORS: true,
+  watermark: {
+    imageUrl: '/assets/company-mark.png',
+    imageWidth: 120,
+    opacity: 0.1,
+    angle: -30,
+    spacing: [220, 160],
+    layer: 'over',
+  },
+});</code></pre>
+            </div>
+            <p>
+              图片水印支持 <code>imageWidth</code>、<code>imageHeight</code> 和
+              <code>opacity</code>。只指定宽或高时会按照原图比例计算另一边。
+            </p>
+            <h3>逐页水印</h3>
+            <div class="code-card plain">
+              <pre><code>await dompdf(element, {
+  pagination: true,
+  watermark(pageNum) {
+    if (pageNum === 1) return null;
+    return {
+      text: pageNum % 2 === 0 ? '偶数页' : '奇数页',
+      color: 'rgba(30, 64, 175, 0.12)',
+      layer: 'under',
+    };
+  },
+});</code></pre>
+            </div>
+          </div>
+          <div data-lang-block="en">
+            <h3>Text watermarks</h3>
+            <div class="code-card plain">
+              <pre><code>await dompdf(element, {
+  pagination: true,
+  watermark: {
+    text: 'INTERNAL ${currentPage}/${totalPages}',
+    color: 'rgba(185, 28, 28, 0.14)',
+    fontFamily: 'Helvetica',
+    fontSize: 28,
+    fontWeight: 700,
+    angle: -35,
+    spacing: [180, 130],
+    offset: [40, 40],
+    layer: 'under',
+    excludePages: [1],
+  },
+});</code></pre>
+            </div>
+            <p>
+              Text-watermark defaults include angle <code>35</code>, font size
+              <code>28px</code>, color <code>rgba(0, 0, 0, 0.12)</code>, spacing
+              <code>[160, 120]</code>, offset <code>[36, 36]</code>, and layer
+              <code>under</code>.
+            </p>
+            <h3>Image watermarks</h3>
+            <div class="code-card plain">
+              <pre><code>await dompdf(element, {
+  pagination: true,
+  useCORS: true,
+  watermark: {
+    imageUrl: '/assets/company-mark.png',
+    imageWidth: 120,
+    opacity: 0.1,
+    angle: -30,
+    spacing: [220, 160],
+    layer: 'over',
+  },
+});</code></pre>
+            </div>
+            <p>
+              Image watermarks support <code>imageWidth</code>, <code>imageHeight</code>,
+              and <code>opacity</code>. If only width or height is supplied, the other
+              dimension is calculated from the source aspect ratio.
+            </p>
+            <h3>Per-page watermarks</h3>
+            <div class="code-card plain">
+              <pre><code>await dompdf(element, {
+  pagination: true,
+  watermark(pageNum) {
+    if (pageNum === 1) return null;
+    return {
+      text: pageNum % 2 === 0 ? 'EVEN PAGE' : 'ODD PAGE',
+      color: 'rgba(30, 64, 175, 0.12)',
+      layer: 'under',
+    };
+  },
+});</code></pre>
+            </div>
+          </div>
+        </section>
+
+        <section id="fonts">
+          <h2>
+            <span data-lang-block="zh">字体与多语言</span>
+            <span data-lang-block="en">Fonts and multilingual text</span>
+          </h2>
+          <div data-lang-block="zh">
+            <p>
+              非拉丁文本建议显式嵌入 TTF 字体。最可靠的方式是先加载字体，再通过
+              <code>fontBytes</code> 传入：
+            </p>
+            <div class="code-card plain">
+              <pre><code>import dompdf from 'dompdf.js';
+
+const fontBuffer = await fetch('/fonts/SourceHanSansSC-Regular.ttf').then((response) => {
+  if (!response.ok) throw new Error(`字体加载失败：${response.status}`);
+  return response.arrayBuffer();
+});
+
+await dompdf(element, {
+  fontConfig: {
+    fontFamily: 'SourceHanSansSC-Regular',
+    fontBytes: new Uint8Array(fontBuffer),
+    fontStyle: 'normal',
+    fontWeight: 400,
+  },
+});</code></pre>
+            </div>
+            <p><code>fontConfig</code> 可传单个字体或数组。主要字段：</p>
+            <table>
+              <thead>
+                <tr>
+                  <th>字段</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>fontFamily</code></td>
+                  <td>必填，应与导出元素的 CSS <code>font-family</code> 对应</td>
+                </tr>
+                <tr>
+                  <td><code>fontBytes</code></td>
+                  <td>已解码的 TTF 字节，推荐使用</td>
+                </tr>
+                <tr>
+                  <td><code>fontBase64</code></td>
+                  <td>Base64 编码的 TTF 数据</td>
+                </tr>
+                <tr>
+                  <td><code>fontStyle</code></td>
+                  <td><code>normal</code> 或 <code>italic</code></td>
+                </tr>
+                <tr>
+                  <td><code>fontWeight</code></td>
+                  <td>字重，如 <code>400</code>、<code>700</code></td>
+                </tr>
+                <tr>
+                  <td><code>iconFont</code></td>
+                  <td>是否作为图标字体处理</td>
+                </tr>
+              </tbody>
+            </table>
+            <p>
+              类型中保留了 <code>fontUrl</code>，但当前采集器不会主动读取它。需要从 URL
+              加载字体时，请先 <code>fetch</code> 并转换为 <code>Uint8Array</code>。
+            </p>
+            <h3>多语言字体回退</h3>
+            <p>
+              <code>langFontConfig</code> 可以通过 Unicode 范围选择字体，并设置默认回退字体：
+            </p>
+            <div class="code-card plain">
+              <pre><code>await dompdf(element, {
+  langFontConfig: [
+    {
+      fontFamily: 'SourceHanSansSC-Regular',
+      fontBytes: chineseFontBytes,
+      charRange: [[0x3400, 0x9fff]],
+    },
+    {
+      fontFamily: 'NotoSans-Regular',
+      fontBytes: fallbackFontBytes,
+      isDefault: true,
+    },
+  ],
+});</code></pre>
+            </div>
+            <p>
+              仓库提供了
+              <a href="./SourceHanSansSC-Regular.ttf"><code>examples/SourceHanSansSC-Regular.ttf</code></a>，可用于本地演示和验证。生产项目应确认所用字体的授权范围，并避免重复注册体积较大的完整字体。
+            </p>
+          </div>
+          <div data-lang-block="en">
+            <p>
+              For non-Latin text, explicitly embed a TTF font. The most reliable approach is
+              to load the font first and pass it through <code>fontBytes</code>:
+            </p>
+            <div class="code-card plain">
+              <pre><code>import dompdf from 'dompdf.js';
+
+const fontBuffer = await fetch('/fonts/SourceHanSansSC-Regular.ttf').then((response) => {
+  if (!response.ok) throw new Error(`Font request failed: ${response.status}`);
+  return response.arrayBuffer();
+});
+
+await dompdf(element, {
+  fontConfig: {
+    fontFamily: 'SourceHanSansSC-Regular',
+    fontBytes: new Uint8Array(fontBuffer),
+    fontStyle: 'normal',
+    fontWeight: 400,
+  },
+});</code></pre>
+            </div>
+            <p><code>fontConfig</code> accepts one font or an array. Its main fields are:</p>
+            <table>
+              <thead>
+                <tr>
+                  <th>Field</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>fontFamily</code></td>
+                  <td>Required; should match the exported element's CSS <code>font-family</code></td>
+                </tr>
+                <tr>
+                  <td><code>fontBytes</code></td>
+                  <td>Decoded TTF bytes; recommended</td>
+                </tr>
+                <tr>
+                  <td><code>fontBase64</code></td>
+                  <td>Base64-encoded TTF data</td>
+                </tr>
+                <tr>
+                  <td><code>fontStyle</code></td>
+                  <td><code>normal</code> or <code>italic</code></td>
+                </tr>
+                <tr>
+                  <td><code>fontWeight</code></td>
+                  <td>A weight such as <code>400</code> or <code>700</code></td>
+                </tr>
+                <tr>
+                  <td><code>iconFont</code></td>
+                  <td>Whether to treat the font as an icon font</td>
+                </tr>
+              </tbody>
+            </table>
+            <p>
+              The type definition retains <code>fontUrl</code>, but the current collector
+              does not fetch it. Load URL-based fonts yourself and pass them as a
+              <code>Uint8Array</code>.
+            </p>
+            <h3>Language-based font fallback</h3>
+            <p>
+              <code>langFontConfig</code> selects fonts by Unicode range and can define a
+              default fallback:
+            </p>
+            <div class="code-card plain">
+              <pre><code>await dompdf(element, {
+  langFontConfig: [
+    {
+      fontFamily: 'SourceHanSansSC-Regular',
+      fontBytes: chineseFontBytes,
+      charRange: [[0x3400, 0x9fff]],
+    },
+    {
+      fontFamily: 'NotoSans-Regular',
+      fontBytes: fallbackFontBytes,
+      isDefault: true,
+    },
+  ],
+});</code></pre>
+            </div>
+            <p>
+              The repository includes
+              <a href="./SourceHanSansSC-Regular.ttf"><code>examples/SourceHanSansSC-Regular.ttf</code></a>
+              for local demos and verification. In production, verify the font's license
+              and avoid registering duplicate copies of large complete fonts.
+            </p>
+          </div>
+        </section>
+
+        <section id="forms">
+          <h2>
+            <span data-lang-block="zh">表单导出</span>
+            <span data-lang-block="en">Form export</span>
+          </h2>
+          <div data-lang-block="zh">
+            <p>
+              表单值以导出开始时的 DOM 当前状态为准，而不是初始 HTML 属性值。
+            </p>
+            <div class="code-card plain">
+              <pre><code>await dompdf(element, {
+  pagination: true,
+  form: {
+    mode: 'hybrid',
+    include: [
+      'text',
+      'textarea',
+      'select',
+      'checkbox',
+      'radio',
+      'date-time',
+      'range',
+      'color',
+      'file',
+      'progress',
+      'meter',
+    ],
+  },
+});</code></pre>
+            </div>
+            <p>模式说明：</p>
+            <ul>
+              <li><code>static</code>：默认模式，只保留控件当前的静态视觉外观</li>
+              <li><code>interactive</code>：为具备自然 PDF 映射的控件生成 AcroForm 字段</li>
+              <li><code>hybrid</code>：保留静态视觉，同时附加交互字段</li>
+            </ul>
+            <p>当前交互字段映射：</p>
+            <ul>
+              <li>文本类 <code>input</code>、<code>textarea</code></li>
+              <li><code>select</code></li>
+              <li><code>checkbox</code></li>
+              <li><code>radio</code></li>
+            </ul>
+            <p>以下类型会保留静态外观，但不会生成等价的交互字段：</p>
+            <ul>
+              <li><code>date</code>、<code>time</code>、<code>month</code>、<code>week</code>、<code>datetime-local</code></li>
+              <li><code>range</code>、<code>color</code>、<code>file</code></li>
+              <li><code>progress</code>、<code>meter</code></li>
+            </ul>
+            <p>
+              <code>form: true</code> 与默认行为一样仍是静态模式；要生成交互字段，必须显式设置
+              <code>mode: 'interactive'</code> 或 <code>mode: 'hybrid'</code>。
+            </p>
+          </div>
+          <div data-lang-block="en">
+            <p>
+              Form values are captured from the DOM state at the start of the export,
+              rather than from the initial HTML attributes.
+            </p>
+            <div class="code-card plain">
+              <pre><code>await dompdf(element, {
+  pagination: true,
+  form: {
+    mode: 'hybrid',
+    include: [
+      'text',
+      'textarea',
+      'select',
+      'checkbox',
+      'radio',
+      'date-time',
+      'range',
+      'color',
+      'file',
+      'progress',
+      'meter',
+    ],
+  },
+});</code></pre>
+            </div>
+            <p>Modes:</p>
+            <ul>
+              <li><code>static</code>: the default; preserve only the control's current visual appearance</li>
+              <li><code>interactive</code>: create AcroForm fields for controls with a natural PDF mapping</li>
+              <li><code>hybrid</code>: preserve the static appearance and add interactive fields</li>
+            </ul>
+            <p>Current interactive-field mappings:</p>
+            <ul>
+              <li>Text-like <code>input</code> elements and <code>textarea</code></li>
+              <li><code>select</code></li>
+              <li><code>checkbox</code></li>
+              <li><code>radio</code></li>
+            </ul>
+            <p>
+              The following types retain a static appearance but do not produce equivalent
+              interactive fields:
+            </p>
+            <ul>
+              <li><code>date</code>, <code>time</code>, <code>month</code>, <code>week</code>, and <code>datetime-local</code></li>
+              <li><code>range</code>, <code>color</code>, and <code>file</code></li>
+              <li><code>progress</code> and <code>meter</code></li>
+            </ul>
+            <p>
+              <code>form: true</code> still uses the default static mode. To generate
+              interactive fields, explicitly set <code>mode: 'interactive'</code> or
+              <code>mode: 'hybrid'</code>.
+            </p>
+          </div>
+        </section>
+
+        <section id="encryption">
+          <h2>
+            <span data-lang-block="zh">PDF 加密与权限</span>
+            <span data-lang-block="en">PDF encryption</span>
+          </h2>
+          <div data-lang-block="zh">
+            <div class="code-card plain">
+              <pre><code>await dompdf(element, {
+  encryption: {
+    userPassword: 'reader-password',
+    ownerPassword: 'owner-password',
+    userPermissions: ['print', 'copy'],
+  },
+});</code></pre>
+            </div>
+            <p>可用权限：</p>
+            <ul>
+              <li><code>print</code>：允许打印</li>
+              <li><code>modify</code>：允许修改</li>
+              <li><code>copy</code>：允许复制内容</li>
+              <li><code>annot-forms</code>：允许注释和填写表单</li>
+            </ul>
+            <p>
+              传入未知权限会抛出错误。PDF
+              权限最终是否严格执行还取决于阅读器；权限标志不能替代对敏感数据的访问控制。
+            </p>
+          </div>
+          <div data-lang-block="en">
+            <div class="code-card plain">
+              <pre><code>await dompdf(element, {
+  encryption: {
+    userPassword: 'reader-password',
+    ownerPassword: 'owner-password',
+    userPermissions: ['print', 'copy'],
+  },
+});</code></pre>
+            </div>
+            <p>Available permissions:</p>
+            <ul>
+              <li><code>print</code>: allow printing</li>
+              <li><code>modify</code>: allow modifications</li>
+              <li><code>copy</code>: allow copying content</li>
+              <li><code>annot-forms</code>: allow annotations and form filling</li>
+            </ul>
+            <p>
+              Unknown permission names cause an error. Whether PDF permissions are strictly
+              enforced ultimately depends on the reader; permission flags are not a
+              substitute for access control over sensitive data.
+            </p>
+          </div>
+        </section>
+
+        <section id="metadata">
+          <h2>
+            <span data-lang-block="zh">PDF 文档属性</span>
+            <span data-lang-block="en">PDF metadata</span>
+          </h2>
+          <div data-lang-block="zh">
+            <p>设置 PDF 阅读器“文档属性”面板中显示的文档信息：</p>
+            <div class="code-card plain">
+              <pre><code>await dompdf(element, {
+  metadata: {
+    title: '季度报告',
+    author: '刘发财',
+    subject: '一季度汇总',
+    keywords: ['报告', '财务'],
+    creator: 'my-app',
+    producer: 'my-app',
+  },
+});</code></pre>
+            </div>
+            <ul>
+              <li>
+                所有字段均可选；<code>keywords</code> 接受字符串或字符串数组（数组以空格连接）。
+              </li>
+              <li>
+                提供 <code>metadata</code> 时，<code>producer</code> 默认为
+                <code>dompdf.js</code>，并自动将 <code>creationDate</code>/<code>modDate</code>
+                设为导出时间。
+              </li>
+              <li>属性值以 UTF-16BE 字符串写入，支持中文等非 ASCII 文本。</li>
+              <li>
+                未提供 <code>metadata</code> 时不写入 Info 字典，输出与之前版本字节级一致。
+              </li>
+            </ul>
+          </div>
+          <div data-lang-block="en">
+            <p>
+              Set document properties shown in the PDF reader's document info panel:
+            </p>
+            <div class="code-card plain">
+              <pre><code>await dompdf(element, {
+  metadata: {
+    title: 'Quarterly Report',
+    author: 'Alice',
+    subject: 'Q1 summary',
+    keywords: ['report', 'finance'],
+    creator: 'my-app',
+    producer: 'my-app',
+  },
+});</code></pre>
+            </div>
+            <ul>
+              <li>
+                All fields are optional; <code>keywords</code> accepts a string or a string
+                array (arrays are joined with spaces).
+              </li>
+              <li>
+                When <code>metadata</code> is provided, <code>producer</code> defaults to
+                <code>dompdf.js</code>, and <code>creationDate</code>/<code>modDate</code>
+                are automatically set to the export time.
+              </li>
+              <li>
+                Values are written as UTF-16BE strings, so Chinese and other non-ASCII text
+                is supported.
+              </li>
+              <li>
+                When <code>metadata</code> is omitted, no Info dictionary is written and the
+                output stays byte-compatible with previous versions.
+              </li>
+            </ul>
+          </div>
+        </section>
+
+        <section id="images">
+          <h2>
+            <span data-lang-block="zh">图片与跨域资源</span>
+            <span data-lang-block="en">Images and cross-origin resources</span>
+          </h2>
+          <div data-lang-block="zh">
+            <p>
+              同源图片、data URL、Canvas 和可读取的 SVG 可以直接参与导出。跨域图片需要资源服务器返回正确的
+              CORS 响应头：
+            </p>
+            <div class="code-card plain">
+              <pre><code>await dompdf(element, {
+  useCORS: true,
+  jpegQuality: 0.9,
+});</code></pre>
+            </div>
+            <p>注意：</p>
+            <ul>
+              <li>
+                <code>useCORS: true</code> 只会以匿名 CORS 方式请求图片，不能绕过服务器策略
+              </li>
+              <li>图片服务器通常需要返回 <code>Access-Control-Allow-Origin</code></li>
+              <li>导出前应等待图片和字体加载完成</li>
+              <li>无法读取的图片可能被跳过或降级</li>
+              <li>
+                <code>proxy</code>、<code>allowTaint</code>、<code>imageTimeout</code>
+                等旧 html2canvas 参数目前不会提供原版行为
+              </li>
+            </ul>
+            <p>可以在导出前等待页面字体和图片：</p>
+            <div class="code-card plain">
+              <pre><code>await document.fonts.ready;
+
+await Promise.all(
+  Array.from(element.querySelectorAll('img')).map((image) => {
+    if (image.complete) return Promise.resolve();
+    return new Promise&lt;void&gt;((resolve) => {
+      image.addEventListener('load', () => resolve(), { once: true });
+      image.addEventListener('error', () => resolve(), { once: true });
+    });
+  }),
+);</code></pre>
+            </div>
+          </div>
+          <div data-lang-block="en">
+            <p>
+              Same-origin images, data URLs, Canvas content, and readable SVGs can
+              participate directly in an export. Cross-origin images require correct CORS
+              response headers from the resource server:
+            </p>
+            <div class="code-card plain">
+              <pre><code>await dompdf(element, {
+  useCORS: true,
+  jpegQuality: 0.9,
+});</code></pre>
+            </div>
+            <p>Notes:</p>
+            <ul>
+              <li>
+                <code>useCORS: true</code> only requests images with anonymous CORS; it
+                cannot bypass server policy
+              </li>
+              <li>
+                The image server will normally need to return
+                <code>Access-Control-Allow-Origin</code>
+              </li>
+              <li>Wait for images and fonts to finish loading before exporting</li>
+              <li>Unreadable images may be skipped or degraded</li>
+              <li>
+                Legacy html2canvas options such as <code>proxy</code>,
+                <code>allowTaint</code>, and <code>imageTimeout</code> do not provide their
+                original behavior
+              </li>
+            </ul>
+            <p>You can wait for document fonts and images before exporting:</p>
+            <div class="code-card plain">
+              <pre><code>await document.fonts.ready;
+
+await Promise.all(
+  Array.from(element.querySelectorAll('img')).map((image) => {
+    if (image.complete) return Promise.resolve();
+    return new Promise&lt;void&gt;((resolve) => {
+      image.addEventListener('load', () => resolve(), { once: true });
+      image.addEventListener('error', () => resolve(), { once: true });
+    });
+  }),
+);</code></pre>
+            </div>
+          </div>
+        </section>
+
+        <section id="progress">
+          <h2>
+            <span data-lang-block="zh">进度反馈</span>
+            <span data-lang-block="en">Progress reporting</span>
+          </h2>
+          <p>
+            <span data-lang-block="zh"><code>onProgress</code> 会报告以下阶段：</span>
+            <span data-lang-block="en"
+              ><code>onProgress</code> reports these stages:</span
+            >
+          </p>
+          <div data-lang-block="zh">
+            <ul>
+              <li><code>collecting</code>：采集 DOM 和资源</li>
+              <li><code>countingPages</code>：为逐页页眉、页脚或水印计算总页数</li>
+              <li><code>rendering</code>：WASM 正在生成 PDF</li>
+              <li><code>done</code>：导出完成</li>
+            </ul>
+            <div class="code-card plain">
+              <pre><code>await dompdf(element, {
+  pagination: true,
+  onProgress(progress) {
+    switch (progress.stage) {
+      case 'collecting':
+        console.log('正在采集页面');
+        break;
+      case 'countingPages':
+        console.log(`正在计算页数：${progress.totalPages ?? '...'}`);
+        break;
+      case 'rendering':
+        console.log(
+          `正在生成：${progress.currentPage ?? 0}/${progress.totalPages ?? '?'}`,
+        );
+        break;
+      case 'done':
+        console.log(`导出完成，共 ${progress.totalPages ?? 1} 页`);
+        break;
+    }
+  },
+});</code></pre>
+            </div>
+            <p>
+              并非每次导出都会出现 <code>countingPages</code> 阶段；只有需要先知道总页数的配置才会触发它。
+            </p>
+          </div>
+          <div data-lang-block="en">
+            <ul>
+              <li><code>collecting</code>: collecting the DOM and resources</li>
+              <li>
+                <code>countingPages</code>: determining the total page count for per-page
+                headers, footers, or watermarks
+              </li>
+              <li><code>rendering</code>: generating the PDF in WASM</li>
+              <li><code>done</code>: export completed</li>
+            </ul>
+            <div class="code-card plain">
+              <pre><code>await dompdf(element, {
+  pagination: true,
+  onProgress(progress) {
+    switch (progress.stage) {
+      case 'collecting':
+        console.log('Collecting the document');
+        break;
+      case 'countingPages':
+        console.log(`Counting pages: ${progress.totalPages ?? '...'}`);
+        break;
+      case 'rendering':
+        console.log(
+          `Rendering: ${progress.currentPage ?? 0}/${progress.totalPages ?? '?'}`,
+        );
+        break;
+      case 'done':
+        console.log(`Export complete: ${progress.totalPages ?? 1} pages`);
+        break;
+    }
+  },
+});</code></pre>
+            </div>
+            <p>
+              Not every export emits a <code>countingPages</code> stage. It is used only
+              when a configuration needs the total page count in advance.
+            </p>
+          </div>
+        </section>
+
+        <section id="how-it-works">
+          <h2>
+            <span data-lang-block="zh">工作原理</span>
+            <span data-lang-block="en">How it works</span>
+          </h2>
+          <div data-lang-block="zh">
+            <ol>
+              <li>
+                主线程遍历目标元素，读取浏览器计算后的布局、样式、文本、图片和表单状态。
+              </li>
+              <li>TypeScript 将采集结果编码成紧凑的二进制快照。</li>
+              <li>快照通过可转移对象发送到 Web Worker。</li>
+              <li>Rust/WASM 完成分页、字体子集、绘制和 PDF 对象写入。</li>
+              <li>
+                主线程收到 PDF 字节，并按调用方式返回 <code>Uint8Array</code>、<code>Blob</code>
+                或触发下载。
+              </li>
+            </ol>
+            <p>
+              这套结构避免将整个文档先绘制成一张 Canvas，同时让主要 PDF 生成工作离开主线程。
+            </p>
+          </div>
+          <div data-lang-block="en">
+            <ol>
+              <li>
+                The main thread walks the target element and reads browser-computed layout,
+                styles, text, images, and form state.
+              </li>
+              <li>TypeScript encodes the collected result into a compact binary snapshot.</li>
+              <li>The snapshot is transferred to a Web Worker.</li>
+              <li>
+                Rust/WASM performs pagination, font subsetting, drawing, and PDF object
+                generation.
+              </li>
+              <li>
+                The main thread receives the PDF bytes and returns a
+                <code>Uint8Array</code>, a <code>Blob</code>, or starts a download,
+                depending on the API used.
+              </li>
+            </ol>
+            <p>
+              This architecture avoids drawing the entire document into one Canvas and keeps
+              the main PDF-generation work off the main thread.
+            </p>
+          </div>
+        </section>
+
+        <section id="compatibility">
+          <h2>
+            <span data-lang-block="zh">兼容性与限制</span>
+            <span data-lang-block="en">Compatibility and limitations</span>
+          </h2>
+          <div data-lang-block="zh">
+            <h3>浏览器兼容性</h3>
+            <p>运行时依赖：</p>
+            <ul>
+              <li>DOM 和 CSSOM</li>
+              <li>Web Worker</li>
+              <li>WebAssembly</li>
+              <li><code>Blob</code>、<code>URL.createObjectURL</code></li>
+              <li><code>TextEncoder</code>、<code>TextDecoder</code></li>
+            </ul>
+            <p>
+              建议使用较新的 Chromium、Firefox 或 Safari。该库不支持直接在 Node.js、SSR
+              服务端或没有 DOM 的 Worker 中采集页面。Next.js、Nuxt 等 SSR
+              项目应仅在客户端调用导出 API。
+            </p>
+            <h3>旧版兼容参数</h3>
+            <p>
+              项目已经从 <code>html2canvas + jsPDF</code> 迁移到
+              <code>DOM 快照 + Worker + WASM</code>
+              。以下参数会被类型和运行时接受，但当前不会提供旧版等价行为，部分参数会输出 warning：
+            </p>
+            <ul>
+              <li><code>onJspdfReady</code>、<code>onJspdfFinish</code></li>
+              <li>
+                <code>foreignObjectRendering</code>、<code>allowTaint</code>、<code>proxy</code>、<code>imageTimeout</code>
+              </li>
+              <li><code>logging</code>、<code>cache</code></li>
+              <li>
+                <code>windowWidth</code>、<code>windowHeight</code>、<code>scrollX</code>、<code>scrollY</code>
+              </li>
+              <li><code>x</code>、<code>y</code>、<code>width</code>、<code>height</code>、<code>scale</code></li>
+              <li><code>canvas</code>、<code>removeContainer</code>、<code>onclone</code></li>
+              <li>
+                <code>pdfFileName</code>、<code>floatPrecision</code>、<code>orientation</code>、<code>putOnlyUsedFonts</code>
+              </li>
+            </ul>
+            <p>
+              其中 <code>ignoreElements</code>
+              已真正生效，可以替代一部分旧版 clone 阶段的元素过滤逻辑。完整迁移建议见
+              <a href="../docs/migration-compat.zh-CN.md"><code>旧版 API 迁移说明</code></a
+              >。
+            </p>
+            <h3>已知边界</h3>
+            <ul>
+              <li>动画、视频、iframe 和浏览器插件内容不能按动态状态完整导出</li>
+              <li>部分复杂滤镜、混合模式、遮罩和高级 CSS 会被降级或栅格化</li>
+              <li>超高分辨率图片和完整 CJK 字体会增加采集时间、内存和 PDF 体积</li>
+              <li>
+                <code>fontUrl</code> 和 <code>putOnlyUsedFonts</code>
+                目前只有兼容签名；字体 URL 需要由调用方先行加载
+              </li>
+              <li>
+                <code>PageRegionConfig.content</code> 的 renderer
+                回调属于兼容签名，当前不提供可操作的 jsPDF 实例
+              </li>
+              <li>依赖 jsPDF 插件或在导出结束后直接修改 jsPDF 实例的代码需要迁移</li>
+            </ul>
+          </div>
+          <div data-lang-block="en">
+            <h3>Browser compatibility</h3>
+            <p>The runtime depends on:</p>
+            <ul>
+              <li>DOM and CSSOM</li>
+              <li>Web Workers</li>
+              <li>WebAssembly</li>
+              <li><code>Blob</code> and <code>URL.createObjectURL</code></li>
+              <li><code>TextEncoder</code> and <code>TextDecoder</code></li>
+            </ul>
+            <p>
+              Use a recent Chromium, Firefox, or Safari release. The library cannot collect
+              a page directly in Node.js, during server-side rendering, or inside a Worker
+              without a DOM. Next.js, Nuxt, and other SSR applications should call the
+              export APIs only on the client.
+            </p>
+            <h3>Legacy compatibility options</h3>
+            <p>
+              The project has migrated from <code>html2canvas + jsPDF</code> to
+              <code>DOM snapshot + Worker + WASM</code>. The following options are accepted
+              by the types and runtime, but do not currently provide equivalent legacy
+              behavior. Some emit a warning:
+            </p>
+            <ul>
+              <li><code>onJspdfReady</code> and <code>onJspdfFinish</code></li>
+              <li>
+                <code>foreignObjectRendering</code>, <code>allowTaint</code>,
+                <code>proxy</code>, and <code>imageTimeout</code>
+              </li>
+              <li><code>logging</code> and <code>cache</code></li>
+              <li>
+                <code>windowWidth</code>, <code>windowHeight</code>, <code>scrollX</code>,
+                and <code>scrollY</code>
+              </li>
+              <li>
+                <code>x</code>, <code>y</code>, <code>width</code>, <code>height</code>, and
+                <code>scale</code>
+              </li>
+              <li><code>canvas</code>, <code>removeContainer</code>, and <code>onclone</code></li>
+              <li>
+                <code>pdfFileName</code>, <code>floatPrecision</code>,
+                <code>orientation</code>, and <code>putOnlyUsedFonts</code>
+              </li>
+            </ul>
+            <p>
+              <code>ignoreElements</code> is fully implemented and can replace some legacy
+              clone-stage filtering. See the
+              <a href="../docs/migration-compat.md">migration notes</a> for the full
+              migration path.
+            </p>
+            <h3>Known boundaries</h3>
+            <ul>
+              <li>
+                Animations, video, iframes, and browser-plugin content cannot be exported
+                with their full dynamic behavior
+              </li>
+              <li>
+                Some complex filters, blend modes, masks, and advanced CSS are degraded or
+                rasterized
+              </li>
+              <li>
+                Very high-resolution images and complete CJK fonts increase collection time,
+                memory use, and PDF size
+              </li>
+              <li>
+                <code>fontUrl</code> and <code>putOnlyUsedFonts</code> currently have
+                compatibility signatures only; callers must load font URLs themselves
+              </li>
+              <li>
+                The renderer callback accepted by <code>PageRegionConfig.content</code> is a
+                compatibility signature and does not expose an operable jsPDF instance
+              </li>
+              <li>
+                Code that depends on jsPDF plugins or modifies a live jsPDF instance after
+                export must be migrated
+              </li>
+            </ul>
+          </div>
+        </section>
+
+        <section id="faq">
+          <h2>
+            <span data-lang-block="zh">常见问题</span>
+            <span data-lang-block="en">FAQ</span>
+          </h2>
+          <div data-lang-block="zh">
+            <h3>为什么中文为空白或显示成方框？</h3>
+            <p>
+              浏览器字体不会自动嵌入 PDF。请通过 <code>fontConfig.fontBytes</code>
+              注册包含相应字符的 TTF 字体，并让元素的 CSS <code>font-family</code> 与
+              <code>fontFamily</code> 对应。
+            </p>
+            <h3>为什么分页位置和页面预览不一致？</h3>
+            <p>
+              确保导出容器宽度与目标纸张的内容宽度接近，并在导出前等待字体和图片完成加载。页边距、页眉和页脚都会减少每页可用区域。
+            </p>
+            <h3>如何导出横向页面？</h3>
+            <p>
+              使用自定义 <code>[宽, 高]</code> 或 <code>pageWidthPt/pageHeightPt</code>。不要依赖目前仅用于兼容的
+              <code>orientation</code>。
+            </p>
+            <h3>为什么跨域图片没有出现在 PDF 中？</h3>
+            <p>
+              设置 <code>useCORS: true</code>
+              ，并确认图片服务器允许跨域读取。仅在前端设置 CORS 选项不能绕过服务器响应头限制。
+            </p>
+            <h3>如何减小 PDF 体积？</h3>
+            <p>
+              启用 <code>compress: true</code>，避免使用远超显示尺寸的大图，适当降低
+              <code>jpegQuality</code>，并尽量只注册实际需要的字体和字重。
+            </p>
+          </div>
+          <div data-lang-block="en">
+            <h3>Why is Chinese text blank or rendered as boxes?</h3>
+            <p>
+              Browser fonts are not embedded into the PDF automatically. Register a TTF
+              containing the required characters through <code>fontConfig.fontBytes</code>,
+              and ensure the element's CSS <code>font-family</code> matches
+              <code>fontFamily</code>.
+            </p>
+            <h3>Why do page breaks differ from the browser preview?</h3>
+            <p>
+              Keep the export container width close to the target page's content width, and
+              wait for fonts and images to load before exporting. Margins, headers, and
+              footers all reduce the usable area on each page.
+            </p>
+            <h3>How do I export a landscape page?</h3>
+            <p>
+              Use a custom <code>[width, height]</code> pair or
+              <code>pageWidthPt/pageHeightPt</code>. Do not rely on the currently
+              compatibility-only <code>orientation</code> option.
+            </p>
+            <h3>Why is a cross-origin image missing from the PDF?</h3>
+            <p>
+              Set <code>useCORS: true</code> and verify that the image server permits
+              cross-origin reads. A frontend CORS option alone cannot bypass missing server
+              response headers.
+            </p>
+            <h3>How can I reduce PDF size?</h3>
+            <p>
+              Enable <code>compress: true</code>, avoid images far larger than their
+              displayed dimensions, reduce <code>jpegQuality</code> where appropriate, and
+              register only the fonts and weights the document needs.
+            </p>
+          </div>
+        </section>
+
+        <section id="development">
+          <h2>
+            <span data-lang-block="zh">本地开发</span>
+            <span data-lang-block="en">Local development</span>
+          </h2>
+          <div data-lang-block="zh">
+            <h3>环境要求</h3>
+            <ul>
+              <li>Node.js 18+</li>
+              <li>Rust 工具链</li>
+              <li><code>wasm32-unknown-unknown</code> target</li>
+            </ul>
+            <div class="code-card plain">
+              <pre><code>rustup target add wasm32-unknown-unknown
+npm install
+npm run build
+npm test
+npm run serve</code></pre>
+            </div>
+            <p>常用脚本：</p>
+            <table>
+              <thead>
+                <tr>
+                  <th>命令</th>
+                  <th>作用</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>npm run build:wasm</code></td>
+                  <td>编译 Rust/WASM 模块</td>
+                </tr>
+                <tr>
+                  <td><code>npm run build</code></td>
+                  <td>构建发布包和 TypeScript 类型声明</td>
+                </tr>
+                <tr>
+                  <td><code>npm run dev</code></td>
+                  <td>监听源码并持续构建</td>
+                </tr>
+                <tr>
+                  <td><code>npm test</code></td>
+                  <td>构建 WASM 并运行 PDF 冒烟验证</td>
+                </tr>
+                <tr>
+                  <td><code>npm run verify</code></td>
+                  <td>与 <code>npm test</code> 相同，执行验证脚本</td>
+                </tr>
+                <tr>
+                  <td><code>npm run serve</code></td>
+                  <td>在 <code>8080</code> 端口启动静态文件服务</td>
+                </tr>
+              </tbody>
+            </table>
+            <p>
+              <code>npm test</code> 当前会执行
+              <a href="../scripts/verify.mjs"><code>scripts/verify.mjs</code></a
+              >，验证基础分页、PDF 结构、图片、中文字体子集、透明度和复合字形。
+            </p>
+          </div>
+          <div data-lang-block="en">
+            <h3>Requirements</h3>
+            <ul>
+              <li>Node.js 18+</li>
+              <li>Rust toolchain</li>
+              <li><code>wasm32-unknown-unknown</code> target</li>
+            </ul>
+            <div class="code-card plain">
+              <pre><code>rustup target add wasm32-unknown-unknown
+npm install
+npm run build
+npm test
+npm run serve</code></pre>
+            </div>
+            <p>Common scripts:</p>
+            <table>
+              <thead>
+                <tr>
+                  <th>Command</th>
+                  <th>Purpose</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>npm run build:wasm</code></td>
+                  <td>Compile the Rust/WASM module</td>
+                </tr>
+                <tr>
+                  <td><code>npm run build</code></td>
+                  <td>Build the published bundles and TypeScript declarations</td>
+                </tr>
+                <tr>
+                  <td><code>npm run dev</code></td>
+                  <td>Watch the source and rebuild continuously</td>
+                </tr>
+                <tr>
+                  <td><code>npm test</code></td>
+                  <td>Build WASM and run the PDF smoke verification</td>
+                </tr>
+                <tr>
+                  <td><code>npm run verify</code></td>
+                  <td>Same as <code>npm test</code>; run the verification script</td>
+                </tr>
+                <tr>
+                  <td><code>npm run serve</code></td>
+                  <td>Start a static server on port <code>8080</code></td>
+                </tr>
+              </tbody>
+            </table>
+            <p>
+              <code>npm test</code> currently runs
+              <a href="../scripts/verify.mjs"><code>scripts/verify.mjs</code></a>, which
+              verifies basic pagination, PDF structure, images, Chinese font subsetting,
+              opacity, and composite glyphs.
+            </p>
+          </div>
+        </section>
+
+        <section id="examples">
+          <h2>
+            <span data-lang-block="zh">示例与项目结构</span>
+            <span data-lang-block="en">Examples and project structure</span>
+          </h2>
+          <div data-lang-block="zh">
+            <h3>示例页面</h3>
+            <ul>
+              <li><a href="./index.html"><code>examples/index.html</code></a>：综合功能演示</li>
+              <li>
+                <a href="./comparison.html"><code>examples/comparison.html</code></a
+                >：与其他前端 PDF 方案对比
+              </li>
+              <li>
+                <a href="./markdown-editor.html"><code>examples/markdown-editor.html</code></a
+                >：Markdown 编辑和实时导出
+              </li>
+              <li>
+                <code>userscript/dompdf-page-exporter.user.js</code>：支持整页、单节点和排除元素的油猴导出脚本
+              </li>
+            </ul>
+            <p>
+              在仓库根目录运行 <code>npm run serve</code>
+              后访问对应页面。不要直接通过 <code>file://</code>
+              打开示例，否则模块、字体和跨域资源可能受浏览器安全策略限制。
+            </p>
+            <h3>项目结构</h3>
+            <div class="code-card plain">
+              <pre data-code="shell"><code>dompdf.js/
+├── src/                  # TypeScript API、DOM 采集、Worker 和 WASM 连接层
+├── wasm/                 # Rust 分页、字体、压缩、加密和 PDF 写入器
+├── dist/                 # 构建后的发布产物
+├── examples/             # 浏览器演示页面和示例字体
+├── docs/                 # 迁移说明与 PDF 差异系统文档
+└── scripts/              # 构建、验证和 PDF 差异工具</code></pre>
+            </div>
+          </div>
+          <div data-lang-block="en">
+            <h3>Examples</h3>
+            <ul>
+              <li>
+                <a href="./index.html"><code>examples/index.html</code></a>: comprehensive
+                feature demo
+              </li>
+              <li>
+                <a href="./comparison.html"><code>examples/comparison.html</code></a
+                >: comparison with other frontend PDF approaches
+              </li>
+              <li>
+                <a href="./markdown-editor.html"><code>examples/markdown-editor.html</code></a
+                >: Markdown editing and live export
+              </li>
+              <li>
+                <code>userscript/dompdf-page-exporter.user.js</code>: userscript for
+                full-page, single-node, and exclusion-based exports
+              </li>
+            </ul>
+            <p>
+              Run <code>npm run serve</code> from the repository root before opening an
+              example. Do not open examples directly through <code>file://</code>, because
+              browser security policies may block modules, fonts, and cross-origin
+              resources.
+            </p>
+            <h3>Project structure</h3>
+            <div class="code-card plain">
+              <pre data-code="shell"><code>dompdf.js/
+|-- src/                  # TypeScript API, DOM collection, Worker, and WASM bridge
+|-- wasm/                 # Rust pagination, fonts, compression, encryption, and PDF writer
+|-- dist/                 # Built package artifacts
+|-- examples/             # Browser demos and example fonts
+|-- docs/                 # Migration notes and PDF-diff documentation
+`-- scripts/              # Build, verification, and PDF-diff tooling</code></pre>
+            </div>
+          </div>
+        </section>
+
+        <section id="community">
+          <h2>
+            <span data-lang-block="zh">社区与许可</span>
+            <span data-lang-block="en">Community and license</span>
+          </h2>
+          <div data-lang-block="zh">
+            <h3>参与贡献</h3>
+            <p>
+              提交 PR 前请阅读
+              <a href="../CONTRIBUTING.md"><code>CONTRIBUTING.md</code></a
+              >，并至少运行：
+            </p>
+            <div class="code-card plain">
+              <pre><code>npm test
+npm run build</code></pre>
+            </div>
+            <h3>安全报告</h3>
+            <p>
+              安全问题请按照
+              <a href="../SECURITY.md"><code>SECURITY.md</code></a>
+              中的方式反馈，不要在公开 Issue 中披露尚未修复的漏洞。
+            </p>
+            <h3>变更记录</h3>
+            <p>
+              近期版本变化见
+              <a href="../CHANGELOG.md"><code>CHANGELOG.md</code></a>。
+            </p>
+            <h3>许可证</h3>
+            <p>
+              本项目基于 <a href="../LICENSE">MIT License</a> 开源。
+            </p>
+            <h3>dompdf.js 交流群</h3>
+            <img
+              class="qr-code"
+              src="../assets/wechatqrcode.jpg"
+              alt="dompdf.js 微信交流群二维码"
+              width="220"
+            />
+          </div>
+          <div data-lang-block="en">
+            <h3>Contributing</h3>
+            <p>
+              Read <a href="../CONTRIBUTING.md"><code>CONTRIBUTING.md</code></a> before
+              submitting a pull request, and run at least:
+            </p>
+            <div class="code-card plain">
+              <pre><code>npm test
+npm run build</code></pre>
+            </div>
+            <h3>Security</h3>
+            <p>
+              Report security issues as described in
+              <a href="../SECURITY.md"><code>SECURITY.md</code></a
+              >. Do not disclose an unpatched vulnerability in a public issue.
+            </p>
+            <h3>Changelog</h3>
+            <p>
+              See <a href="../CHANGELOG.md"><code>CHANGELOG.md</code></a> for recent version
+              changes.
+            </p>
+            <h3>License</h3>
+            <p>This project is licensed under the <a href="../LICENSE">MIT License</a>.</p>
+          </div>
+        </section>
+
+        <div class="footer">
+          <span
+            ><span data-lang-block="zh">基于 MIT License 开源</span
+            ><span data-lang-block="en">Released under the MIT License</span></span
+          >
+          <span
+            ><a href="https://github.com/lmn1919/dompdf.js" target="_blank" rel="noreferrer"
+              >GitHub ↗</a
+            ></span
+          >
         </div>
-      </header>
+      </main>
 
-      <div class="docs-overlay"></div>
-
-      <div class="docs-layout">
-        <aside class="docs-sidebar" id="docs-sidebar">
-          <div class="docs-sidebar-inner">
-            <div class="docs-sidebar-panel">
-              <div class="docs-sidebar-kicker" data-i18n="sidebarGuide">
-                Guide
-              </div>
-              <nav class="docs-page-nav" id="docs-page-nav" aria-label="Docs pages"></nav>
-            </div>
-
-            <div class="docs-sidebar-panel">
-              <div class="docs-sidebar-kicker" data-i18n="sidebarSections">
-                Sections
-              </div>
-              <nav class="docs-section-nav" id="docs-section-nav" aria-label="Current page sections"></nav>
-            </div>
-          </div>
-        </aside>
-
-        <main class="docs-main" id="docs-main">
-          <div class="docs-main-inner">
-            <section class="docs-hero">
-              <div class="docs-hero-copy">
-                <div class="docs-hero-eyebrow" id="docs-hero-eyebrow">dompdf.js</div>
-                <h1 id="docs-hero-title">dompdf.js Docs</h1>
-                <p class="docs-hero-lede" id="docs-hero-lede"></p>
-                <p class="docs-hero-note" id="docs-hero-note"></p>
-              </div>
-
-              <div class="docs-hero-highlights" id="docs-hero-highlights"></div>
-            </section>
-
-            <section class="docs-content-wrap">
-              <div class="docs-loading" id="docs-loading">
-                <span class="status-dot loading"></span>
-                <span id="docs-loading-text">Loading documentation...</span>
-              </div>
-              <article class="docs-content" id="docs-content"></article>
-            </section>
-          </div>
-        </main>
-
-        <aside class="docs-outline">
-          <div class="docs-outline-card">
-            <div class="docs-outline-title" data-i18n="outlineTitle">On This Page</div>
-            <nav id="docs-outline-nav" aria-label="On this page"></nav>
-          </div>
-        </aside>
-      </div>
+      <aside class="toc">
+        <div class="toc-title">
+          <span data-lang-block="zh">本页目录</span
+          ><span data-lang-block="en">On this page</span>
+        </div>
+        <a href="#overview"
+          ><span data-lang-block="zh">概览</span
+          ><span data-lang-block="en">Overview</span></a
+        >
+        <a href="#features"
+          ><span data-lang-block="zh">主要功能</span
+          ><span data-lang-block="en">Features</span></a
+        >
+        <a href="#installation"
+          ><span data-lang-block="zh">安装</span
+          ><span data-lang-block="en">Installation</span></a
+        >
+        <a href="#quick-start"
+          ><span data-lang-block="zh">快速开始</span
+          ><span data-lang-block="en">Quick start</span></a
+        >
+        <a href="#api"
+          ><span data-lang-block="zh">API</span
+          ><span data-lang-block="en">API</span></a
+        >
+        <a href="#options"
+          ><span data-lang-block="zh">参数</span
+          ><span data-lang-block="en">Export options</span></a
+        >
+        <a href="#pagination"
+          ><span data-lang-block="zh">分页与纸张</span
+          ><span data-lang-block="en">Pagination</span></a
+        >
+        <a href="#fonts"
+          ><span data-lang-block="zh">字体与多语言</span
+          ><span data-lang-block="en">Fonts</span></a
+        >
+        <a href="#forms"
+          ><span data-lang-block="zh">表单导出</span
+          ><span data-lang-block="en">Form export</span></a
+        >
+        <a href="#encryption"
+          ><span data-lang-block="zh">PDF 加密</span
+          ><span data-lang-block="en">Encryption</span></a
+        >
+        <a href="#compatibility"
+          ><span data-lang-block="zh">兼容性与限制</span
+          ><span data-lang-block="en">Compatibility</span></a
+        >
+        <a href="#faq"
+          ><span data-lang-block="zh">常见问题</span
+          ><span data-lang-block="en">FAQ</span></a
+        >
+        <a href="#development"
+          ><span data-lang-block="zh">本地开发</span
+          ><span data-lang-block="en">Development</span></a
+        >
+      </aside>
     </div>
+
+    <script src="./docs.js" defer></script>
   </body>
 </html>

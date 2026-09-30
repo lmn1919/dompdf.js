@@ -9,13 +9,16 @@
 
     <meta
       name="description"
-      content="dompdf.js is a pure JavaScript DOM-to-PDF renderer with no backend required. This live demo supports HTML and Markdown editing, real-time PDF preview, and high-fidelity multilingual export."
+      content="dompdf.js is a pure JavaScript DOM-to-PDF renderer with no backend required. This live demo supports live HTML editing, real-time PDF preview, and high-fidelity multilingual export."
     />
     <meta
       name="keywords"
       content="dompdf.js, DOM to PDF, JavaScript PDF, frontend PDF generation, HTML to PDF, live PDF editor"
     />
     <link rel="canonical" href="https://dompdfjs.lisky.com.cn/" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="icon" type="image/x-icon" href="./favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png" />
     <meta property="og:type" content="website" />
     <meta
       property="og:title"
@@ -23,7 +26,7 @@
     />
     <meta
       property="og:description"
-      content="A browser-side DOM-to-PDF rendering engine with HTML and Markdown editing plus real-time PDF preview."
+      content="A browser-side DOM-to-PDF rendering engine with live HTML editing plus real-time PDF preview."
     />
     <meta property="og:url" content="https://dompdfjs.lisky.com.cn/" />
     <meta property="og:site_name" content="dompdf.js Studio" />
@@ -34,7 +37,7 @@
     />
     <meta
       name="twitter:description"
-      content="A browser-side DOM-to-PDF rendering engine with HTML and Markdown editing plus real-time PDF preview."
+      content="A browser-side DOM-to-PDF rendering engine with live HTML editing plus real-time PDF preview."
     />
     <script type="application/ld+json">
       {
@@ -67,20 +70,15 @@
       rel="stylesheet"
     />
 
-    <!-- Vditor styles (for Markdown tab) -->
-    <link rel="stylesheet" href="./vendor/vditor/dist/index.css" />
-    <link rel="stylesheet" href="./index.css" />
+    <link rel="stylesheet" href="./index.css?v=20260930b" />
 
     <!-- Library Scripts -->
-    <script src="./vendor/dompurify.min.js"></script>
-    <script src="./vendor/marked.min.js"></script>
     <script src="../dist/dompdf.js"></script>
     <script>
       if (!window.dompdf) {
         document.write('<script src="https://cdn.jsdelivr.net/npm/dompdf.js@latest/dist/dompdf.min.js"><\/script>');
       }
     </script>
-    <script src="./vendor/vditor/dist/index.min.js"></script>
   </head>
 
   <body>
@@ -431,28 +429,54 @@
         <!-- ===== Content Header ===== -->
         <header class="content-header">
           <div class="tab-switcher">
-            <button
-              class="tab-btn active"
-              id="tab-btn-basic"
-              onclick="switchTab('basic')"
+            <span class="tab-btn tab-label active" id="tab-btn-basic"
+              >综合测试页</span
             >
-              综合测试页
-            </button>
-            <button
-              class="tab-btn"
-              id="tab-btn-markdown"
-              onclick="switchTab('markdown')"
+            <a
+              class="tab-btn tab-link"
+              id="tab-btn-pdf-editor"
+              href="https://pdfmake.lisky.com.cn/editor"
+              target="_blank"
+              rel="noreferrer"
             >
-              Markdown 编辑器
-            </button>
+              <span id="tab-pdf-editor-label">PDF 编辑器</span>
+              <span class="tab-link-arrow" aria-hidden="true">↗</span>
+            </a>
           </div>
 
-          <div class="header-info">
-            <span>A4 页面模拟 (794px × 1123px)</span>
-            <span class="info-divider"></span>
-            <!-- <span id="topbar-page-info">总计约 1.0 页</span> -->
-            <span class="info-divider"></span>
-            <span>缩放比例 100%</span>
+          <div class="header-actions">
+            <div class="header-info">
+              <span>A4 页面模拟 (794px × 1123px)</span>
+              <span class="info-divider"></span>
+              <!-- <span id="topbar-page-info">总计约 1.0 页</span> -->
+              <span class="info-divider"></span>
+              <span>缩放比例 100%</span>
+            </div>
+
+            <a
+              class="header-docs-link"
+              href="./docs.html"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                <path
+                  d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"
+                />
+              </svg>
+              <span id="header-docs-label">文档</span>
+            </a>
           </div>
         </header>
 
@@ -474,425 +498,6 @@
         <div class="tab-panel active" id="panel-basic">
           <div class="doc-viewport">
             <article id="document" class="doc">
-              <style>
-                .ds-hero {
-                  display: grid;
-                  grid-template-columns: minmax(0, 1.65fr) minmax(220px, 1fr);
-                  gap: 32px;
-                  padding-bottom: 28px;
-                  border-bottom: 1px solid var(--border-color);
-                  margin-bottom: 32px;
-                }
-
-                .ds-hero h1 {
-                  font-size: 30px;
-                  line-height: 1.18;
-                  letter-spacing: -0.02em;
-                  margin: 0 0 14px;
-                  color: #0f172a;
-                }
-
-                .ds-hero .lede {
-                  font-size: 14px;
-                  line-height: 1.7;
-                  color: var(--text-secondary);
-                  margin: 0 0 18px;
-                }
-
-                .ds-meta {
-                  padding: 4px 0 4px 20px;
-                  border: none;
-                  border-left: 2px solid #0f172a;
-                  background: transparent;
-                }
-
-                .ds-meta dt {
-                  font-size: 10px;
-                  font-weight: 700;
-                  letter-spacing: 0.08em;
-                  text-transform: uppercase;
-                  color: var(--text-muted);
-                  margin-bottom: 3px;
-                }
-
-                .ds-meta dd {
-                  margin: 0 0 12px;
-                  font-size: 13px;
-                  font-weight: 600;
-                  color: #0f172a;
-                }
-
-                .ds-meta dd:last-child {
-                  margin-bottom: 0;
-                }
-
-                .ds-pill {
-                  display: inline-flex;
-                  align-items: center;
-                  gap: 6px;
-                  padding: 4px 10px;
-                  border-radius: 6px;
-                  border: 1px solid #cbd5e1;
-                  background: transparent;
-                  color: #334155;
-                  font-size: 11px;
-                  font-weight: 600;
-                }
-
-                .ds-pill-row {
-                  display: flex;
-                  flex-wrap: wrap;
-                  gap: 8px;
-                }
-
-                .ds-kpi-grid {
-                  display: grid;
-                  grid-template-columns: repeat(4, minmax(0, 1fr));
-                  gap: 20px;
-                  margin-bottom: 36px;
-                  padding-bottom: 24px;
-                  border-bottom: 1px solid var(--border-color);
-                }
-
-                .ds-kpi {
-                  padding: 0 0 0 14px;
-                  border: none;
-                  border-left: 2px solid #2563eb;
-                  background: transparent;
-                }
-
-                .ds-kpi:nth-child(2) {
-                  border-left-color: #8b5cf6;
-                }
-
-                .ds-kpi:nth-child(3) {
-                  border-left-color: #10b981;
-                }
-
-                .ds-kpi:nth-child(4) {
-                  border-left-color: #f59e0b;
-                }
-
-                .ds-kpi-label {
-                  font-size: 10px;
-                  font-weight: 700;
-                  letter-spacing: 0.06em;
-                  text-transform: uppercase;
-                  color: var(--text-muted);
-                  margin-bottom: 4px;
-                }
-
-                .ds-kpi strong {
-                  display: block;
-                  font-size: 22px;
-                  font-weight: 700;
-                  color: #0f172a;
-                  margin-bottom: 4px;
-                  line-height: 1.2;
-                }
-
-                .ds-kpi span {
-                  font-size: 12px;
-                  color: var(--text-secondary);
-                  line-height: 1.5;
-                  display: block;
-                }
-
-                .ds-swatch {
-                  display: flex;
-                  align-items: center;
-                  gap: 12px;
-                  padding: 10px 0;
-                  border-bottom: 1px solid #f1f5f9;
-                  background: transparent;
-                }
-
-                .ds-swatch:last-child {
-                  border-bottom: 0;
-                }
-
-                .ds-swatch-color {
-                  width: 36px;
-                  height: 36px;
-                  border-radius: 6px;
-                  border: 1px solid rgba(0, 0, 0, 0.08);
-                  flex: none;
-                }
-
-                .ds-gradient-bar {
-                  height: 52px;
-                  border-radius: 8px;
-                  border: 1px solid rgba(0, 0, 0, 0.08);
-                  margin-bottom: 12px;
-                }
-
-                .ds-icon-grid {
-                  display: grid;
-                  grid-template-columns: repeat(6, 1fr);
-                  gap: 10px;
-                }
-
-                .ds-icon-cell {
-                  display: flex;
-                  flex-direction: column;
-                  align-items: center;
-                  gap: 6px;
-                  padding: 12px 6px;
-                  border: 1px solid #e2e8f0;
-                  border-radius: 6px;
-                  background: transparent;
-                  font-size: 10px;
-                  color: var(--text-secondary);
-                }
-
-                .ds-icon-cell svg {
-                  width: 24px;
-                  height: 24px;
-                  color: #334155;
-                }
-
-                .ds-badge {
-                  display: inline-flex;
-                  padding: 3px 8px;
-                  border-radius: 4px;
-                  font-size: 11px;
-                  font-weight: 600;
-                }
-
-                .ds-alert {
-                  padding: 10px 14px;
-                  border-radius: 6px;
-                  display: flex;
-                  gap: 10px;
-                  align-items: flex-start;
-                  font-size: 12px;
-                  line-height: 1.6;
-                  border-left: 3px solid currentColor;
-                }
-
-                .ds-alert-icon {
-                  flex: none;
-                  width: 18px;
-                  height: 18px;
-                }
-
-                .ds-button-row {
-                  display: flex;
-                  gap: 8px;
-                  flex-wrap: wrap;
-                }
-
-                .ds-button {
-                  display: inline-flex;
-                  align-items: center;
-                  gap: 6px;
-                  padding: 7px 14px;
-                  border-radius: 6px;
-                  font-size: 12px;
-                  font-weight: 600;
-                  border: 1px solid transparent;
-                }
-
-                .ds-quote {
-                  position: relative;
-                  padding: 12px 0 12px 24px;
-                  border-radius: 0;
-                  background: transparent;
-                  border-left: 3px solid #2563eb;
-                  font-style: italic;
-                  color: var(--text-secondary);
-                  margin-top: 16px;
-                }
-
-                .ds-quote::before {
-                  content: "“";
-                  position: absolute;
-                  left: 6px;
-                  top: 0px;
-                  font-size: 32px;
-                  color: #cbd5e1;
-                  font-family: Georgia, serif;
-                  line-height: 1;
-                }
-
-                .ds-lang-stack {
-                  display: flex;
-                  flex-direction: column;
-                  gap: 14px;
-                }
-
-                .ds-lang-sample {
-                  padding: 2px 0 2px 14px;
-                  border-radius: 0;
-                  background: transparent;
-                  border: none;
-                  border-left: 2px solid #2563eb;
-                }
-
-                .ds-lang-sample .label {
-                  font-size: 10px;
-                  font-weight: 700;
-                  color: #2563eb;
-                  margin-bottom: 4px;
-                  text-transform: uppercase;
-                  letter-spacing: 0.05em;
-                }
-
-                .ds-lang-sample p {
-                  margin: 0;
-                  font-size: 13px;
-                  line-height: 1.7;
-                  color: #334155;
-                }
-
-                .ds-clip-demo {
-                  width: 100%;
-                  height: 86px;
-                  overflow: hidden;
-                  border-radius: 8px;
-                  border: 1px solid #e2e8f0;
-                  background: #f8fafc;
-                  padding: 12px;
-                  position: relative;
-                }
-
-                .ds-clip-demo .spill {
-                  position: absolute;
-                  left: 50%;
-                  top: 50%;
-                  width: 160px;
-                  height: 160px;
-                  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-                  border-radius: 50%;
-                  transform: translate(-50%, -30%);
-                  opacity: 0.7;
-                }
-
-                .ds-opacity-demo {
-                  position: relative;
-                  height: 86px;
-                  background: #f1f5f9;
-                  border-radius: 8px;
-                  overflow: hidden;
-                }
-
-                .ds-opacity-demo .layer {
-                  position: absolute;
-                  width: 80px;
-                  height: 80px;
-                  border-radius: 10px;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  font-size: 10px;
-                  font-weight: 700;
-                  color: #fff;
-                }
-
-                .ds-object-fit-grid {
-                  display: grid;
-                  grid-template-columns: repeat(2, minmax(0, 1fr));
-                  gap: 14px;
-                  margin-top: 18px;
-                }
-
-                .ds-object-fit-card {
-                  border: 1px solid #e2e8f0;
-                  border-radius: 12px;
-                  background: #ffffff;
-                  padding: 14px;
-                }
-
-                .ds-object-fit-card h4 {
-                  margin: 0 0 6px;
-                  font-size: 13px;
-                  font-weight: 700;
-                  color: #0f172a;
-                }
-
-                .ds-object-fit-card p {
-                  margin: 0 0 10px;
-                  font-size: 11px;
-                  line-height: 1.6;
-                  color: #64748b;
-                }
-
-                .ds-object-fit-frame {
-                  width: 100%;
-                  height: 168px;
-                  border-radius: 10px;
-                  overflow: hidden;
-                  border: 1px solid #cbd5e1;
-                  background:
-                    linear-gradient(45deg, #f8fafc 25%, transparent 25%),
-                    linear-gradient(-45deg, #f8fafc 25%, transparent 25%),
-                    linear-gradient(45deg, transparent 75%, #f8fafc 75%),
-                    linear-gradient(-45deg, transparent 75%, #f8fafc 75%);
-                  background-color: #e2e8f0;
-                  background-size: 16px 16px;
-                  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
-                }
-
-                .ds-object-fit-frame img {
-                  width: 100%;
-                  height: 100%;
-                  display: block;
-                }
-
-                .ds-object-fit-meta {
-                  margin-top: 8px;
-                  font-size: 10px;
-                  color: #475569;
-                  font-family: "JetBrains Mono", monospace;
-                }
-
-                .ds-timeline {
-                  display: flex;
-                  flex-direction: column;
-                  gap: 16px;
-                  border-left: 2px solid #e2e8f0;
-                  padding-left: 16px;
-                  margin-left: 4px;
-                }
-
-                .ds-timeline-item {
-                  display: flex;
-                  gap: 12px;
-                  position: relative;
-                }
-
-                .ds-timeline-dot {
-                  width: 10px;
-                  height: 10px;
-                  border-radius: 50%;
-                  background: #2563eb;
-                  margin-top: 5px;
-                  flex: none;
-                  margin-left: -22px;
-                  outline: 3px solid #ffffff;
-                }
-
-                .ds-timeline-item strong {
-                  font-size: 13px;
-                  color: #0f172a;
-                }
-
-                .ds-timeline-item p {
-                  margin: 2px 0 0;
-                  font-size: 12px;
-                  color: var(--text-secondary);
-                  line-height: 1.6;
-                }
-
-                .ds-divide-guard {
-                  margin-top: 24px;
-                  padding: 12px 0 12px 16px;
-                  border: none;
-                  border-left: 3px dashed #64748b;
-                  border-radius: 0;
-                  background: transparent;
-                }
-              </style>
 
               <header class="ds-hero">
                 <div>
@@ -2423,140 +2028,8 @@
           </div>
         </div>
 
-        <!-- Tab 2: Markdown 编辑器 -->
-        <div class="tab-panel" id="panel-markdown">
-          <div class="md-layout">
-            <!-- Editor -->
-            <section class="md-editor-panel">
-              <div class="md-panel-header">
-                <div class="md-panel-title">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <path d="M12 20h9" />
-                    <path
-                      d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"
-                    />
-                  </svg>
-                  <span>Markdown 输入区</span>
-                </div>
-                <div class="md-panel-stats">
-                  <span class="md-stat-badge" id="md-line-count">0 行</span>
-                  <span class="md-stat-badge" id="md-word-count">0 词</span>
-                  <span class="md-stat-badge" id="md-char-count">0 字符</span>
-                </div>
-              </div>
-              <div class="md-editor-body">
-                <div
-                  id="vditor-container"
-                  style="flex: 1; height: 100%; border: none"
-                ></div>
-              </div>
-            </section>
-            <!-- Preview -->
-            <section class="md-preview-panel">
-              <div class="md-panel-header">
-                <div class="md-panel-title">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
-                  <span>排版预览 (A4)</span>
-                </div>
-                <div class="md-panel-stats">
-                  <span class="md-stat-badge" id="md-theme-indicator"
-                    >Paper Light</span
-                  >
-                  <span class="md-stat-badge" id="md-page-count"
-                    >约 1.0 页</span
-                  >
-                  <select
-                    id="md-theme-select"
-                    style="
-                      height: 24px;
-                      font-size: 11px;
-                      border-radius: 4px;
-                      border: 1px solid var(--border-color);
-                      padding: 0 4px;
-                      background: #fff;
-                    "
-                  >
-                    <option value="paper">Paper Light</option>
-                    <option value="midnight">Midnight Blue</option>
-                    <option value="slate">Slate Editorial</option>
-                    <option value="sepia">Sepia Notebook</option>
-                  </select>
-                </div>
-              </div>
-              <div class="md-preview-stage">
-                <div
-                  style="
-                    width: 100%;
-                    max-width: 100%;
-                    display: flex;
-                    justify-content: center;
-                  "
-                >
-                  <div
-                    id="preview-sheet"
-                    class="preview-sheet"
-                    data-theme="paper"
-                  >
-                    <div
-                      id="watermark-under-layer"
-                      class="watermark-layer"
-                      data-layer="under"
-                    ></div>
-                    <div class="md-empty-state">
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="#cbd5e1"
-                        stroke-width="1.5"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        style="width: 48px; height: 48px; margin-bottom: 14px"
-                      >
-                        <path
-                          d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
-                        />
-                        <polyline points="14 2 14 8 20 8" />
-                        <line x1="9" y1="15" x2="15" y2="15" />
-                        <line x1="12" y1="12" x2="12" y2="18" />
-                      </svg>
-                      <p style="font-size: 14px; color: var(--text-muted)">
-                        在左侧输入 Markdown，右侧将自动渲染为 A4 排版
-                      </p>
-                    </div>
-                    <article
-                      id="markdown-preview"
-                      class="markdown-body"
-                    ></article>
-                    <div
-                      id="watermark-over-layer"
-                      class="watermark-layer"
-                      data-layer="over"
-                    ></div>
-                  </div>
-                </div>
-              </div>
-            </section>
-          </div>
-        </div>
       </main>
     </div>
-    <script src="./index.js"></script>
+    <script src="./index.js?v=20260930b"></script>
   </body>
 </html>

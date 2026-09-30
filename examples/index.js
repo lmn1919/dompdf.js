@@ -1,8 +1,6 @@
 (function () {
   /* ========================= Globals ========================= */
   var api = window.dompdf;
-  var markedApi = window.marked;
-  var purifier = window.DOMPurify;
 
   var statusDotEl = document.getElementById('status-dot');
   var statusTextEl = document.getElementById('status-text');
@@ -17,7 +15,6 @@
   var html2pdfLoader = null;
   var pdfJsLoader = null;
   var pdfJsReady = false;
-  var activeTab = 'basic';
 
   var LOCALE_STORAGE_KEY = 'dompdf-studio-locale';
   var currentLocale = getSavedLocale();
@@ -40,64 +37,8 @@
   /* Comparison state */
   var generatedBlobs = { dompdf: null, html2pdf: null };
 
-  /* Markdown editor */
-  var vditor = null;
-  var vditorCdnBase = './vendor/vditor';
-  var mdRenderTimer = 0;
-  var activeTheme = 'paper';
   var I18N = {
     en: {
-      themeLabels: {
-        paper: 'Paper Light',
-        midnight: 'Midnight Blue',
-        slate: 'Slate Editorial',
-        sepia: 'Sepia Notebook'
-      },
-      mdSample: [
-        "# Product Weekly Update",
-        "",
-        "> This sample verifies live Markdown rendering, theme switching, and copyable paginated text after PDF export.",
-        "",
-        "## Weekly Summary",
-        "",
-        "- New-user registration conversion increased by **12.6%**",
-        "- First support response time dropped from `7m 24s` to `4m 10s`",
-        "- Documentation site migration is complete; export stress testing remains",
-        "",
-        "## Key Work",
-        "",
-        "1. Finish field mapping from rich text to Markdown.",
-        "2. Unify PDF headers and footers into configurable templates.",
-        "3. Validate CJK font export quality under dark themes.",
-        "",
-        "## Task List",
-        "",
-        "- [x] Enable live preview",
-        "- [x] Support multi-theme switching",
-        "- [ ] Add more business templates",
-        "",
-        "## Code Snippet",
-        "",
-        "```ts",
-        "const blob = await window.dompdf(previewRoot, {",
-        "  format: 'a4',",
-        "  pagination: true,",
-        "  useCORS: true",
-        "});",
-        "```",
-        "",
-        "## Comparison Table",
-        "",
-        "| Metric | Current | Delta |",
-        "| --- | ---: | ---: |",
-        "| WAU | 124,500 | +8.4% |",
-        "| Renewal Rate | 71.2% | +2.1% |",
-        "| Average Export Time | 428ms | -16.0% |",
-        "",
-        "## Notes",
-        "",
-        "Once Markdown is rendered into HTML, the preview panel on the right becomes the exact DOM exported to PDF."
-      ].join("\n"),
       runtime: {
         processing: 'Processing...',
         parsingPage: 'Parsing page...',
@@ -120,7 +61,6 @@
           return 'Current mode: heavy benchmark · 440 ultra-long text groups' + suffix;
         },
         fontNotReady: 'Chinese font is still loading. Please try again shortly.',
-        markdownLoading: 'Markdown resources are still loading. Please wait...',
         buildExtreme: 'Building the 10,000-page sample...',
         rebuildBenchmark: 'Rebuilding benchmark sample...',
         extremeReady: '10,000-page sample is ready',
@@ -144,12 +84,6 @@
         sizeReduced: function (pct) { return 'dompdf.js reduces file size by ' + pct.toFixed(1) + '%'; },
         sizeIncreased: function (pct) { return 'dompdf.js increases file size by ' + pct.toFixed(1) + '%'; },
         approxDocPages: function (pages) { return 'Approx. ' + pages + ' pages'; },
-        markdownDepsFailed: 'Failed to load Markdown dependencies',
-        markdownPlaceholder: 'Start typing Markdown here...',
-        markdownChars: function (count) { return count + ' chars'; },
-        markdownWords: function (count) { return count + ' words'; },
-        markdownLines: function (count) { return count + ' lines'; },
-        markdownPages: function (count) { return 'Approx. ' + count + ' pages'; },
         missingBuild: 'dist/dompdf.js not found. Run npm run build first.',
         loadingResources: 'Loading fonts and editor assets...',
         ready: 'ready',
@@ -204,57 +138,6 @@
       }
     },
     zh: {
-      themeLabels: {
-        paper: 'Paper Light',
-        midnight: 'Midnight Blue',
-        slate: 'Slate Editorial',
-        sepia: 'Sepia Notebook'
-      },
-      mdSample: [
-        "# 产品周报 / Product Weekly Update",
-        "",
-        "> 本示例用于验证 Markdown 实时渲染、主题切换，以及导出 PDF 后的文本复制与分页效果。",
-        "",
-        "## 本周结论",
-        "",
-        "- 新版本注册转化率提升 **12.6%**",
-        "- 客服首响时间从 `7m 24s` 降到 `4m 10s`",
-        "- 文档站迁移已完成，剩余导出链路压测",
-        "",
-        "## 关键事项",
-        "",
-        "1. 完成富文本转 Markdown 的字段映射。",
-        "2. 把 PDF 页眉页脚统一成可配置模板。",
-        "3. 校验中文字体在深色主题下的导出表现。",
-        "",
-        "## 任务列表",
-        "",
-        "- [x] 接入实时预览",
-        "- [x] 支持多主题样式切换",
-        "- [ ] 增加更多业务模板",
-        "",
-        "## 代码片段",
-        "",
-        "```ts",
-        "const blob = await window.dompdf(previewRoot, {",
-        "  format: 'a4',",
-        "  pagination: true,",
-        "  useCORS: true",
-        "});",
-        "```",
-        "",
-        "## 对比表",
-        "",
-        "| 指标 | 当前值 | 环比 |",
-        "| --- | ---: | ---: |",
-        "| WAU | 124,500 | +8.4% |",
-        "| 续费率 | 71.2% | +2.1% |",
-        "| 平均导出耗时 | 428ms | -16.0% |",
-        "",
-        "## 备注",
-        "",
-        "当 Markdown 被渲染成 HTML 后，右侧预览区就是最终导出的 DOM 来源。"
-      ].join("\n"),
       runtime: {
         processing: '正在处理中...',
         parsingPage: '正在解析页面...',
@@ -277,7 +160,6 @@
           return '当前模式：重压测 · 440 组超长文本' + suffix;
         },
         fontNotReady: '中文字体尚未加载完成，请稍后重试',
-        markdownLoading: 'Markdown 编辑器资源尚未加载完成，请稍候…',
         buildExtreme: '正在生成 10000 页测试样本...',
         rebuildBenchmark: '正在重建基准样本...',
         extremeReady: '10000 页测试样本已显示',
@@ -301,12 +183,6 @@
         sizeReduced: function (pct) { return '📉 dompdf.js 体积缩减 ' + pct.toFixed(1) + '%'; },
         sizeIncreased: function (pct) { return '📈 dompdf.js 体积增加 ' + pct.toFixed(1) + '%'; },
         approxDocPages: function (pages) { return '总计约 ' + pages + ' 页'; },
-        markdownDepsFailed: 'Markdown 依赖加载失败',
-        markdownPlaceholder: '在此开始输入 Markdown 内容...',
-        markdownChars: function (count) { return count + ' 字符'; },
-        markdownWords: function (count) { return count + ' 词'; },
-        markdownLines: function (count) { return count + ' 行'; },
-        markdownPages: function (count) { return '约 ' + count + ' 页'; },
         missingBuild: 'dist/dompdf.js 未找到，请先执行 npm run build。',
         loadingResources: '正在加载字体与编辑器资源...',
         ready: '就绪',
@@ -361,16 +237,14 @@
       }
     }
   };
-  var themeLabels = I18N[currentLocale].themeLabels;
-  var mdSamples = { default: I18N[currentLocale].mdSample };
   var STATIC_TRANSLATIONS = [
     { key: 'title', type: 'title', en: 'dompdf.js Studio - Pure JavaScript DOM-to-PDF Engine | Live Demo' },
-    { key: 'meta-description', selector: 'meta[name="description"]', type: 'attr', attr: 'content', en: 'dompdf.js is a pure JavaScript DOM-to-PDF renderer with no backend required. This live demo supports HTML and Markdown editing, real-time PDF preview, and high-fidelity multilingual export.' },
+    { key: 'meta-description', selector: 'meta[name="description"]', type: 'attr', attr: 'content', en: 'dompdf.js is a pure JavaScript DOM-to-PDF renderer with no backend required. This live demo supports live HTML editing, real-time PDF preview, and high-fidelity multilingual export.' },
     { key: 'meta-keywords', selector: 'meta[name="keywords"]', type: 'attr', attr: 'content', en: 'dompdf.js, DOM to PDF, JavaScript PDF, frontend PDF generation, HTML to PDF, live PDF editor' },
     { key: 'og-title', selector: 'meta[property="og:title"]', type: 'attr', attr: 'content', en: 'dompdf.js Studio - Pure JavaScript DOM-to-PDF Engine' },
-    { key: 'og-description', selector: 'meta[property="og:description"]', type: 'attr', attr: 'content', en: 'A browser-side DOM-to-PDF rendering engine with HTML and Markdown editing plus real-time PDF preview.' },
+    { key: 'og-description', selector: 'meta[property="og:description"]', type: 'attr', attr: 'content', en: 'A browser-side DOM-to-PDF rendering engine with live HTML editing plus real-time PDF preview.' },
     { key: 'twitter-title', selector: 'meta[name="twitter:title"]', type: 'attr', attr: 'content', en: 'dompdf.js Studio - Pure JavaScript DOM-to-PDF Engine' },
-    { key: 'twitter-description', selector: 'meta[name="twitter:description"]', type: 'attr', attr: 'content', en: 'A browser-side DOM-to-PDF rendering engine with HTML and Markdown editing plus real-time PDF preview.' },
+    { key: 'twitter-description', selector: 'meta[name="twitter:description"]', type: 'attr', attr: 'content', en: 'A browser-side DOM-to-PDF rendering engine with live HTML editing plus real-time PDF preview.' },
     {
       key: 'schema', selector: 'script[type="application/ld+json"]', type: 'text', en: JSON.stringify({
         '@context': 'https://schema.org',
@@ -383,6 +257,7 @@
       }, null, 2)
     },
     { key: 'github-aria', selector: '.sidebar-github-link', type: 'attr', attr: 'aria-label', en: 'View the dompdf.js GitHub repository' },
+    { key: 'header-docs-label', selector: '#header-docs-label', type: 'text', en: 'Docs' },
     { key: 'export-dompdf', selector: '#btn-export-dompdf .btn-label', type: 'text', en: 'Export dompdf.js' },
     { key: 'export-html2pdf', selector: '#btn-export-html2pdf .btn-label', type: 'text', en: 'Export html2pdf.js' },
     { key: 'compare-btn', selector: '#btn-compare .btn-label', type: 'text', en: 'Run Performance Comparison' },
@@ -421,7 +296,7 @@
     { key: 'specs-row-7-2', selector: '.specs-mini-table tbody tr:nth-child(7) td:nth-child(2)', type: 'text', en: 'Bound by WASM compute throughput' },
     { key: 'specs-row-7-3', selector: '.specs-mini-table tbody tr:nth-child(7) td:nth-child(3)', type: 'text', en: 'Large image-heavy DOMs fail easily' },
     { key: 'tab-basic', selector: '#tab-btn-basic', type: 'text', en: 'Capability Report' },
-    { key: 'tab-markdown', selector: '#tab-btn-markdown', type: 'text', en: 'Markdown Editor' },
+    { key: 'tab-pdf-editor', selector: '#tab-pdf-editor-label', type: 'text', en: 'PDF Editor' },
     { key: 'header-a4', selector: '.header-info span:first-child', type: 'text', en: 'A4 Page Simulation (794px \u00d7 1123px)' },
     { key: 'header-zoom', selector: '.header-info span:last-child', type: 'text', en: 'Zoom 100%' },
     { key: 'top-loading-aria', selector: '.top-loading-card', type: 'attr', attr: 'aria-label', en: 'Export progress' },
@@ -598,11 +473,6 @@
     { key: 'sec-09-summary', selector: '#sec-09-summary', type: 'text', en: 'Although dompdf.js excels at vector text, real businesses still need bitmaps. This section keeps one Canvas-generated sample image to verify compression, sizing, and embedding stability.' },
     { key: 'sec-09-caption', selector: '#sec-09-caption', type: 'text', en: 'This image is a JPEG bitmap sample used to confirm color, sizing, and compression behavior after export.' },
 
-    /* Markdown panel */
-    { key: 'md-input-title', selector: '#panel-markdown .md-editor-panel .md-panel-title span', type: 'text', en: 'Markdown Input' },
-    { key: 'md-preview-title', selector: '#panel-markdown .md-preview-panel .md-panel-title span', type: 'text', en: 'Typeset Preview (A4)' },
-    { key: 'md-empty-state', selector: '.md-empty-state p', type: 'text', en: 'Type Markdown on the left and it will automatically render into an A4 layout on the right' },
-
     /* Section 10 - PR Verification (list-style / hyperlink / composite glyphs) */
     { key: 'sec-10-bullet-1', selector: '#sec-10-bullet-1', type: 'text', en: 'Bullet list item 1' },
     { key: 'sec-10-bullet-2', selector: '#sec-10-bullet-2', type: 'text', en: 'Bullet list item 2' },
@@ -715,19 +585,7 @@
     statusTextEl.textContent = symbolFontConfig ? runtime.readyWithSymbol : runtime.ready;
   }
 
-  function syncMarkdownForLocale(previousLocale) {
-    if (!vditor) return;
-    var currentValue = vditor.getValue();
-    if (previousLocale && currentValue === I18N[previousLocale].mdSample) {
-      vditor.setValue(I18N[currentLocale].mdSample);
-      return;
-    }
-    updateMdStats(currentValue);
-  }
-
-  function applyLocale(previousLocale) {
-    themeLabels = I18N[currentLocale].themeLabels;
-    mdSamples.default = I18N[currentLocale].mdSample;
+  function applyLocale() {
     applyStaticTranslations(currentLocale);
     renderLanguageSwitch();
     syncStatusTextForLocale();
@@ -737,18 +595,16 @@
     updateDocPageInfo();
     var sampleImg = document.getElementById('sample-img');
     if (sampleImg) sampleImg.src = createChartDataUrl();
-    syncMarkdownForLocale(previousLocale);
   }
 
   window.setLanguage = function (locale) {
     var nextLocale = locale === 'zh' ? 'zh' : 'en';
     if (nextLocale === currentLocale) return;
-    var previousLocale = currentLocale;
     currentLocale = nextLocale;
     try {
       window.localStorage.setItem(LOCALE_STORAGE_KEY, currentLocale);
     } catch (err) { /* ignore */ }
-    applyLocale(previousLocale);
+    applyLocale();
   };
 
   /* ========================= Status ========================= */
@@ -855,7 +711,7 @@
   }
 
   function ensureBenchmarkSampleReady() {
-    if (activeTab !== 'basic' || !benchmarkBuildInProgress) {
+    if (!benchmarkBuildInProgress) {
       return Promise.resolve();
     }
     return benchmarkBuildPromise;
@@ -868,60 +724,6 @@
       }
     });
   }
-
-  /* ========================= Tab Switching ========================= */
-  // Markdown 编辑器依赖 CDN 资源(Vditor / marked / DOMPurify)，判断是否都已就绪
-  function markdownDepsReady() {
-    return !!(window.Vditor && window.marked && window.DOMPurify);
-  }
-
-  // 轻量提示条(侧栏状态条被隐藏，改用居中 toast 反馈)
-  var miniToastTimer = null;
-  function showMiniToast(text) {
-    var el = document.getElementById('mini-toast');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'mini-toast';
-      el.className = 'mini-toast';
-      document.body.appendChild(el);
-    }
-    el.textContent = text;
-    // 强制回流后再加类，保证过渡动画生效
-    void el.offsetWidth;
-    el.classList.add('is-visible');
-    if (miniToastTimer) clearTimeout(miniToastTimer);
-    miniToastTimer = setTimeout(function () {
-      el.classList.remove('is-visible');
-    }, 2600);
-  }
-
-  window.switchTab = function (tab) {
-    // Markdown 资源未加载完成时不跳转，给出提示
-    if (tab === 'markdown' && !markdownDepsReady()) {
-      showMiniToast(getRuntimeStrings().markdownLoading);
-      return;
-    }
-
-    activeTab = tab;
-    document.getElementById('tab-btn-basic').classList.toggle('active', tab === 'basic');
-    document.getElementById('tab-btn-markdown').classList.toggle('active', tab === 'markdown');
-    document.getElementById('panel-basic').classList.toggle('active', tab === 'basic');
-    document.getElementById('panel-markdown').classList.toggle('active', tab === 'markdown');
-
-    // "生成页数" 基准控制仅对综合测试页有意义，Markdown 编辑器下隐藏
-    var benchSection = document.getElementById('sidebar-benchmark-section');
-    if (benchSection) {
-      benchSection.style.display = tab === 'basic' ? '' : 'none';
-    }
-
-    if (tab === 'markdown' && !vditor) {
-      initMarkdownEditor();
-    }
-
-    if (tab === 'basic') {
-      updateDocPageInfo();
-    }
-  };
 
   /* ========================= Sidebar Footer Tabs ========================= */
   window.switchFooterTab = function (tab) {
@@ -1093,22 +895,6 @@
 
   /* ========================= Export Target ========================= */
   function getExportTarget() {
-    if (activeTab === 'markdown') {
-      var sheet = document.getElementById('preview-sheet');
-      // Clone to strip watermark layers
-      var clone = sheet.cloneNode(true);
-      var under = clone.querySelector('#watermark-under-layer');
-      var over = clone.querySelector('#watermark-over-layer');
-      if (under) under.remove();
-      if (over) over.remove();
-      clone.style.position = 'absolute';
-      clone.style.left = '-9999px';
-      clone.style.top = '-9999px';
-      clone.style.display = 'block';
-      clone.style.margin = '0';
-      document.body.appendChild(clone);
-      return { element: clone, isClone: true };
-    }
     return { element: docEl, isClone: false };
   }
 
@@ -1119,26 +905,9 @@
   }
 
   function getHtml2PdfTarget() {
-    var cleanupFns = [];
-    var element = activeTab === 'markdown'
-      ? document.getElementById('preview-sheet')
-      : docEl;
-
-    if (activeTab === 'markdown' && element) {
-      ['#watermark-under-layer', '#watermark-over-layer'].forEach(function (selector) {
-        var layer = element.querySelector(selector);
-        if (!layer) return;
-        var prevDisplay = layer.style.display;
-        layer.style.display = 'none';
-        cleanupFns.push(function () { layer.style.display = prevDisplay; });
-      });
-    }
-
     return {
-      element: element,
-      cleanup: function () {
-        cleanupFns.forEach(function (fn) { fn(); });
-      }
+      element: docEl,
+      cleanup: function () {}
     };
   }
 
@@ -1202,15 +971,6 @@
         }
       }
     };
-
-    // For markdown tab, use preview background
-    if (activeTab === 'markdown') {
-      var sheet = document.getElementById('preview-sheet');
-      if (sheet) {
-        var style = window.getComputedStyle(sheet);
-        opts.backgroundColor = style.backgroundColor || '#ffffff';
-      }
-    }
 
     return opts;
   }
@@ -1676,85 +1436,6 @@
     topbarPageInfo.textContent = getRuntimeStrings().approxDocPages(
       Math.max(1, docEl.scrollHeight / 1123).toFixed(1)
     );
-  }
-
-  /* ========================= Markdown Editor ========================= */
-  function initMarkdownEditor() {
-    if (vditor) return;
-    if (!markedApi || typeof markedApi.parse !== 'function' || !purifier) {
-      setStatus(getRuntimeStrings().markdownDepsFailed, true);
-      return;
-    }
-
-    markedApi.setOptions({ gfm: true, breaks: true });
-
-    vditor = new Vditor('vditor-container', {
-      cdn: vditorCdnBase,
-      mode: 'ir',
-      height: '100%',
-      placeholder: getRuntimeStrings().markdownPlaceholder,
-      cache: { enable: false },
-      preview: {
-        theme: {
-          current: 'light',
-          path: vditorCdnBase + '/dist/css/content-theme'
-        }
-      },
-      hint: {
-        emojiPath: vditorCdnBase + '/dist/images/emoji'
-      },
-      theme: 'classic',
-      resize: { enable: false },
-      toolbar: [
-        'emoji', 'headings', 'bold', 'italic', 'strike', 'link', '|',
-        'list', 'ordered-list', 'check', 'outdent', 'indent', '|',
-        'quote', 'line', 'code', 'inline-code', '|',
-        'table', 'undo', 'redo'
-      ],
-      input: function () { scheduleMdRender(); },
-      after: function () {
-        vditor.setValue(mdSamples.default);
-        renderMarkdownNow();
-      }
-    });
-  }
-
-  function renderMarkdownNow() {
-    if (!vditor) return;
-    var markdown = vditor.getValue();
-    var html = markdown.trim() ? markedApi.parse(markdown) : '';
-    var previewEl = document.getElementById('markdown-preview');
-    var sheetEl = document.getElementById('preview-sheet');
-    previewEl.innerHTML = purifier.sanitize(html, { USE_PROFILES: { html: true } });
-    sheetEl.classList.toggle('is-empty', !markdown.trim());
-    updateMdStats(markdown);
-  }
-
-  function scheduleMdRender() {
-    clearTimeout(mdRenderTimer);
-    mdRenderTimer = setTimeout(renderMarkdownNow, 90);
-  }
-
-  function updateMdStats(text) {
-    var s = text || '';
-    document.getElementById('md-char-count').textContent = getRuntimeStrings().markdownChars(s.length);
-    document.getElementById('md-word-count').textContent = getRuntimeStrings().markdownWords((s.trim().match(/[A-Za-z0-9_]+/g) || []).length);
-    document.getElementById('md-line-count').textContent = getRuntimeStrings().markdownLines(s.split(/\r?\n/).length);
-    var sheet = document.getElementById('preview-sheet');
-    document.getElementById('md-page-count').textContent = getRuntimeStrings().markdownPages(
-      Math.max(1, sheet.scrollHeight / 1123).toFixed(1)
-    );
-    document.getElementById('md-theme-indicator').textContent = themeLabels[activeTheme];
-  }
-
-  // Theme switcher for markdown
-  var themeSelect = document.getElementById('md-theme-select');
-  if (themeSelect) {
-    themeSelect.addEventListener('change', function () {
-      activeTheme = themeSelect.value;
-      document.getElementById('preview-sheet').setAttribute('data-theme', activeTheme);
-      document.getElementById('md-theme-indicator').textContent = themeLabels[activeTheme];
-    });
   }
 
   /* ========================= Automation API ========================= */
