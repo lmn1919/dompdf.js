@@ -25,10 +25,16 @@ mod deflate;
 static OUT_LEN: AtomicUsize = AtomicUsize::new(0);
 static INSPECT_LEN: AtomicUsize = AtomicUsize::new(0);
 
+#[cfg(target_arch = "wasm32")]
 #[link(wasm_import_module = "env")]
 unsafe extern "C" {
     fn report_progress(current_page: u32, total_pages: u32);
 }
+
+/// Non-WASM builds (e.g. `cargo test` on the host) have no JS `env` to import
+/// `report_progress` from, so provide a no-op stub with the same signature.
+#[cfg(not(target_arch = "wasm32"))]
+unsafe fn report_progress(_current_page: u32, _total_pages: u32) {}
 
 pub fn emit_render_progress(current_page: u32, total_pages: u32) {
     if total_pages == 0 || current_page == 0 {
