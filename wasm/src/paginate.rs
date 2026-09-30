@@ -1638,6 +1638,50 @@ fn latin_font_token(weight: u16, italic: u8) -> &'static str {
     }
 }
 
+/// Faux (synthetic) bold: the requested weight is bold but the embedded face we
+/// ended up selecting is not. Browsers synthesize a bold face in this case
+/// (e.g. a CJK font registered at a single weight), so an unemboldened PDF looks
+/// noticeably lighter than the page it was captured from. Emulate it by filling
+/// *and* stroking the glyph outlines (PDF text render mode 2).
+fn needs_faux_bold(requested_weight: u16, face_weight: u16) -> bool {
+    requested_weight >= 700 && face_weight < 700
+}
+
+/// Stroke width for faux bold, in PDF user units (points). Mirrors Skia's
+/// `fakeBoldStrokeWidth` heuristic used by Chrome/Edge: text_size / 24 at 9pt
+/// and below, text_size / 32 at 36pt and above, interpolated in between.
+fn faux_bold_stroke_pt(fs_pt: f32) -> f32 {
+    let lo = fs_pt / 24.0;
+    let hi = fs_pt / 32.0;
+    if fs_pt <= 9.0 {
+        lo
+    } else if fs_pt >= 36.0 {
+        hi
+    } else {
+        let t = (fs_pt - 9.0) / (36.0 - 9.0);
+        lo + (hi - lo) * t
+    }
+}
+
+/// Emit the text-render-mode (and, for faux bold, stroke color/width) prefix for
+/// one same-font run. `hidden` is the invisible ActualText companion (mode 3),
+/// which must never be emboldened into visibility.
+fn push_text_render_mode(out: &mut String, color: [f32; 4], fs_pt: f32, faux_bold: bool, hidden: bool) {
+    if faux_bold && !hidden {
+        out.push_str(&format!(
+            "{} {} {} RG\n{} w\n2 Tr\n",
+            f(color[0]),
+            f(color[1]),
+            f(color[2]),
+            f(faux_bold_stroke_pt(fs_pt))
+        ));
+    } else if hidden {
+        out.push_str("3 Tr\n");
+    } else {
+        out.push_str("0 Tr\n");
+    }
+}
+
 fn select_cid_font<'a>(
     fontctx: &'a FontCtx,
     family: &str,
@@ -1666,7 +1710,7 @@ fn collect_used_cid_run(fontctx: &FontCtx, family: &str, weight: u16, italic: u8
     }
     if let Some(cf) = select_cid_font(fontctx, family, weight, italic, &normalized) {
         let primary_idx = (cf.key - 2) as usize;
-        let _ = fontctx.shape(primary_idx, &normalized, true);
+        let _ = fontctx.shape(primary_idx, weight, italic, &normalized, true);
     }
 }
 
@@ -1788,7 +1832,7 @@ fn collect_used_cid_gids(snap: &Snapshot, fontctx: &FontCtx, total: u32) {
             }
             if let Some(cf) = select_cid_font(fontctx, &font.family, font.weight, font.italic, &normalized) {
                 let primary_idx = (cf.key - 2) as usize;
-                let _ = fontctx.shape(primary_idx, &normalized, true);
+                let _ = fontctx.shape(primary_idx, font.weight, font.italic, &normalized, true);
             }
         }
     }
@@ -1909,7 +1953,7 @@ fn draw_text_lines(
             // the primary lacks. Shape once, then emit one text-show per run of
             // consecutive same-font glyphs, repositioning with an absolute Tm.
             let primary_idx = (cf.key - 2) as usize;
-            let glyphs = fontctx.shape(primary_idx, &normalized, false);
+            let glyphs = fontctx.shape(primary_idx, font.weight, font.italic, &normalized, false);
             if glyphs.is_empty() {
                 out.push_str("ET\n");
                 if actual_text_hex.is_some() {
@@ -1984,6 +2028,14 @@ fn draw_text_lines(
                     None => format!("{} {} Tf\n", latin_font_token(font.weight, font.italic), f(fs_pt)),
                 };
                 out.push_str(&font_op);
+                // A CID segment needs faux bold when bold was requested but the
+                // selected face is not bold; Latin segments fall back to the real
+                // Base14 bold face (/F1B), so they never need it.
+                let seg_faux = matches!(
+                    seg_font_idx,
+                    Some(font_idx) if needs_faux_bold(font.weight, fontctx.cid[font_idx].weight)
+                );
+                push_text_render_mode(out, color, fs_pt, seg_faux, node.render_mode == 3);
                 out.push_str(&format!("{} Tc\n", f(tc_pt)));
                 out.push_str(&format!("{} Tw\n", f(tw_pt)));
                 out.push_str(&format!("1 0 0 1 {} {} Tm\n", f(seg_x_pt), f(y_pt)));
@@ -2111,7 +2163,7 @@ fn draw_hf_slot(
     let cid_primary = select_cid_font(fontctx, family, weight, italic, &normalized);
     let (bytes, text_w_pt, cid_runs) = if let Some(cf) = cid_primary {
         let primary_idx = (cf.key - 2) as usize;
-        let runs = encode_cid_with_fallback(fontctx, primary_idx, &normalized, false);
+        let runs = encode_cid_with_fallback(fontctx, primary_idx, weight, italic, &normalized, false);
         let width_1000: u32 = runs.iter().map(|run| run.width_1000).sum();
         let first_bytes = runs
             .first()
@@ -2161,7 +2213,7 @@ fn draw_hf_slot(
     };
 
     out.push_str(&format!(
-        "{} {} {} rg\nBT\n",
+        "{} {} {} rg\nBT\n0 Tr\n",
         f(color[0]),
         f(color[1]),
         f(color[2])
@@ -2176,6 +2228,11 @@ fn draw_hf_slot(
                 EncodedFontKind::Latin => format!("{} {} Tf\n", latin_font_token(weight, italic), f(fs_pt)),
             };
             out.push_str(&font_op);
+            let run_faux = matches!(
+                run.kind,
+                EncodedFontKind::Cid(font_idx) if needs_faux_bold(weight, fontctx.cid[font_idx].weight)
+            );
+            push_text_render_mode(out, color, fs_pt, run_faux, false);
             out.push_str(&format!("1 0 0 1 {} {} Tm\n", f(x_pt + pen_pt), f(y_pt)));
             out.push_str(&format!("<{}> Tj\n", hex(&run.bytes)));
             pen_pt += (run.width_1000 as f32 / 1000.0) * fs_pt;
@@ -2256,7 +2313,7 @@ fn draw_watermark(
             let cid_primary = select_cid_font(fontctx, family, spec.weight, spec.italic, &normalized);
             let (latin_bytes, text_w_pt, cid_runs) = if let Some(cf) = cid_primary {
                 let primary_idx = (cf.key - 2) as usize;
-                let runs = encode_cid_with_fallback(fontctx, primary_idx, &normalized, false);
+                let runs = encode_cid_with_fallback(fontctx, primary_idx, spec.weight, spec.italic, &normalized, false);
                 let width_1000: u32 = runs.iter().map(|run| run.width_1000).sum();
                 (Vec::new(), (width_1000 as f32 / 1000.0) * fs_pt, Some(runs))
             } else {
@@ -2280,7 +2337,7 @@ fn draw_watermark(
             while y <= end_y {
                 let mut x = start_x;
                 while x <= end_x {
-                    out.push_str("BT\n");
+                    out.push_str("BT\n0 Tr\n");
                     if let Some(runs) = &cid_runs {
                         let mut pen_pt = 0.0_f32;
                         for run in runs {
@@ -2293,6 +2350,12 @@ fn draw_watermark(
                                 }
                             };
                             out.push_str(&font_op);
+                            let run_faux = matches!(
+                                run.kind,
+                                EncodedFontKind::Cid(font_idx)
+                                    if needs_faux_bold(spec.weight, fontctx.cid[font_idx].weight)
+                            );
+                            push_text_render_mode(out, color, fs_pt, run_faux, false);
                             out.push_str(&format!(
                                 "{} {} {} {} {} {} Tm\n",
                                 f(a),
@@ -3082,7 +3145,9 @@ pub fn build_pdf(
 
 #[cfg(test)]
 mod tests {
-    use super::{image_draw_rect_pt, PX_TO_PT};
+    use super::{
+        faux_bold_stroke_pt, image_draw_rect_pt, needs_faux_bold, push_text_render_mode, PX_TO_PT,
+    };
     use crate::snapshot::{Image, ImageRef, Node};
 
     fn image_node(image: ImageRef) -> Node {
@@ -3162,5 +3227,48 @@ mod tests {
         assert!((h - 20.0 * PX_TO_PT).abs() < 0.01);
         assert!((x - (10.0 + 100.0 - w - 10.0 * PX_TO_PT)).abs() < 0.01);
         assert!((y - (20.0 + 8.0 * PX_TO_PT)).abs() < 0.01);
+    }
+
+    #[test]
+    fn faux_bold_only_for_bold_request_against_non_bold_face() {
+        assert!(needs_faux_bold(700, 400));
+        assert!(needs_faux_bold(700, 500));
+        assert!(!needs_faux_bold(700, 700));
+        assert!(!needs_faux_bold(400, 400));
+        // A bold face is never emboldened further, even for a normal request.
+        assert!(!needs_faux_bold(400, 700));
+    }
+
+    #[test]
+    fn faux_bold_stroke_matches_skia_heuristic() {
+        // <=9pt uses size/24, >=36pt uses size/32; interpolated in between.
+        assert!((faux_bold_stroke_pt(9.0) - 9.0 / 24.0).abs() < 1e-6);
+        assert!((faux_bold_stroke_pt(36.0) - 36.0 / 32.0).abs() < 1e-6);
+        let mid = faux_bold_stroke_pt(24.0);
+        // Absolute width grows with the font size...
+        assert!(mid > faux_bold_stroke_pt(9.0));
+        assert!(mid < faux_bold_stroke_pt(36.0));
+        // ...while the width/size ratio falls toward 1/32 on the way up.
+        assert!(mid / 24.0 > 1.0 / 32.0);
+        assert!((faux_bold_stroke_pt(9.0) / 9.0 - 1.0 / 24.0).abs() < 1e-6);
+        assert!((faux_bold_stroke_pt(36.0) / 36.0 - 1.0 / 32.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn push_text_render_mode_emits_stroke_only_when_needed() {
+        let color = [0.1, 0.2, 0.3, 1.0];
+        let mut out = String::new();
+        push_text_render_mode(&mut out, color, 12.0, true, false);
+        assert!(out.contains("0.1 0.2 0.3 RG"));
+        assert!(out.contains("2 Tr"));
+
+        out.clear();
+        push_text_render_mode(&mut out, color, 12.0, true, true);
+        assert!(out.contains("3 Tr"));
+        assert!(!out.contains("2 Tr"));
+
+        out.clear();
+        push_text_render_mode(&mut out, color, 12.0, false, false);
+        assert_eq!(out, "0 Tr\n");
     }
 }

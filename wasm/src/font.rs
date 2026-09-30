@@ -263,13 +263,27 @@ impl FontCtx {
 
     /// Shape a text run into glyphs with per-glyph font fallback.
     ///
-    /// For each char: use `primary_idx` when it has the glyph; otherwise scan
-    /// the other registered fonts (registration order) for the first that does.
-    /// If none has it, fall back to the primary's `.notdef` (gid 0), preserving
-    /// the previous single-font behavior. When `record` is true, the resolved
-    /// gid is registered into the font that supplies it (used for subsetting);
-    /// this must run during the collect pass, before `prepare_subset_maps()`.
-    pub fn shape(&self, primary_idx: usize, text: &str, record: bool) -> Vec<ShapedGlyph> {
+    /// For each char: use `primary_idx` when it has the glyph; otherwise scan the
+    /// other registered fonts for one that does, preferring the face whose
+    /// weight/style best matches the request (`weight`/`italic`) and keeping
+    /// registration order on ties. If none has it, fall back to the primary's
+    /// `.notdef` (gid 0), preserving the previous single-font behavior. When
+    /// `record` is true, the resolved gid is registered into the font that
+    /// supplies it (used for subsetting); this must run during the collect pass,
+    /// before `prepare_subset_maps()`.
+    ///
+    /// Weight/style preference matters when a page registers several faces of the
+    /// same script under different families — e.g. a CSS stack that names a
+    /// separate `…-Bold` family for `b, strong`. Falling back in registration
+    /// order alone would pick the Regular face for bold text.
+    pub fn shape(
+        &self,
+        primary_idx: usize,
+        weight: u16,
+        italic: u8,
+        text: &str,
+        record: bool,
+    ) -> Vec<ShapedGlyph> {
         let mut out = Vec::with_capacity(text.chars().count());
         let primary_idx = primary_idx.min(self.cid.len().saturating_sub(1));
         for c in text.chars() {
@@ -278,16 +292,25 @@ impl FontCtx {
             let mut gid = self.cid[primary_idx].ttf.gid_for(cp);
             let mut latin_byte = None;
             if gid == 0 {
+                let mut best: Option<(usize, u16)> = None;
+                let mut best_score = i32::MIN;
                 for (i, cf) in self.cid.iter().enumerate() {
                     if i == primary_idx {
                         continue;
                     }
                     let g = cf.ttf.gid_for(cp);
-                    if g != 0 {
-                        font_idx = i;
-                        gid = g;
-                        break;
+                    if g == 0 {
+                        continue;
                     }
+                    let score = score_cid_font(cf, weight, italic);
+                    if score > best_score {
+                        best_score = score;
+                        best = Some((i, g));
+                    }
+                }
+                if let Some((i, g)) = best {
+                    font_idx = i;
+                    gid = g;
                 }
             }
             let (resolved_font_idx, width_1000) = if gid != 0 {
@@ -405,10 +428,12 @@ pub struct EncodedCidRun {
 pub fn encode_cid_with_fallback(
     fontctx: &FontCtx,
     primary_idx: usize,
+    weight: u16,
+    italic: u8,
     text: &str,
     record: bool,
 ) -> Vec<EncodedCidRun> {
-    let glyphs = fontctx.shape(primary_idx, text, record);
+    let glyphs = fontctx.shape(primary_idx, weight, italic, text, record);
     if glyphs.is_empty() {
         return Vec::new();
     }
@@ -507,7 +532,7 @@ mod tests {
         let resources = [symbol_fallback_resource()];
         let fontctx = FontCtx::build(&resources).expect("build font context");
         let codepoint = '\u{00E1}'; // aacute: a composite outline in the fixture font
-        let shaped = fontctx.shape(0, &codepoint.to_string(), true);
+        let shaped = fontctx.shape(0, 400, 0, &codepoint.to_string(), true);
         let old_gid = shaped[0].old_gid;
         let directly_used = fontctx.cid[0].used_gids.borrow().clone();
 
@@ -528,5 +553,39 @@ mod tests {
         let subset_bytes = fontctx.cid[0].ttf.embed_bytes(&subset_glyphs_vec);
         let subset = TtfFont::parse(&subset_bytes).expect("parse subset font");
         assert_eq!(subset.gid_for(codepoint as u32), expected_gid);
+    }
+
+    fn source_han_resource(family: &str, weight: u16) -> FontResource {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("examples")
+            .join("SourceHanSansSC-Regular.ttf");
+        FontResource {
+            family: family.into(),
+            style: 0,
+            weight,
+            icon_font: false,
+            bytes: fs::read(path).expect("read SourceHanSansSC-Regular.ttf"),
+        }
+    }
+
+    #[test]
+    fn fallback_prefers_weight_matched_face() {
+        // Primary (symbol font) has no CJK glyph; the same CJK script is
+        // registered twice, Regular then Bold, under different families — the
+        // pattern a CSS `b, strong { font-family: X-Bold }` stack produces.
+        let resources = [
+            symbol_fallback_resource(),
+            source_han_resource("CJK-Regular", 400),
+            source_han_resource("CJK-Bold", 700),
+        ];
+        let fontctx = FontCtx::build(&resources).expect("build font context");
+        let text = "\u{9700}".to_string(); // 需, present only in the CJK faces
+
+        let bold = fontctx.shape(0, 700, 0, &text, false);
+        assert_eq!(bold[0].font_idx, Some(2), "bold text must use the Bold face");
+
+        let regular = fontctx.shape(0, 400, 0, &text, false);
+        assert_eq!(regular[0].font_idx, Some(1), "regular text must use the Regular face");
     }
 }
