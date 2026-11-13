@@ -1852,6 +1852,267 @@ function cssQuotedContentToText(content: string): string | null {
   return trimmed;
 }
 
+// --- CSS counters for generated content ---
+//
+// `content: counter(item) "."` reaches us as the literal token string
+// `counter(item) "."` (getComputedStyle does not evaluate counters), so the
+// counter values have to be resolved here. CSS counters depend on document
+// order, so one pass over the tree records the value set that is in effect for
+// each element's ::before / ::after box.
+//
+// Each name maps to its in-scope instances, outermost first: `counter()` reads
+// the last (innermost) value, while `counters()` joins all of them.
+type CounterValues = Record<string, number[]>;
+
+let pseudoCounterValues: {
+  before: WeakMap<HTMLElement, CounterValues>;
+  after: WeakMap<HTMLElement, CounterValues>;
+} | null = null;
+
+function resetPseudoCounterValues(): void {
+  pseudoCounterValues = null;
+}
+
+// Parse a computed counter-reset / counter-increment / counter-set value
+// ("item 0 other 1"). Omitted integers default to 0 for resets/sets and 1 for
+// increments.
+function parseCounterList(value: string, defaultAmount: number): Array<[string, number]> {
+  const out: Array<[string, number]> = [];
+  const v = (value || '').trim();
+  if (!v || v === 'none' || v.includes('reversed(')) return out;
+  const re = /([A-Za-z_-][A-Za-z0-9_-]*)\s*(-?\d+)?/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(v)) !== null) {
+    out.push([m[1], m[2] === undefined ? defaultAmount : parseInt(m[2], 10)]);
+  }
+  return out;
+}
+
+function buildPseudoCounterValues(): NonNullable<typeof pseudoCounterValues> {
+  const before = new WeakMap<HTMLElement, CounterValues>();
+  const after = new WeakMap<HTMLElement, CounterValues>();
+  // One map per scope level, outermost first. An element's child level holds
+  // the counters scoped to that element's subtree (its own same-name resets and
+  // its pseudo-elements' counters); a counter created with no same-name
+  // instance in scope instead lands in the parent level, where it also affects
+  // following siblings.
+  const levels: Array<Map<string, number>> = [new Map()];
+
+  const snapshotValues = (): CounterValues => {
+    const out: CounterValues = Object.create(null) as CounterValues;
+    for (const level of levels) {
+      for (const [name, value] of level) {
+        const stack = out[name] || (out[name] = []);
+        stack.push(value);
+      }
+    }
+    return out;
+  };
+
+  // Find the innermost in-scope instance of `name`.
+  const innermost = (name: string): Map<string, number> | null => {
+    for (let i = levels.length - 1; i >= 0; i--) {
+      if (levels[i].has(name)) return levels[i];
+    }
+    return null;
+  };
+
+  // Apply counter-reset → counter-increment → counter-set (Chrome's order).
+  // `outerLevel` receives counters that stay in scope for following siblings;
+  // `ownLevel` receives same-name resets, which only shadow the subtree.
+  const applyCounters = (
+    outerLevel: Map<string, number>,
+    ownLevel: Map<string, number>,
+    declarations: { reset: string; increment: string; set: string },
+  ): void => {
+    for (const [name, amount] of parseCounterList(declarations.reset, 0)) {
+      (innermost(name) ? ownLevel : outerLevel).set(name, amount);
+    }
+    for (const [name, amount] of parseCounterList(declarations.increment, 1)) {
+      const target = innermost(name);
+      if (target) target.set(name, (target.get(name) || 0) + amount);
+      else outerLevel.set(name, amount);
+    }
+    for (const [name, amount] of parseCounterList(declarations.set, 0)) {
+      (innermost(name) || outerLevel).set(name, amount);
+    }
+  };
+
+  const declarations = (cs: CSSStyleDeclaration) => ({
+    reset: cs.counterReset,
+    increment: cs.counterIncrement,
+    set: cs.getPropertyValue('counter-set'),
+  });
+
+  const pseudoStyle = (el: HTMLElement, pseudo: '::before' | '::after'): CSSStyleDeclaration | null => {
+    try {
+      return getComputedStyle(el, pseudo);
+    } catch {
+      return null;
+    }
+  };
+
+  const visit = (el: HTMLElement): void => {
+    const level = levels[levels.length - 1];
+    const childLevel = new Map<string, number>();
+    levels.push(childLevel);
+    applyCounters(level, childLevel, declarations(getComputedStyle(el)));
+
+    // Pseudo boxes are children of the element: their counters are visible to
+    // the element's own children but not to the element's siblings.
+    const beforeCs = pseudoStyle(el, '::before');
+    if (beforeCs) applyCounters(childLevel, childLevel, declarations(beforeCs));
+    before.set(el, snapshotValues());
+
+    for (let child = el.firstElementChild; child; child = child.nextElementSibling) {
+      visit(child as HTMLElement);
+    }
+
+    const afterCs = pseudoStyle(el, '::after');
+    if (afterCs) applyCounters(childLevel, childLevel, declarations(afterCs));
+    after.set(el, snapshotValues());
+    levels.pop();
+  };
+
+  visit(document.documentElement);
+  return { before, after };
+}
+
+function counterValuesFor(el: HTMLElement, pseudo: '::before' | '::after'): CounterValues | null {
+  if (!pseudoCounterValues) pseudoCounterValues = buildPseudoCounterValues();
+  return pseudoCounterValues[pseudo === '::before' ? 'before' : 'after'].get(el) || null;
+}
+
+function formatCounterValue(value: number, style: string): string {
+  const n = Math.trunc(value);
+  switch (style) {
+    case 'decimal-leading-zero': return n >= 0 && n < 10 ? `0${n}` : String(n);
+    case 'lower-alpha':
+    case 'lower-latin': return decimalToAlpha(n, false);
+    case 'upper-alpha':
+    case 'upper-latin': return decimalToAlpha(n, true);
+    case 'lower-roman': return n >= 1 ? decimalToRoman(n, false) : String(n);
+    case 'upper-roman': return n >= 1 ? decimalToRoman(n, true) : String(n);
+    default: return String(n);
+  }
+}
+
+// Read one quoted CSS string token starting at `start`. Escape handling mirrors
+// cssQuotedContentToText: `\A` becomes a newline, quote/backslash escapes are
+// unescaped, and any other escape is kept verbatim (hex escapes are not
+// interpreted, e.g. icon-font content keeps its raw `\e600` form).
+function readCssStringToken(input: string, start: number): { text: string; end: number } | null {
+  const quote = input[start];
+  if (quote !== '"' && quote !== '\'') return null;
+  let out = '';
+  for (let i = start + 1; i < input.length; i++) {
+    const ch = input[i];
+    if (ch === '\\') {
+      const next = input[i + 1];
+      if (next === undefined) break;
+      if (next === 'A') {
+        out += '\n';
+        i++;
+        while (i + 1 < input.length && /\s/.test(input[i + 1])) i++;
+        continue;
+      }
+      if (next === '\\' || next === '"' || next === '\'') {
+        out += next;
+        i++;
+        continue;
+      }
+      out += '\\' + next;
+      i++;
+      continue;
+    }
+    if (ch === quote) return { text: out, end: i + 1 };
+    out += ch;
+  }
+  return null;
+}
+
+// Read a `name(args)` function token starting at `start`; `end` is one past `)`.
+function readCssFunctionToken(
+  input: string,
+  start: number,
+): { name: string; args: string; end: number } | null {
+  const head = /^([A-Za-z_-][A-Za-z0-9_-]*)\(/.exec(input.slice(start));
+  if (!head) return null;
+  const argsStart = start + head[0].length;
+  let depth = 1;
+  for (let i = argsStart; i < input.length; i++) {
+    const ch = input[i];
+    if (ch === '"' || ch === '\'') {
+      const str = readCssStringToken(input, i);
+      if (str) { i = str.end - 1; continue; }
+    }
+    if (ch === '(') depth++;
+    else if (ch === ')') {
+      depth--;
+      if (depth === 0) {
+        return { name: head[1].toLowerCase(), args: input.slice(argsStart, i), end: i + 1 };
+      }
+    }
+  }
+  return null;
+}
+
+function resolveCounterFunction(args: string, values: CounterValues): string {
+  const parts = splitTopLevelComma(args);
+  const name = (parts[0] || '').trim();
+  const style = (parts[1] || '').trim().toLowerCase();
+  const stack = values[name];
+  return formatCounterValue(stack && stack.length ? stack[stack.length - 1] : 0, style);
+}
+
+// `counters(name, separator, style?)` renders every in-scope instance from the
+// outermost to the innermost, joined by the separator.
+function resolveCountersFunction(args: string, values: CounterValues): string {
+  const parts = splitTopLevelComma(args);
+  const name = (parts[0] || '').trim();
+  const separatorToken = readCssStringToken((parts[1] || '').trim(), 0);
+  const separator = separatorToken ? separatorToken.text : '';
+  const style = (parts[2] || '').trim().toLowerCase();
+  const stack = values[name];
+  if (!stack || stack.length === 0) return formatCounterValue(0, style);
+  return stack.map((value) => formatCounterValue(value, style)).join(separator);
+}
+
+// Resolve a computed `content` value into the text it paints, expanding
+// counter()/counters()/attr() and concatenating string tokens.
+function resolveContentText(
+  el: HTMLElement,
+  pseudo: '::before' | '::after',
+  content: string,
+): string | null {
+  const trimmed = (content || '').trim();
+  if (!trimmed || trimmed === 'none' || trimmed === 'normal') return null;
+  const values = /counters?\(/i.test(trimmed) ? counterValuesFor(el, pseudo) : null;
+  let out = '';
+  let recognized = false;
+  for (let i = 0; i < trimmed.length; i++) {
+    const ch = trimmed[i];
+    if (ch === '"' || ch === '\'') {
+      const token = readCssStringToken(trimmed, i);
+      if (token) { out += token.text; recognized = true; i = token.end - 1; continue; }
+    }
+    const fn = readCssFunctionToken(trimmed, i);
+    if (fn) {
+      recognized = true;
+      if (fn.name === 'counter') out += resolveCounterFunction(fn.args, values || {});
+      else if (fn.name === 'counters') out += resolveCountersFunction(fn.args, values || {});
+      else if (fn.name === 'attr') {
+        const attrName = (splitTopLevelComma(fn.args)[0] || '').trim();
+        out += el.getAttribute(attrName) ?? '';
+      }
+      i = fn.end - 1;
+    }
+  }
+  // Unknown content (e.g. a bare token) keeps the historical raw-text fallback.
+  if (!recognized) return cssQuotedContentToText(trimmed);
+  return out || null;
+}
+
 // Convert a 1-based index to alphabetic (a, b, ..., z, aa, ab, ...).
 function decimalToAlpha(n: number, upper: boolean): string {
   if (n < 1) return String(n);
@@ -2166,7 +2427,7 @@ async function buildPseudoClone(
     pseudoEl.style.bottom = 'auto';
     pseudoEl.style.left = 'auto';
   }
-  const text = cssQuotedContentToText(computed.content);
+  const text = resolveContentText(owner, pseudo, computed.content);
   if (text) pseudoEl.textContent = text;
   await inlineCloneResources(pseudoEl, owner, pseudo);
   return pseudoEl;
@@ -2881,11 +3142,11 @@ function collectFullRasterExtractableText(root: HTMLElement): string {
     }
     if (node.nodeType !== Node.ELEMENT_NODE) return;
     const el = node as HTMLElement;
-    append(cssQuotedContentToText(getComputedStyle(el, '::before').content));
+    append(resolveContentText(el, '::before', getComputedStyle(el, '::before').content));
     for (let child = el.firstChild; child; child = child.nextSibling) {
       walk(child);
     }
-    append(cssQuotedContentToText(getComputedStyle(el, '::after').content));
+    append(resolveContentText(el, '::after', getComputedStyle(el, '::after').content));
   };
 
   walk(root);
@@ -3603,6 +3864,8 @@ export async function collectSnapshotData(
   options: ExportOptions = {},
 ): Promise<EncodeArgs> {
   resetDebugPerfSnapshotState();
+  // Counter values are tree-order dependent, so they are re-derived per export.
+  resetPseudoCounterValues();
   const normalizedOptions = normalizeLegacyOptions(options);
   // jsPDF hooks: accepted but no-op (engine has no jsPDF instance).
   if (normalizedOptions.onJspdfReady) {
