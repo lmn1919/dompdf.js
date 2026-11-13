@@ -2031,7 +2031,12 @@ fn draw_text_lines(
                 // A CID segment needs faux bold when bold was requested but the
                 // selected face is not bold; Latin segments fall back to the real
                 // Base14 bold face (/F1B), so they never need it.
-                let seg_faux = matches!(
+                // Faux bold paints the run twice (fill + stroke), so for
+                // translucent text it would double the effective alpha and leave
+                // a darker halo around every glyph. Only synthesize bold when the
+                // run is painted fully opaque.
+                let opaque = color[3] >= 0.999 && node.opacity.unwrap_or(1.0) >= 0.999;
+                let seg_faux = opaque && matches!(
                     seg_font_idx,
                     Some(font_idx) if needs_faux_bold(font.weight, fontctx.cid[font_idx].weight)
                 );
@@ -2350,7 +2355,11 @@ fn draw_watermark(
                                 }
                             };
                             out.push_str(&font_op);
-                            let run_faux = matches!(
+                            // Faux bold = fill + stroke, which composites the run
+                            // twice; with a translucent watermark color that
+                            // doubles the alpha and outlines each glyph. Keep the
+                            // plain face unless the watermark is fully opaque.
+                            let run_faux = color[3] >= 0.999 && matches!(
                                 run.kind,
                                 EncodedFontKind::Cid(font_idx)
                                     if needs_faux_bold(spec.weight, fontctx.cid[font_idx].weight)
