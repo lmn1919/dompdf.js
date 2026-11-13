@@ -88,6 +88,11 @@ export interface FontConfig {
   fontUrl?: string;
   fontStyle?: 'normal' | 'italic';
   fontWeight?: 400 | 700 | number;
+  /**
+   * Marks an icon font. Besides the PDF font, its bytes are embedded into
+   * rasterized clones (pseudo-element glyphs, transformed text) so the glyph
+   * keeps this font inside the SVG raster instead of falling back to .notdef.
+   */
   iconFont?: boolean;
   /** Unicode ranges this font should handle in legacy langFontConfig mode. */
   charRange?: [number, number][];
@@ -2793,15 +2798,92 @@ function superSampleFactor(cssW: number, cssH: number): number {
   return Math.max(1, ss);
 }
 
+// --- icon fonts available to raster clones ---
+//
+// Rasterized clones are serialized into an SVG rendered as an <img>: a separate
+// document that does not inherit the host page's registered webfonts. A pseudo
+// element painted with an icon font therefore loses its glyph (the codepoint
+// falls back to .notdef). Embed the configured icon fonts as data-URL
+// @font-face rules whenever the clone references that family.
+type RasterFontSource = { family: string; weight: number; italic: number; bytes: Uint8Array };
+
+let rasterFontSources: RasterFontSource[] = [];
+const rasterFontBase64Cache = new Map<RasterFontSource, string>();
+
+function setRasterFontSources(fonts: CollectedFont[]): void {
+  rasterFontSources = fonts
+    .filter((font) => font.iconFont && font.family.trim() !== '' && font.bytes.length > 0)
+    .map((font) => ({
+      family: font.family,
+      weight: font.weight,
+      italic: font.style,
+      bytes: font.bytes,
+    }));
+  rasterFontBase64Cache.clear();
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const chunk = 0x4000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    const part = Array.from(bytes.subarray(i, i + chunk));
+    binary += String.fromCharCode.apply(null, part);
+  }
+  return btoa(binary);
+}
+
+// Families painted by a raster clone. The clone is detached, so its computed
+// style is unavailable; collect the families from the live source element
+// instead (the clone mirrors those styles).
+function collectRasterFontFamilies(el: HTMLElement): Set<string> {
+  const families = new Set<string>();
+  const add = (value: string): void => {
+    for (const raw of (value || '').split(',')) {
+      const name = raw.trim().replace(/^["']|["']$/g, '').trim().toLowerCase();
+      if (name) families.add(name);
+    }
+  };
+  add(getComputedStyle(el).fontFamily);
+  for (const pseudo of ['::before', '::after'] as const) {
+    try { add(getComputedStyle(el, pseudo).fontFamily); } catch { /* unsupported pseudo */ }
+  }
+  for (const child of Array.from(el.querySelectorAll('*'))) {
+    add(getComputedStyle(child).fontFamily);
+  }
+  return families;
+}
+
+function buildRasterFontCss(families: Set<string>): string {
+  if (rasterFontSources.length === 0 || families.size === 0) return '';
+  const rules: string[] = [];
+  for (const font of rasterFontSources) {
+    if (!families.has(font.family.trim().toLowerCase())) continue;
+    let base64 = rasterFontBase64Cache.get(font);
+    if (!base64) {
+      base64 = bytesToBase64(font.bytes);
+      rasterFontBase64Cache.set(font, base64);
+    }
+    const family = font.family.trim().replace(/["\\]/g, '\\$&');
+    const style = font.italic ? 'italic' : 'normal';
+    rules.push(`@font-face{font-family:"${family}";src:url("data:font/ttf;base64,${base64}") format("truetype");font-weight:${font.weight};font-style:${style};}`);
+  }
+  return rules.length > 0 ? `<style>${rules.join('')}</style>` : '';
+}
+
 // Serialize a wrapper (containing the element clone) through an SVG foreignObject
 // into a supersampled canvas, returned as lossless raw RGB.
 async function rasterizeWrapper(
   wrapper: HTMLElement,
   captureWidth: number,
   captureHeight: number,
+  fontFamilies?: Set<string>,
 ): Promise<{ bytes: Uint8Array; width: number; height: number; format: number } | null> {
   const serialized = new XMLSerializer().serializeToString(wrapper);
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${captureWidth}" height="${captureHeight}" viewBox="0 0 ${captureWidth} ${captureHeight}"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml">${serialized}</div></foreignObject></svg>`;
+  // The SVG below is rendered as an <img>, a separate document that cannot see
+  // the host page's registered webfonts. Embed the configured icon fonts so
+  // pseudo-element glyphs keep their font instead of falling back to .notdef.
+  const fontCss = fontFamilies ? buildRasterFontCss(fontFamilies) : '';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${captureWidth}" height="${captureHeight}" viewBox="0 0 ${captureWidth} ${captureHeight}"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml">${fontCss}${serialized}</div></foreignObject></svg>`;
   const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   const img = await loadImageFromUrl(url);
   const ss = superSampleFactor(captureWidth, captureHeight);
@@ -2987,7 +3069,12 @@ async function rasterizeElement(
       ? await resolveBackdropImage(el, rawRect)
       : null;
     const wrapper = await buildRasterWrapper(el, rawRect, shadowPad, captureWidth, captureHeight, false, backdropCss, backdropImageUrl ?? undefined);
-    const out = await rasterizeWrapper(wrapper, captureWidth, captureHeight);
+    const out = await rasterizeWrapper(
+      wrapper,
+      captureWidth,
+      captureHeight,
+      rasterFontSources.length > 0 ? collectRasterFontFamilies(el) : undefined,
+    );
     if (!out) return null;
     return {
       ...out,
@@ -3034,7 +3121,12 @@ async function rasterizeElementBackgroundOnly(
       ? await resolveBackdropImage(el, rawRect)
       : null;
     const wrapper = await buildRasterWrapper(el, rawRect, noPad, captureWidth, captureHeight, true, resolvedBackdrop, backdropImageUrl ?? undefined);
-    return await rasterizeWrapper(wrapper, captureWidth, captureHeight);
+    return await rasterizeWrapper(
+      wrapper,
+      captureWidth,
+      captureHeight,
+      rasterFontSources.length > 0 ? collectRasterFontFamilies(el) : undefined,
+    );
   } catch {
     return null;
   } finally {
@@ -3927,6 +4019,7 @@ export async function collectSnapshotData(
       bytes,
     });
   }
+  setRasterFontSources(fonts);
 
   // pageConfig: object form -> static HF (Rust resolves placeholders).
   //            function form -> per-page resolved text (JS resolves placeholders),
