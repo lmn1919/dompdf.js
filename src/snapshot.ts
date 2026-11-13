@@ -2871,11 +2871,14 @@ function buildRasterFontCss(families: Set<string>): string {
 }
 
 // Serialize a wrapper (containing the element clone) through an SVG foreignObject
-// into a supersampled canvas, returned as lossless raw RGB.
+// into a supersampled canvas. `preserveAlpha` keeps the canvas alpha channel
+// (raw RGBA + SMask) so the raster can sit over vector content painted earlier —
+// e.g. a parent border behind a transparent icon box.
 async function rasterizeWrapper(
   wrapper: HTMLElement,
   captureWidth: number,
   captureHeight: number,
+  preserveAlpha = false,
   fontFamilies?: Set<string>,
 ): Promise<{ bytes: Uint8Array; width: number; height: number; format: number } | null> {
   const serialized = new XMLSerializer().serializeToString(wrapper);
@@ -2893,9 +2896,14 @@ async function rasterizeWrapper(
   const ctx = canvas.getContext('2d');
   if (!ctx) return null;
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-  const raw = canvasToRawRgb(canvas);
+  const raw = preserveAlpha ? canvasToRawRgba(canvas) : canvasToRawRgb(canvas);
   if (!raw) return null;
-  return { bytes: raw.bytes, width: raw.width, height: raw.height, format: IMG_RAW_RGB };
+  return {
+    bytes: raw.bytes,
+    width: raw.width,
+    height: raw.height,
+    format: preserveAlpha ? IMG_RAW_RGBA : IMG_RAW_RGB,
+  };
 }
 
 // Wrapper of fixed CSS size holding the positioned element clone. Opaque backdrop
@@ -3073,6 +3081,7 @@ async function rasterizeElement(
       wrapper,
       captureWidth,
       captureHeight,
+      false,
       rasterFontSources.length > 0 ? collectRasterFontFamilies(el) : undefined,
     );
     if (!out) return null;
@@ -3113,11 +3122,20 @@ async function rasterizeElementBackgroundOnly(
     const captureWidth = Math.max(1, Math.ceil(rawRect.width));
     const captureHeight = Math.max(1, Math.ceil(rawRect.height));
     const noPad: EdgePadding = { top: 0, right: 0, bottom: 0, left: 0 };
-    const resolvedBackdrop = backdropCss
-      || (allowBackdropSampling
+    // A transparent element (e.g. an icon box holding a ::before glyph) must not
+    // bake an opaque backdrop: that rect would cover whatever was painted first
+    // — typically the parent's border. Keep the alpha channel instead and let the
+    // PDF composite the raster over the existing vector content.
+    const cs = getComputedStyle(el);
+    const ownBg = parseColor(cs.backgroundColor);
+    const hasOwnPaint = ownBg[3] > 0.001 || ((cs.backgroundImage || 'none') !== 'none');
+    const preserveAlpha = !hasOwnPaint;
+    const resolvedBackdrop = preserveAlpha
+      ? 'transparent'
+      : backdropCss || (allowBackdropSampling
         ? colorToCssRgb(await resolveBackdropColor(el, rawRect))
         : findOpaqueBackdropColor(el));
-    const backdropImageUrl = allowBackdropSampling
+    const backdropImageUrl = !preserveAlpha && allowBackdropSampling
       ? await resolveBackdropImage(el, rawRect)
       : null;
     const wrapper = await buildRasterWrapper(el, rawRect, noPad, captureWidth, captureHeight, true, resolvedBackdrop, backdropImageUrl ?? undefined);
@@ -3125,6 +3143,7 @@ async function rasterizeElementBackgroundOnly(
       wrapper,
       captureWidth,
       captureHeight,
+      preserveAlpha,
       rasterFontSources.length > 0 ? collectRasterFontFamilies(el) : undefined,
     );
   } catch {
