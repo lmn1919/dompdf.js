@@ -2844,6 +2844,23 @@ async function buildRasterWrapper(
 
   const clone = backgroundOnly ? await cloneElementBackgroundOnly(el) : await cloneElementForRaster(el);
   clone.style.position = 'absolute';
+  // The clone reproduces the source's computed styles verbatim, including
+  // logical insets that mirror `right`/`bottom` (e.g. `inset-inline: 238px 0`).
+  // Those win over the physical left/top below and shift the clone out of the
+  // capture box, producing a blank raster. Pin every inset to auto first.
+  for (const prop of [
+    'inset',
+    'inset-inline',
+    'inset-block',
+    'inset-inline-start',
+    'inset-inline-end',
+    'inset-block-start',
+    'inset-block-end',
+    'right',
+    'bottom',
+  ]) {
+    clone.style.setProperty(prop, 'auto');
+  }
   clone.style.left = `${shadowPad.left}px`;
   clone.style.top = `${shadowPad.top}px`;
   clone.style.width = `${Math.max(1, Math.ceil(rawRect.width))}px`;
