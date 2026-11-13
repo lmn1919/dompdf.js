@@ -4075,13 +4075,13 @@ export async function collectSnapshotData(
     return linesFromFragments(text, start16, collectTextFragments(textNode, start16, end16));
   }
 
-  function findFirstTextFragmentX(el: HTMLElement): number | null {
+  function findFirstTextFragment(el: HTMLElement): MeasuredTextFragment | null {
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
     let node = walker.nextNode() as Text | null;
     while (node) {
       if (node.data && node.data.trim().length > 0) {
         const fragments = collectTextFragments(node);
-        if (fragments.length > 0) return fragments[0].x;
+        if (fragments.length > 0) return fragments[0];
       }
       node = walker.nextNode() as Text | null;
     }
@@ -4355,6 +4355,60 @@ function buildInlineRunsWithLangFont(
       pageBreak: false,
       text,
       lines,
+    });
+  }
+
+  // Chromium paints outside bullets (disc/circle/square) as shapes, and its
+  // ::marker geometry does not survive our text-font fallback (the dot comes
+  // out tiny and shifted). Draw the bullet as a vector shape instead, using
+  // Chromium's measured proportions: a 0.31em dot centred 0.55 of the way down
+  // the first line box, with the marker box plus a 0.27em + 6.5px gap to the
+  // left of the <li> content edge.
+  function pushBulletMarkerNode(
+    parentId: number,
+    kind: 'disc' | 'circle' | 'square',
+    markerCs: CSSStyleDeclaration,
+    fontSizePx: number,
+    firstFragment: MeasuredTextFragment,
+  ): void {
+    const color = parseColor(markerCs.color);
+    if (color[3] <= 0.001) return;
+    const dotDiameterPx = fontSizePx * 0.31;
+    const isCircle = kind === 'circle';
+    // A circle marker is a ring: one CSS px of border around the disc.
+    const outerDiameterPx = isCircle ? dotDiameterPx + 2 : dotDiameterPx;
+    // Chromium reports the laid-out marker box width; other engines fall back
+    // to the dot size so the bullet still sits next to the text.
+    const reportedBoxPx = parseFloat(markerCs.width);
+    const markerBoxPx = Number.isFinite(reportedBoxPx) && reportedBoxPx > 0
+      ? reportedBoxPx
+      : dotDiameterPx;
+    const size = Math.max(1, outerDiameterPx * layoutScale);
+    const radius = size / 2;
+    const centerX = firstFragment.x - (fontSizePx * 0.27 + 6.5 + markerBoxPx / 2) * layoutScale;
+    const centerY = firstFragment.y + firstFragment.h * 0.55;
+    nodes.push({
+      id: nodes.length,
+      parent: parentId,
+      kind: 0,
+      x: centerX - radius,
+      y: centerY - radius,
+      w: size,
+      h: size,
+      flags: (isCircle ? F_BORDER : F_BG) | F_RADIUS | F_DIVISION_DISABLE,
+      bg: isCircle ? undefined : color,
+      border: isCircle
+        ? {
+          w: [layoutScale, layoutScale, layoutScale, layoutScale],
+          c: [color, color, color, color],
+          s: [BORDER_SOLID, BORDER_SOLID, BORDER_SOLID, BORDER_SOLID],
+        }
+        : undefined,
+      radius: [radius, radius, radius, radius],
+      overflowHidden: false,
+      renderMode: 0,
+      divisionDisable: true,
+      pageBreak: false,
     });
   }
 
@@ -4867,12 +4921,14 @@ function buildInlineRunsWithLangFont(
 
           const liDoc = docRect(el.getBoundingClientRect());
           const position = (cs.listStylePosition || 'outside').trim();
-          const listCs = el.parentElement ? getComputedStyle(el.parentElement) : null;
-          const listPaddingLeftPx = listCs ? (parseFloat(listCs.paddingLeft) || 0) : 0;
           const paddingLeftPx = parseFloat(cs.paddingLeft) || 0;
-          const markerMarginLeftPx = parseFloat(markerCs.marginLeft) || 0;
           const markerMarginRightPx = parseFloat(markerCs.marginRight) || 0;
-          const markerGapPx = Math.max(4, fontSizePx * 0.33);
+          // Bullets are drawn as vector shapes (see pushBulletMarkerNode) unless
+          // the author supplied explicit ::marker text.
+          const explicitMarkerText = cssQuotedContentToText(markerCs.content);
+          const markerType = listStyleType.trim().toLowerCase();
+          const bulletMarker = !explicitMarkerText
+            && (markerType === 'disc' || markerType === 'circle' || markerType === 'square');
 
           // Vertical: align marker cap with the first text line of the <li>.
           // Using liDoc.y + (lineHeight - fontSize)/2 approximates the text
@@ -4880,38 +4936,47 @@ function buildInlineRunsWithLangFont(
           // correct first-line marker because lineHeight matches the first
           // line box height.
           const markerY = liDoc.y + (lineHeightPx - fontSizePx) * 0.5 * layoutScale;
-          const firstTextX = findFirstTextFragmentX(el);
-          let markerX: number;
-          let markerW: number;
-          let markerAlign = markerFont.align;
-          if (position === 'inside') {
-            // Marker flows as the first inline child, so it starts at the
-            // padding-left edge of the <li>.
-            markerX = firstTextX !== null
-              ? firstTextX - textWidthPx * layoutScale
-              : liDoc.x + paddingLeftPx * layoutScale;
-            markerW = Math.max(1, textWidthPx * layoutScale);
+          const firstFragment = findFirstTextFragment(el);
+          const firstTextX = firstFragment ? firstFragment.x : null;
+          if (position !== 'inside' && bulletMarker && firstFragment) {
+            pushBulletMarkerNode(id, markerType as 'disc' | 'circle' | 'square', markerCs, fontSizePx, firstFragment);
           } else {
-            // Outside: reserve the browser-like marker column (usually the
-            // parent list's padding-left) and right-align marker text inside it.
-            const markerRight = firstTextX !== null
-              ? firstTextX - markerGapPx * layoutScale
-              : liDoc.x + (paddingLeftPx - markerMarginRightPx) * layoutScale;
-            const markerColumnPx = Math.max(textWidthPx + markerGapPx, listPaddingLeftPx + markerMarginLeftPx);
-            markerW = Math.max(1, markerColumnPx * layoutScale);
-            markerX = markerRight - markerW;
-            markerAlign = 1;
+            let markerX: number;
+            let markerW: number;
+            if (position === 'inside') {
+              // Marker flows as the first inline child, so it starts at the
+              // padding-left edge of the <li>.
+              markerX = firstTextX !== null
+                ? firstTextX - textWidthPx * layoutScale
+                : liDoc.x + paddingLeftPx * layoutScale;
+              markerW = Math.max(1, textWidthPx * layoutScale);
+            } else {
+              // Outside counter marker: the browser places the marker box against
+              // the <li>'s content edge and left-aligns the marker text inside it,
+              // giving the box a trailing gap. Chromium reports that laid-out box
+              // width, which makes multi-digit numbers share the same right edge;
+              // elsewhere fall back to the measured text width plus a gap.
+              const reportedBoxPx = parseFloat(markerCs.width);
+              const markerBoxPx = Number.isFinite(reportedBoxPx) && reportedBoxPx > 0
+                ? reportedBoxPx
+                : textWidthPx + Math.max(2, fontSizePx * 0.4);
+              const markerRight = firstTextX !== null
+                ? firstTextX
+                : liDoc.x + (paddingLeftPx - markerMarginRightPx) * layoutScale;
+              markerW = Math.max(1, markerBoxPx * layoutScale);
+              markerX = markerRight - markerW;
+            }
+            const utf8End = utf8Offsets(markerText)[markerText.length];
+            const markerFontNode: NonNullable<NodeRec['font']> = { ...markerFont, align: 0 };
+            pushTextNode(id, markerFontNode, markerText, [{
+              x: markerX,
+              y: markerY,
+              w: markerW,
+              h: Math.max(1, fontSizePx * layoutScale),
+              start: 0,
+              end: utf8End,
+            }]);
           }
-          const utf8End = utf8Offsets(markerText)[markerText.length];
-          const markerFontNode: NonNullable<NodeRec['font']> = { ...markerFont, align: markerAlign };
-          pushTextNode(id, markerFontNode, markerText, [{
-            x: markerX,
-            y: markerY,
-            w: markerW,
-            h: Math.max(1, fontSizePx * layoutScale),
-            start: 0,
-            end: utf8End,
-          }]);
         }
       }
     }
