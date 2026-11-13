@@ -543,10 +543,15 @@ mod tests {
             subset_glyphs.len() > directly_used.len() + 1,
             "expected .notdef and composite component glyphs in the subset"
         );
-        let expected_gid = subset_glyphs
-            .iter()
-            .position(|&gid| gid == old_gid)
-            .expect("composite glyph retained") as u16;
+        // `used_gids` is a HashSet, so read the expected GID from the subset map
+        // instead of the set's (unordered) iteration order.
+        let expected_gid = *fontctx.cid[0]
+            .subset_old_to_new
+            .borrow()
+            .as_ref()
+            .expect("subset map")
+            .get(&old_gid)
+            .expect("composite glyph retained");
         assert_eq!(fontctx.cid[0].subset_gid(old_gid), expected_gid);
 
         let subset_glyphs_vec: Vec<u16> = subset_glyphs.into_iter().collect();
