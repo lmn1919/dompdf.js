@@ -18,7 +18,11 @@
     <link rel="canonical" href="https://dompdfjs.lisky.com.cn/" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <link rel="icon" type="image/x-icon" href="./favicon.ico" />
-    <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="./apple-touch-icon.png"
+    />
     <meta property="og:type" content="website" />
     <meta
       property="og:title"
@@ -70,13 +74,15 @@
       rel="stylesheet"
     />
 
-    <link rel="stylesheet" href="./index.css?v=20260930b" />
+    <link rel="stylesheet" href="./index.css?v=20261120b" />
 
     <!-- Library Scripts -->
     <script src="../dist/dompdf.js"></script>
     <script>
       if (!window.dompdf) {
-        document.write('<script src="https://cdn.jsdelivr.net/npm/dompdf.js@latest/dist/dompdf.min.js"><\/script>');
+        document.write(
+          '<script src="https://cdn.jsdelivr.net/npm/dompdf.js@2.0.8/dist/dompdf.min.js"><\/script>',
+        );
       }
     </script>
   </head>
@@ -498,7 +504,6 @@
         <div class="tab-panel active" id="panel-basic">
           <div class="doc-viewport">
             <article id="document" class="doc">
-
               <header class="ds-hero">
                 <div>
                   <div class="eyebrow" id="hero-eyebrow">
@@ -650,46 +655,46 @@
                     <div class="ds-swatch">
                       <div
                         class="ds-swatch-color"
-                        style="background: #2563eb"
+                        style="background: #e8590c"
                       ></div>
                       <div>
                         <strong
-                          style="font-size: 13px; color: #0f172a"
+                          style="font-size: 13px; color: #1b1a17"
                           id="sec-02-swatch-1-name"
                           >Primary Blue</strong
                         >
                         <div
                           style="
                             font-size: 11px;
-                            color: #64748b;
+                            color: #6b665d;
                             margin-top: 2px;
                           "
                           id="sec-02-swatch-1-desc"
                         >
-                          #2563eb · 用于主按钮、链接、关键图标
+                          #e8590c · 用于主按钮、链接、关键图标
                         </div>
                       </div>
                     </div>
                     <div class="ds-swatch">
                       <div
                         class="ds-swatch-color"
-                        style="background: #10b981"
+                        style="background: #1f7a44"
                       ></div>
                       <div>
                         <strong
-                          style="font-size: 13px; color: #0f172a"
+                          style="font-size: 13px; color: #1b1a17"
                           id="sec-02-swatch-2-name"
                           >Success Green</strong
                         >
                         <div
                           style="
                             font-size: 11px;
-                            color: #64748b;
+                            color: #6b665d;
                             margin-top: 2px;
                           "
                           id="sec-02-swatch-2-desc"
                         >
-                          #10b981 · 用于完成状态、正向反馈
+                          #1f7a44 · 用于完成状态、正向反馈
                         </div>
                       </div>
                     </div>
@@ -700,14 +705,14 @@
                       ></div>
                       <div>
                         <strong
-                          style="font-size: 13px; color: #0f172a"
+                          style="font-size: 13px; color: #1b1a17"
                           id="sec-02-swatch-3-name"
                           >Warning Amber</strong
                         >
                         <div
                           style="
                             font-size: 11px;
-                            color: #64748b;
+                            color: #6b665d;
                             margin-top: 2px;
                           "
                           id="sec-02-swatch-3-desc"
@@ -723,14 +728,14 @@
                       ></div>
                       <div>
                         <strong
-                          style="font-size: 13px; color: #0f172a"
+                          style="font-size: 13px; color: #1b1a17"
                           id="sec-02-swatch-4-name"
                           >Error Red</strong
                         >
                         <div
                           style="
                             font-size: 11px;
-                            color: #64748b;
+                            color: #6b665d;
                             margin-top: 2px;
                           "
                           id="sec-02-swatch-4-desc"
@@ -745,7 +750,7 @@
                     <div
                       class="ds-gradient-bar"
                       style="
-                        background: linear-gradient(135deg, #2563eb, #8b5cf6);
+                        background: linear-gradient(135deg, #e8590c, #b45309);
                         margin-bottom: 12px;
                       "
                     ></div>
@@ -754,9 +759,9 @@
                       style="
                         background: linear-gradient(
                           90deg,
-                          #f1f5f9,
-                          #94a3b8,
-                          #334155
+                          #efebe3,
+                          #7a756b,
+                          #3a3731
                         );
                         margin-bottom: 12px;
                       "
@@ -1006,12 +1011,12 @@
                         >
                           <stop
                             offset="0%"
-                            stop-color="#6366f1"
-                            stop-opacity="0.38"
+                            stop-color="#e8590c"
+                            stop-opacity="0.22"
                           />
                           <stop
                             offset="100%"
-                            stop-color="#6366f1"
+                            stop-color="#e8590c"
                             stop-opacity="0.0"
                           />
                         </linearGradient>
@@ -1024,12 +1029,12 @@
                         >
                           <stop
                             offset="0%"
-                            stop-color="#10b981"
+                            stop-color="#1f7a44"
                             stop-opacity="0.25"
                           />
                           <stop
                             offset="100%"
-                            stop-color="#10b981"
+                            stop-color="#1f7a44"
                             stop-opacity="0.0"
                           />
                         </linearGradient>
@@ -1042,13 +1047,13 @@
                         >
                           <stop
                             offset="0%"
-                            stop-color="#8b5cf6"
-                            stop-opacity="0.8"
+                            stop-color="#7a756b"
+                            stop-opacity="0.24"
                           />
                           <stop
                             offset="100%"
-                            stop-color="#c084fc"
-                            stop-opacity="0.2"
+                            stop-color="#d8d2c6"
+                            stop-opacity="0.08"
                           />
                         </linearGradient>
                       </defs>
@@ -1061,7 +1066,7 @@
                         height="250"
                         rx="12"
                         fill="#ffffff"
-                        stroke="#e2e8f0"
+                        stroke="#d8d2c6"
                         stroke-width="1"
                       />
 
@@ -1069,7 +1074,7 @@
                       <text
                         x="28"
                         y="32"
-                        fill="#0f172a"
+                        fill="#1b1a17"
                         font-size="14"
                         font-weight="700"
                         font-family="Inter, system-ui, sans-serif"
@@ -1081,25 +1086,25 @@
                         font-family="Inter, system-ui, sans-serif"
                         font-weight="500"
                       >
-                        <circle cx="360" cy="27" r="4.5" fill="#6366f1" />
-                        <text x="370" y="31" fill="#475569">Adoption Rate</text>
-                        <circle cx="465" cy="27" r="4.5" fill="#10b981" />
-                        <text x="475" y="31" fill="#475569">Performance</text>
+                        <circle cx="360" cy="27" r="4.5" fill="#e8590c" />
+                        <text x="370" y="31" fill="#5c574e">Adoption Rate</text>
+                        <circle cx="465" cy="27" r="4.5" fill="#1f7a44" />
+                        <text x="475" y="31" fill="#5c574e">Performance</text>
                         <rect
                           x="565"
-                          cy="23"
+                          y="23"
                           width="9"
                           height="9"
                           rx="2"
-                          fill="#8b5cf6"
-                          opacity="0.8"
+                          fill="#7a756b"
+                          opacity="0.55"
                         />
-                        <text x="579" y="31" fill="#475569">Volume</text>
+                        <text x="579" y="31" fill="#5c574e">Volume</text>
                       </g>
 
                       <!-- Grid Lines & Y Axis -->
                       <g
-                        stroke="#f1f5f9"
+                        stroke="#efebe3"
                         stroke-width="1"
                         stroke-dasharray="3 3"
                       >
@@ -1109,7 +1114,7 @@
                         <line x1="50" y1="180" x2="610" y2="180" />
                       </g>
                       <g
-                        fill="#94a3b8"
+                        fill="#7a756b"
                         font-size="10"
                         font-family="Inter, system-ui, sans-serif"
                         text-anchor="end"
@@ -1177,13 +1182,13 @@
                       <!-- Line 2: Performance Index (Emerald) -->
                       <polyline
                         fill="none"
-                        stroke="#10b981"
+                        stroke="#1f7a44"
                         stroke-width="2.5"
                         stroke-linecap="round"
                         stroke-linejoin="round"
                         points="90,178 182,150 274,135 366,110 458,90 550,78"
                       />
-                      <g fill="#ffffff" stroke="#10b981" stroke-width="2">
+                      <g fill="#ffffff" stroke="#1f7a44" stroke-width="2">
                         <circle cx="90" cy="178" r="3.5" />
                         <circle cx="182" cy="150" r="3.5" />
                         <circle cx="274" cy="135" r="3.5" />
@@ -1192,16 +1197,16 @@
                         <circle cx="550" cy="78" r="3.5" />
                       </g>
 
-                      <!-- Line 1: Primary Adoption (Indigo) -->
+                      <!-- Line 1: Primary Adoption -->
                       <polyline
                         fill="none"
-                        stroke="#6366f1"
+                        stroke="#e8590c"
                         stroke-width="3"
                         stroke-linecap="round"
                         stroke-linejoin="round"
                         points="90,165 182,130 274,120 366,85 458,95 550,68"
                       />
-                      <g fill="#6366f1">
+                      <g fill="#e8590c">
                         <circle
                           cx="90"
                           cy="165"
@@ -1253,13 +1258,13 @@
                         font-family="Inter, system-ui, sans-serif"
                         text-anchor="middle"
                       >
-                        <text x="366" y="74" fill="#4f46e5">88%</text>
-                        <text x="550" y="57" fill="#4f46e5">96%</text>
+                        <text x="366" y="74" fill="#e8590c">88%</text>
+                        <text x="550" y="57" fill="#e8590c">96%</text>
                       </g>
 
                       <!-- X Axis Labels -->
                       <g
-                        fill="#64748b"
+                        fill="#6b665d"
                         font-size="11"
                         font-weight="500"
                         font-family="Inter, system-ui, sans-serif"
@@ -1279,7 +1284,7 @@
                         y1="210"
                         x2="610"
                         y2="210"
-                        stroke="#cbd5e1"
+                        stroke="#c7c0b2"
                         stroke-width="1.5"
                       />
                     </svg>
@@ -1386,15 +1391,15 @@
                       <div class="ds-button-row" style="margin-top: 4px">
                         <span
                           class="ds-button"
-                          style="background: #2563eb; color: #fff"
+                          style="background: #e8590c; color: #fff"
                           >Primary</span
                         >
                         <span
                           class="ds-button"
                           style="
                             background: #fff;
-                            color: #334155;
-                            border-color: #cbd5e1;
+                            color: #3a3731;
+                            border-color: #c7c0b2;
                           "
                           >Secondary</span
                         >
@@ -1402,7 +1407,7 @@
                           class="ds-button"
                           style="
                             background: transparent;
-                            color: #2563eb;
+                            color: #e8590c;
                             border-color: #bfdbfe;
                           "
                           >Ghost</span
@@ -1427,7 +1432,7 @@
                             style="
                               left: 20px;
                               top: 10px;
-                              background: #3b82f6;
+                              background: #e8590c;
                               opacity: 0.9;
                             "
                           >
@@ -1438,7 +1443,7 @@
                             style="
                               left: 70px;
                               top: 5px;
-                              background: #8b5cf6;
+                              background: #b45309;
                               opacity: 0.6;
                             "
                           >
@@ -1674,7 +1679,7 @@
                         </label>
                         <label class="form-demo-field" divisionDisable>
                           <span id="form-label-color">主题色</span>
-                          <input type="color" value="#2563eb" />
+                          <input type="color" value="#e8590c" />
                         </label>
                       </div>
                       <div class="form-meter-grid" divisionDisable>
@@ -1717,8 +1722,8 @@
                     <h3 id="sec-07-code-title-1">Design Token JSON</h3>
                     <pre class="report-code"><code>{
   <span class="tok-key">"color"</span>: {
-    <span class="tok-key">"primary"</span>: { <span class="tok-key">"base"</span>: <span class="tok-val">"#2563eb"</span>, <span class="tok-key">"hover"</span>: <span class="tok-val">"#1d4ed8"</span> },
-    <span class="tok-key">"success"</span>: { <span class="tok-key">"base"</span>: <span class="tok-val">"#10b981"</span>, <span class="tok-key">"hover"</span>: <span class="tok-val">"#059669"</span> },
+    <span class="tok-key">"primary"</span>: { <span class="tok-key">"base"</span>: <span class="tok-val">"#e8590c"</span>, <span class="tok-key">"hover"</span>: <span class="tok-val">"#d14d07"</span> },
+    <span class="tok-key">"success"</span>: { <span class="tok-key">"base"</span>: <span class="tok-val">"#1f7a44"</span>, <span class="tok-key">"hover"</span>: <span class="tok-val">"#059669"</span> },
     <span class="tok-key">"warning"</span>: { <span class="tok-key">"base"</span>: <span class="tok-val">"#f59e0b"</span>, <span class="tok-key">"hover"</span>: <span class="tok-val">"#d97706"</span> }
   },
   <span class="tok-key">"spacing"</span>: { <span class="tok-key">"xs"</span>: <span class="tok-val">"4px"</span>, <span class="tok-key">"sm"</span>: <span class="tok-val">"8px"</span>, <span class="tok-key">"md"</span>: <span class="tok-val">"16px"</span> },
@@ -1856,18 +1861,21 @@
                   </div>
                 </div>
                 <div class="report-card">
-                  <img
-                    id="sample-img"
-                    class="report-raster-image"
-                    alt="raster sample for export validation"
-                  />
+                  <div divisionDisable>
+                    <img
+                      id="sample-img"
+                      class="report-raster-image"
+                      alt="raster sample for export validation"
+                    />
+                  </div>
+
                   <p class="report-figure-caption" id="sec-09-caption">
                     该图为 JPEG
                     位图样本，用来确认非矢量资源在导出后的颜色、尺寸与压缩表现。
                   </p>
 
                   <div class="ds-object-fit-grid">
-                    <div class="ds-object-fit-card">
+                    <div class="ds-object-fit-card" divisionDisable>
                       <h4>`contain center`</h4>
                       <p>
                         保持完整图像，四周留出空白，验证 `object-fit: contain`
@@ -1877,7 +1885,10 @@
                         <img
                           data-raster-sample
                           alt="object-fit contain center demo"
-                          style="object-fit: contain; object-position: center center"
+                          style="
+                            object-fit: contain;
+                            object-position: center center;
+                          "
                         />
                       </div>
                       <div class="ds-object-fit-meta">
@@ -1885,7 +1896,7 @@
                       </div>
                     </div>
 
-                    <div class="ds-object-fit-card">
+                    <div class="ds-object-fit-card" divisionDisable>
                       <h4>`cover left top`</h4>
                       <p>
                         让图像铺满裁剪框并固定在左上角，方便对比顶部和左侧裁切是否正确。
@@ -1902,7 +1913,7 @@
                       </div>
                     </div>
 
-                    <div class="ds-object-fit-card">
+                    <div class="ds-object-fit-card" divisionDisable>
                       <h4>`cover right bottom`</h4>
                       <p>
                         同样使用铺满裁剪，但把锚点切到右下角，用来检查偏移基准是否跟浏览器一致。
@@ -1911,7 +1922,10 @@
                         <img
                           data-raster-sample
                           alt="object-fit cover right bottom demo"
-                          style="object-fit: cover; object-position: right bottom"
+                          style="
+                            object-fit: cover;
+                            object-position: right bottom;
+                          "
                         />
                       </div>
                       <div class="ds-object-fit-meta">
@@ -1919,117 +1933,148 @@
                       </div>
                     </div>
 
-                    <div class="ds-object-fit-card">
+                    <div class="ds-object-fit-card" divisionDisable>
                       <h4>`none right 18px bottom 12px`</h4>
                       <p>
-                        不缩放原图，只依赖 `object-position` 的像素偏移来定位，适合验证 `none`
-                        模式下的裁剪窗口。
+                        不缩放原图，只依赖 `object-position`
+                        的像素偏移来定位，适合验证 `none` 模式下的裁剪窗口。
                       </p>
                       <div class="ds-object-fit-frame">
                         <img
                           data-raster-sample
                           alt="object-fit none with offsets demo"
-                          style="object-fit: none; object-position: right 18px bottom 12px"
+                          style="
+                            object-fit: none;
+                            object-position: right 18px bottom 12px;
+                          "
                         />
                       </div>
                       <div class="ds-object-fit-meta">
-                        object-fit: none; object-position: right 18px bottom 12px;
+                        object-fit: none; object-position: right 18px bottom
+                        12px;
                       </div>
                     </div>
                   </div>
                 </div>
               </section>
               <section class="report-section" style="margin-top: 42px">
-              <div style="width: 760px">
-                <h3>list-style-type</h3>
-                <ul style="list-style-type: disc">
-                  <li id="sec-10-bullet-1">圆点列表项一</li>
-                  <li id="sec-10-bullet-2">圆点列表项二</li>
-                </ul>
-                <ol style="list-style-type: decimal">
-                  <li id="sec-10-num-1">数字列表第一项</li>
-                  <li id="sec-10-num-2">第二项</li>
-                </ol>
-                <ul style="list-style-type: square">
-                  <li id="sec-10-square-1">方形标记项</li>
-                </ul>
-                <h3>checkbox / radio</h3>
-                <p id="sec-10-checked"><input type="checkbox" checked /> 已勾选复选框</p>
-                <p id="sec-10-unchecked"><input type="checkbox" /> 未勾选复选框</p>
-                <p id="sec-10-radio">
-                  <input type="radio" name="g" checked /> 单选一
-                  <input type="radio" name="g" /> 单选二
-                </p>
-              </div>
+                <div style="width: 760px">
+                  <h3>list-style-type</h3>
+                  <ul style="list-style-type: disc">
+                    <li id="sec-10-bullet-1">圆点列表项一</li>
+                    <li id="sec-10-bullet-2">圆点列表项二</li>
+                  </ul>
+                  <ol style="list-style-type: decimal">
+                    <li id="sec-10-num-1">数字列表第一项</li>
+                    <li id="sec-10-num-2">第二项</li>
+                  </ol>
+                  <ul style="list-style-type: square">
+                    <li id="sec-10-square-1">方形标记项</li>
+                  </ul>
+                  <h3>checkbox / radio</h3>
+                  <p id="sec-10-checked">
+                    <input type="checkbox" checked /> 已勾选复选框
+                  </p>
+                  <p id="sec-10-unchecked">
+                    <input type="checkbox" /> 未勾选复选框
+                  </p>
+                  <p id="sec-10-radio">
+                    <input type="radio" name="g" checked /> 单选一
+                    <input type="radio" name="g" /> 单选二
+                  </p>
+                </div>
 
-              <div style="width: 760px">
-                <h2 id="sec-10-hyperlink-title">Hyperlink 测试</h2>
-                <p id="sec-10-hyperlink-p1">
-                  普通文本，中间带
-                  <a href="https://example.com">可点击链接</a> 的内联内容。
-                </p>
-                <p id="sec-10-hyperlink-p2">
-                  <a href="https://developer.mozilla.org">外部文档链接</a>
-                  之后继续文本。
-                </p>
-              </div>
-              <div
-                style="
-                  width: 760px;
-                  font-family: &quot;Source Han Sans SC&quot;;
-                "
-              >
-                <p id="sec-10-compound-1">复合字形测试：á é ï ñ ü ä ö 混合在中文段落里</p>
-                <p id="sec-10-compound-2">
-                  前置复合字形后的中文验证：中华人民共和国，abcdefghijklmnopqrstuvwxyz
-                </p>
-              </div>
-              <div
-                style="
-                  width: 760px;
-                  padding: 20px 24px;
-                  border: 1px solid #d9e0ec;
-                  border-radius: 12px;
-                  background: #ffffff;
-                "
-              >
-                <h2 id="sec-10-decoration-title" style="margin: 0 0 12px">Text Decoration 测试</h2>
-                <p id="sec-10-decoration-summary" style="margin: 0 0 12px; color: #64748b">
-                  用于验证 <code>&lt;u&gt;</code>、<code>&lt;s&gt;</code>、
-                  <code>&lt;strike&gt;</code> 和 CSS <code>text-decoration</code>
-                  在 PDF 中的导出效果。
-                </p>
-                <p id="sec-10-decoration-1">
-                  1. HTML 标签：这是一段 <u>下划线文本</u>，这是一段 <s>删除线文本</s>。
-                </p>
-                <p id="sec-10-decoration-2">
-                  2. 兼容标签：这里是 <strike>strike 标签的删除线效果</strike>。
-                </p>
-                <p id="sec-10-decoration-3">
-                  3. CSS 样式：这里是
-                  <span style="text-decoration: underline">通过 CSS 添加的下划线</span>。
-                </p>
-                <p id="sec-10-decoration-4">
-                  4. CSS 样式：这里是
-                  <span style="text-decoration: line-through">通过 CSS 添加的删除线</span>。
-                </p>
-                <p id="sec-10-decoration-5">
-                  5. 混合样式：这里是
-                  <span style="text-decoration-line: underline line-through; text-decoration-thickness: 2px; color: #c23a2b">同时带下划线和删除线的文本</span>。
-                </p>
-                <p id="sec-10-decoration-6">
-                  6. 中英文混排：
-                  <span style="text-decoration: underline">Underlined sample text</span>
-                  / <span style="text-decoration: line-through">已完成项目需求评审</span>
-                </p>
-              </div>
+                <div style="width: 760px">
+                  <h2 id="sec-10-hyperlink-title">Hyperlink 测试</h2>
+                  <p id="sec-10-hyperlink-p1">
+                    普通文本，中间带
+                    <a href="https://example.com">可点击链接</a> 的内联内容。
+                  </p>
+                  <p id="sec-10-hyperlink-p2">
+                    <a href="https://developer.mozilla.org">外部文档链接</a>
+                    之后继续文本。
+                  </p>
+                </div>
+                <div
+                  style="
+                    width: 760px;
+                    font-family: &quot;Source Han Sans SC&quot;;
+                  "
+                >
+                  <p id="sec-10-compound-1">
+                    复合字形测试：á é ï ñ ü ä ö 混合在中文段落里
+                  </p>
+                  <p id="sec-10-compound-2">
+                    前置复合字形后的中文验证：中华人民共和国，abcdefghijklmnopqrstuvwxyz
+                  </p>
+                </div>
+                <div
+                  style="
+                    padding: 20px 0px;
+
+                    background: #ffffff;
+                  "
+                >
+                  <h2 id="sec-10-decoration-title" style="margin: 0 0 12px">
+                    Text Decoration 测试
+                  </h2>
+                  <p
+                    id="sec-10-decoration-summary"
+                    style="margin: 0 0 12px; color: #6b665d"
+                  >
+                    用于验证 <code>&lt;u&gt;</code>、<code>&lt;s&gt;</code>、
+                    <code>&lt;strike&gt;</code> 和 CSS
+                    <code>text-decoration</code>
+                    在 PDF 中的导出效果。
+                  </p>
+                  <p id="sec-10-decoration-1">
+                    1. HTML 标签：这是一段 <u>下划线文本</u>，这是一段
+                    <s>删除线文本</s>。
+                  </p>
+                  <p id="sec-10-decoration-2">
+                    2. 兼容标签：这里是
+                    <strike>strike 标签的删除线效果</strike>。
+                  </p>
+                  <p id="sec-10-decoration-3">
+                    3. CSS 样式：这里是
+                    <span style="text-decoration: underline"
+                      >通过 CSS 添加的下划线</span
+                    >。
+                  </p>
+                  <p id="sec-10-decoration-4">
+                    4. CSS 样式：这里是
+                    <span style="text-decoration: line-through"
+                      >通过 CSS 添加的删除线</span
+                    >。
+                  </p>
+                  <p id="sec-10-decoration-5">
+                    5. 混合样式：这里是
+                    <span
+                      style="
+                        text-decoration-line: underline line-through;
+                        text-decoration-thickness: 2px;
+                        color: #c23a2b;
+                      "
+                      >同时带下划线和删除线的文本</span
+                    >。
+                  </p>
+                  <p id="sec-10-decoration-6">
+                    6. 中英文混排：
+                    <span style="text-decoration: underline"
+                      >Underlined sample text</span
+                    >
+                    /
+                    <span style="text-decoration: line-through"
+                      >已完成项目需求评审</span
+                    >
+                  </p>
+                </div>
               </section>
             </article>
           </div>
         </div>
-
       </main>
     </div>
-    <script src="./index.js?v=20260930b"></script>
+    <script src="./index.js?v=20261120b"></script>
   </body>
 </html>

@@ -13,8 +13,6 @@
   var benchmarkCompressToggleEl = document.getElementById('benchmark-compress-toggle');
 
   var html2pdfLoader = null;
-  var pdfJsLoader = null;
-  var pdfJsReady = false;
 
   var LOCALE_STORAGE_KEY = 'dompdf-studio-locale';
   var currentLocale = getSavedLocale();
@@ -85,7 +83,7 @@
         sizeIncreased: function (pct) { return 'dompdf.js increases file size by ' + pct.toFixed(1) + '%'; },
         approxDocPages: function (pages) { return 'Approx. ' + pages + ' pages'; },
         missingBuild: 'dist/dompdf.js not found. Run npm run build first.',
-        loadingResources: 'Loading fonts and editor assets...',
+        loadingResources: 'Loading fonts...',
         ready: 'ready',
         readyWithSymbol: 'ready (symbol font loaded)',
         fontWarning: function (message) { return 'Font loading warning: ' + message; },
@@ -184,7 +182,7 @@
         sizeIncreased: function (pct) { return '📈 dompdf.js 体积增加 ' + pct.toFixed(1) + '%'; },
         approxDocPages: function (pages) { return '总计约 ' + pages + ' 页'; },
         missingBuild: 'dist/dompdf.js 未找到，请先执行 npm run build。',
-        loadingResources: '正在加载字体与编辑器资源...',
+        loadingResources: '正在加载字体资源...',
         ready: '就绪',
         readyWithSymbol: '就绪（符号字体已加载）',
         fontWarning: function (message) { return '字体加载警告: ' + message; },
@@ -717,8 +715,31 @@
     return benchmarkBuildPromise;
   }
 
+  var fontLoadPromise = null;
+  var isExportBusy = false;
+
+  function startFontPreload() {
+    if (sharedFontConfig.fontBytes) return Promise.resolve();
+    if (fontLoadPromise) return fontLoadPromise;
+    fontLoadPromise = Promise.all([loadFont(), loadSymbolFont()])
+      .then(function () {
+        if (!isExportBusy) {
+          setStatus(symbolFontConfig ? getRuntimeStrings().readyWithSymbol : getRuntimeStrings().ready);
+        }
+      })
+      .catch(function (err) {
+        fontLoadPromise = null;
+        if (!isExportBusy) {
+          setStatus(getRuntimeStrings().fontWarning(err.message), true);
+        }
+        throw err;
+      });
+    return fontLoadPromise;
+  }
+
   function ensureDemoReady() {
-    return readyPromise.then(function () {
+    if (sharedFontConfig.fontBytes) return Promise.resolve();
+    return startFontPreload().then(function () {
       if (!sharedFontConfig.fontBytes) {
         throw new Error(getRuntimeStrings().fontNotReady);
       }
@@ -773,7 +794,7 @@
 
   /* ========================= Font Loading ========================= */
   function loadFont() {
-    return fetch('./SourceHanSansSC-Regular.ttf')
+    return fetch('./SourceHanSansSC-Demo.ttf')
       .then(function (res) {
         if (!res.ok) throw new Error('HTTP ' + res.status);
         return res.arrayBuffer();
@@ -817,80 +838,6 @@
       document.head.appendChild(script);
     }).catch(function (err) { html2pdfLoader = null; throw err; });
     return html2pdfLoader;
-  }
-
-  function ensurePdfJs() {
-    if (pdfJsReady && window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
-    if (pdfJsLoader) return pdfJsLoader;
-    pdfJsLoader = new Promise(function (resolve, reject) {
-      var script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-      script.onload = function () {
-        if (!window.pdfjsLib) {
-          reject(new Error('pdf.js loaded but global missing'));
-          return;
-        }
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
-          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-        pdfJsReady = true;
-        resolve(window.pdfjsLib);
-      };
-      script.onerror = function () { reject(new Error('failed to load pdf.js')); };
-      document.head.appendChild(script);
-    }).catch(function (err) {
-      pdfJsLoader = null;
-      console.warn('pdf.js failed to load; blank PDF detection is unavailable.', err);
-      throw err;
-    });
-    return pdfJsLoader;
-  }
-
-  function detectBlankPdf(blob) {
-    return ensurePdfJs()
-      .then(function (pdfjsLib) {
-        return blob.arrayBuffer().then(function (buffer) {
-          var loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer) });
-          return loadingTask.promise.then(function (pdf) {
-            if (!pdf.numPages) return true;
-            return pdf.getPage(1).then(function (page) {
-              var viewport = page.getViewport({ scale: 1.25 });
-              var canvas = document.createElement('canvas');
-              canvas.width = Math.max(1, Math.ceil(viewport.width));
-              canvas.height = Math.max(1, Math.ceil(viewport.height));
-              var ctx = canvas.getContext('2d', { willReadFrequently: true });
-              if (!ctx) return false;
-
-              ctx.fillStyle = '#ffffff';
-              ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-              return page.render({ canvasContext: ctx, viewport: viewport }).promise.then(function () {
-                var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-                var nonWhitePixels = 0;
-                for (var i = 0; i < imageData.length; i += 4) {
-                  var r = imageData[i];
-                  var g = imageData[i + 1];
-                  var b = imageData[i + 2];
-                  var a = imageData[i + 3];
-                  var maxDiff = Math.max(
-                    Math.abs(255 - r),
-                    Math.abs(255 - g),
-                    Math.abs(255 - b)
-                  );
-                  if (a > 8 && maxDiff > 12) nonWhitePixels++;
-                }
-
-                var totalPixels = canvas.width * canvas.height;
-                var nonWhiteRatio = totalPixels > 0 ? nonWhitePixels / totalPixels : 0;
-                return nonWhitePixels < 600 || nonWhiteRatio < 0.0008;
-              });
-            });
-          });
-        });
-      })
-      .catch(function (err) {
-        console.warn('Blank PDF detection failed:', err);
-        return false;
-      });
   }
 
   /* ========================= Export Target ========================= */
@@ -1036,22 +983,6 @@
     return runner()
       .then(function (blob) {
         var duration = performance.now() - startedAt;
-        if (engine === 'html2pdf') {
-          return detectBlankPdf(blob).then(function (blankPdfSuspected) {
-            generatedBlobs[engine] = {
-              blob: blob,
-              time: duration,
-              size: blob.size,
-              blankPdfSuspected: blankPdfSuspected
-            };
-            return {
-              blob: blob,
-              durationMs: duration,
-              sizeBytes: blob.size,
-              blankPdfSuspected: blankPdfSuspected
-            };
-          });
-        }
         generatedBlobs[engine] = {
           blob: blob,
           time: duration,
@@ -1149,9 +1080,11 @@
   }
 
   function withBusy(fn) {
+    isExportBusy = true;
     var btns = document.querySelectorAll('.action-btn');
     for (var i = 0; i < btns.length; i++) btns[i].disabled = true;
     return fn().finally(function () {
+      isExportBusy = false;
       for (var j = 0; j < btns.length; j++) btns[j].disabled = false;
     });
   }
@@ -1159,7 +1092,9 @@
   /* ========================= Export Handlers ========================= */
   window.exportDompdf = function () {
     withBusy(function () {
-      setStatusLoading(getRuntimeStrings().dompdfRunning);
+      setStatusLoading(sharedFontConfig.fontBytes
+        ? getRuntimeStrings().dompdfRunning
+        : getRuntimeStrings().loadingResources);
       var target = null;
       return ensureDemoReady()
         .then(function () { return ensureBenchmarkSampleReady(); })
@@ -1188,8 +1123,7 @@
     withBusy(function () {
       setStatusLoading(getRuntimeStrings().html2pdfRunning);
       var target = null;
-      return ensureDemoReady()
-        .then(function () { return ensureBenchmarkSampleReady(); })
+      return ensureBenchmarkSampleReady()
         .then(function () {
           setStatusLoading(getRuntimeStrings().html2pdfRunning);
           target = getHtml2PdfTarget();
@@ -1218,7 +1152,9 @@
   window.runCompare = function () {
     resetMetrics();
     withBusy(function () {
-      setStatusLoading(getRuntimeStrings().compareDompdf);
+      setStatusLoading(sharedFontConfig.fontBytes
+        ? getRuntimeStrings().compareDompdf
+        : getRuntimeStrings().loadingResources);
       var target = null;
       var htmlTarget = null;
       return ensureDemoReady()
@@ -1260,73 +1196,173 @@
 
   /* ========================= Chart Generator ========================= */
   function createChartDataUrl() {
-    var width = 440, height = 280;
+    var w = 600, h = 440;
+    var dpr = 2;
     var canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
     var ctx = canvas.getContext('2d');
-    var bg = ctx.createLinearGradient(0, 0, width, height);
-    var data = [84, 92, 118, 104, 132, 126];
-    var barWidth = 34, gap = 22, x = 68;
+    ctx.scale(dpr, dpr);
 
-    bg.addColorStop(0, '#f8fafc');
-    bg.addColorStop(1, '#edf2f7');
-    ctx.fillStyle = bg;
-    ctx.fillRect(0, 0, width, height);
+    // Warm paper background
+    ctx.fillStyle = '#faf8f4';
+    ctx.fillRect(0, 0, w, h);
 
-    ctx.strokeStyle = '#d8e1eb';
+    // Subtle top editorial rule
+    ctx.fillStyle = '#1b1a17';
+    ctx.fillRect(36, 28, w - 72, 2);
+
+    // Header
+    ctx.fillStyle = '#e8590c';
+    ctx.font = '700 10px "JetBrains Mono", Consolas, monospace';
+    ctx.fillText('RASTER EMBED · 2X CANVAS', 36, 48);
+
+    ctx.fillStyle = '#1b1a17';
+    ctx.font = '700 18px Inter, -apple-system, sans-serif';
+    ctx.fillText(getRuntimeStrings().chartTitle, 36, 72);
+
+    ctx.fillStyle = '#6b665d';
+    ctx.font = '400 12px Inter, -apple-system, sans-serif';
+    ctx.fillText(getRuntimeStrings().chartSubtitle, 36, 92);
+
+    // Legend (top-right)
+    ctx.fillStyle = '#d8d2c6';
+    ctx.fillRect(436, 62, 10, 10);
+    ctx.strokeStyle = '#1b1a17';
     ctx.lineWidth = 1;
-    for (var y = 40; y < height - 20; y += 40) {
+    ctx.strokeRect(436, 62, 10, 10);
+    ctx.fillStyle = '#5c574e';
+    ctx.font = '500 11px "JetBrains Mono", Consolas, monospace';
+    ctx.fillText('Bars', 452, 71);
+
+    ctx.fillStyle = '#e8590c';
+    ctx.beginPath();
+    ctx.arc(504, 67, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#5c574e';
+    ctx.fillText('Trend', 514, 71);
+
+    // Plot geometry
+    var plotLeft = 64;
+    var plotRight = w - 36;
+    var plotTop = 128;
+    var plotBottom = 386;
+    var plotH = plotBottom - plotTop;
+    var maxVal = 150;
+
+    // Horizontal gridlines & Y ticks
+    ctx.font = '500 10.5px "JetBrains Mono", Consolas, monospace';
+    ctx.textAlign = 'right';
+    var ticks = [0, 50, 100, 150];
+    for (var t = 0; t < ticks.length; t++) {
+      var val = ticks[t];
+      var gy = plotBottom - (val / maxVal) * plotH;
+      if (val > 0) {
+        ctx.save();
+        ctx.strokeStyle = '#e2dcd0';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(plotLeft, gy);
+        ctx.lineTo(plotRight, gy);
+        ctx.stroke();
+        ctx.restore();
+      }
+      ctx.fillStyle = '#7a756b';
+      ctx.fillText(String(val), plotLeft - 10, gy + 4);
+    }
+
+    // Data & bars
+    var data = [84, 92, 118, 104, 132, 126];
+    var trend = [78, 96, 110, 102, 136, 128];
+    var labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+    var barW = 42;
+    var step = (plotRight - plotLeft) / data.length;
+
+    ctx.textAlign = 'center';
+    var pts = [];
+    for (var i = 0; i < data.length; i++) {
+      var cx = plotLeft + step * (i + 0.5);
+      var bx = cx - barW / 2;
+      var bh = (data[i] / maxVal) * plotH;
+      var by = plotBottom - bh;
+      var isPeak = i === 4;
+
+      // Bar fill
+      ctx.fillStyle = isPeak ? '#1b1a17' : '#e4dfd5';
+      ctx.fillRect(bx, by, barW, bh);
+      ctx.strokeStyle = '#1b1a17';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(bx, by, barW, bh);
+
+      // Month label
+      ctx.fillStyle = isPeak ? '#1b1a17' : '#6b665d';
+      ctx.font = (isPeak ? '700 ' : '500 ') + '11px "JetBrains Mono", Consolas, monospace';
+      ctx.fillText(labels[i], cx, plotBottom + 22);
+
+      // Trend point
+      var py = plotBottom - (trend[i] / maxVal) * plotH;
+      pts.push([cx, py, trend[i]]);
+    }
+
+    // Crisp X baseline
+    ctx.strokeStyle = '#1b1a17';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(plotLeft, plotBottom);
+    ctx.lineTo(plotRight, plotBottom);
+    ctx.stroke();
+
+    // Subtle orange area under trend line
+    ctx.save();
+    var areaGrad = ctx.createLinearGradient(0, plotTop, 0, plotBottom);
+    areaGrad.addColorStop(0, 'rgba(232, 89, 12, 0.16)');
+    areaGrad.addColorStop(1, 'rgba(232, 89, 12, 0.0)');
+    ctx.fillStyle = areaGrad;
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], plotBottom);
+    for (var a = 0; a < pts.length; a++) {
+      ctx.lineTo(pts[a][0], pts[a][1]);
+    }
+    ctx.lineTo(pts[pts.length - 1][0], plotBottom);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    // Orange trend line
+    ctx.strokeStyle = '#e8590c';
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    for (var k = 0; k < pts.length; k++) {
+      if (k === 0) ctx.moveTo(pts[k][0], pts[k][1]);
+      else ctx.lineTo(pts[k][0], pts[k][1]);
+    }
+    ctx.stroke();
+
+    // Nodes
+    for (var j = 0; j < pts.length; j++) {
+      ctx.fillStyle = '#faf8f4';
+      ctx.strokeStyle = '#e8590c';
+      ctx.lineWidth = 2.5;
       ctx.beginPath();
-      ctx.moveTo(40, y);
-      ctx.lineTo(width - 20, y);
+      ctx.arc(pts[j][0], pts[j][1], 4.5, 0, Math.PI * 2);
+      ctx.fill();
       ctx.stroke();
     }
 
-    ctx.fillStyle = '#7891b2';
-    for (var i = 0; i < data.length; i++) {
-      var barHeight = data[i] * 1.2;
-      ctx.fillRect(x, height - 30 - barHeight, barWidth, barHeight);
-      ctx.fillStyle = '#60758d';
-      ctx.font = '12px Inter, sans-serif';
-      ctx.fillText(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'][i], x + 2, height - 10);
-      ctx.fillStyle = '#7891b2';
-      x += barWidth + gap;
-    }
+    // Peak callout tag
+    var pk = pts[4];
+    ctx.fillStyle = '#e8590c';
+    ctx.fillRect(pk[0] - 20, pk[1] - 26, 40, 18);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '700 10.5px "JetBrains Mono", Consolas, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('136', pk[0], pk[1] - 13);
 
-    ctx.strokeStyle = '#24384f';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(40, height - 30);
-    ctx.lineTo(width - 20, height - 30);
-    ctx.stroke();
-
-    ctx.strokeStyle = '#24384f';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(85, 142);
-    ctx.lineTo(141, 130);
-    ctx.lineTo(197, 110);
-    ctx.lineTo(253, 116);
-    ctx.lineTo(309, 88);
-    ctx.lineTo(365, 94);
-    ctx.stroke();
-
-    ctx.fillStyle = '#24384f';
-    var points = [[85, 142], [141, 130], [197, 110], [253, 116], [309, 88], [365, 94]];
-    for (var j = 0; j < points.length; j++) {
-      ctx.beginPath();
-      ctx.arc(points[j][0], points[j][1], 4, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    ctx.fillStyle = '#0f172a';
-    ctx.font = '700 16px Inter, sans-serif';
-    ctx.fillText(getRuntimeStrings().chartTitle, 40, 26);
-    ctx.fillStyle = '#60758d';
-    ctx.font = '12px Inter, sans-serif';
-    ctx.fillText(getRuntimeStrings().chartSubtitle, 40, 46);
-    return canvas.toDataURL('image/jpeg', 0.86);
+    ctx.textAlign = 'left';
+    return canvas.toDataURL('image/jpeg', 0.94);
   }
 
   /* ========================= Appendix Builders ========================= */
@@ -1490,8 +1526,7 @@
 
   captureStaticContent();
   renderLanguageSwitch();
-  setStatusLoading(getRuntimeStrings().loadingResources);
-  setExportButtonsEnabled(false); // 字体就绪前禁用导出/对比按钮
+  setExportButtonsEnabled(true);
   updateBenchmarkUi();
   buildRecordsTable();
   buildLongList();
@@ -1504,21 +1539,11 @@
   applyStaticTranslations(currentLocale);
   window.addEventListener('resize', updateDocPageInfo);
 
-  // Preload html2pdf
+  // Preload html2pdf and fonts silently in background without blocking UI
   ensureHtml2Pdf().catch(function () { });
-  ensurePdfJs().catch(function () { });
-
-  // Load fonts
-  Promise.all([loadFont(), loadSymbolFont()])
-    .then(function () {
-      setStatus(symbolFontConfig ? getRuntimeStrings().readyWithSymbol : getRuntimeStrings().ready);
-    })
-    .catch(function (err) {
-      setStatus(getRuntimeStrings().fontWarning(err.message), true);
-    })
+  startFontPreload()
+    .catch(function () { /* surfaced if user exports and retry also fails */ })
     .finally(function () {
-      // 字体字节就绪才放开导出按钮；失败则保持禁用
-      setExportButtonsEnabled(!!sharedFontConfig.fontBytes);
       readyResolve({
         status: statusTextEl.textContent,
         hasFontBytes: !!sharedFontConfig.fontBytes

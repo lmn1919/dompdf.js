@@ -1790,7 +1790,7 @@ const bytesB = await renderToBytes(element);</code></pre>
             <div class="code-card plain">
               <pre><code>import dompdf from 'dompdf.js';
 
-const fontBuffer = await fetch('/fonts/SourceHanSansSC-Regular.ttf').then((response) => {
+const fontBuffer = await fetch('./SourceHanSansSC-Regular.ttf').then((response) => {
   if (!response.ok) throw new Error(`字体加载失败：${response.status}`);
   return response.arrayBuffer();
 });
@@ -1876,7 +1876,7 @@ await dompdf(element, {
             <div class="code-card plain">
               <pre><code>import dompdf from 'dompdf.js';
 
-const fontBuffer = await fetch('/fonts/SourceHanSansSC-Regular.ttf').then((response) => {
+const fontBuffer = await fetch('./SourceHanSansSC-Regular.ttf').then((response) => {
   if (!response.ok) throw new Error(`Font request failed: ${response.status}`);
   return response.arrayBuffer();
 });
