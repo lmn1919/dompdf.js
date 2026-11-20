@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>dompdf.js — README demo: 10,000 pages + selectable text</title>
+<link rel="stylesheet" href="/node_modules/pdfjs-dist/web/pdf_viewer.css" />
+<style>
+  :root { --paper: #efebe3; --ink: #1b1a17; --muted: #7a756b; --line: #d8d2c6; --accent: #e8590c; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1040px; height: 600px; overflow: hidden; }
+  body { background: var(--paper); color: var(--ink); font-family: "Helvetica Neue", Arial, sans-serif; position: relative; }
+  .mono { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; }
+
+  .top { position: absolute; left: 32px; right: 32px; top: 22px; height: 24px; display: flex; align-items: center; justify-content: space-between;
+    font: 12px/1 ui-monospace, Consolas, monospace; color: var(--muted); letter-spacing: .02em; }
+  .top b { color: var(--ink); font-weight: 600; }
+  .steps { display: flex; gap: 18px; }
+  .steps span::before { content: "□ "; }
+  .steps span.on { color: var(--ink); }
+  .steps span.on::before { content: "■ "; color: var(--accent); }
+
+  .win { position: absolute; top: 60px; height: 470px; background: #fff; border: 1px solid var(--ink); box-shadow: 6px 6px 0 var(--ink); overflow: hidden; }
+  .win .bar { height: 30px; border-bottom: 1px solid var(--ink); display: flex; align-items: center; padding: 0 12px; gap: 10px;
+    font: 11.5px/1 ui-monospace, Consolas, monospace; color: var(--muted); background: #faf8f4; white-space: nowrap; }
+  .win .bar i { width: 9px; height: 9px; border: 1px solid var(--ink); border-radius: 50%; display: inline-block; flex: none; }
+  .win .bar .t { margin-left: 6px; color: var(--ink); }
+  .win .bar .r { margin-left: auto; }
+  #left { left: 32px; width: 446px; }
+  #right { left: 508px; width: 500px; }
+
+  .caption { position: absolute; left: 32px; right: 32px; bottom: 20px; height: 32px; display: flex; align-items: center; justify-content: space-between;
+    font-size: 17px; letter-spacing: -.01em; }
+  .caption code { font: 13px/1 ui-monospace, Consolas, monospace; color: var(--muted); }
+
+  /* left: preview of the source DOM */
+  #preview { position: relative; height: 440px; overflow: hidden; background: #e9e5dc; }
+  #preview .stack { position: absolute; left: 16px; top: 14px; transform-origin: 0 0; }
+  #preview .stack .pg { box-shadow: 0 1px 0 rgba(0,0,0,.06), 0 4px 14px rgba(40,30,10,.10); margin-bottom: 24px; }
+  #scroll { position: absolute; right: 4px; top: 6px; bottom: 6px; width: 6px; background: rgba(27,26,23,.06); }
+  #scroll i { position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--ink); }
+  #domcount { position: absolute; left: 16px; bottom: 12px; font: 11px/1 ui-monospace, Consolas, monospace; background: var(--ink); color: #fff; padding: 5px 7px; }
+
+  /* ledger page (shared by export source and preview) */
+  .pg { width: 680px; height: 928px; padding: 44px 48px 0; background: #fff; color: #1b1a17; overflow: hidden; font-family: Arial, Helvetica, sans-serif; }
+  .pg .h { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px solid #1b1a17; padding-bottom: 10px; }
+  .pg .h b { font-size: 20px; letter-spacing: -.01em; }
+  .pg .h span { font-size: 12px; color: #6b665d; }
+  .pg .sub { display: flex; justify-content: space-between; font-size: 11px; color: #8a8478; margin: 10px 0 14px; letter-spacing: .06em; }
+  .pg .r { display: flex; font-size: 13px; line-height: 30px; height: 30px; border-bottom: 1px solid #ebe6dc; white-space: nowrap; }
+  .pg pre { font: 13px/26px "Courier New", monospace; margin: 0; white-space: pre; }
+  .pg .r span:nth-child(1) { width: 150px; font-family: "Courier New", monospace; }
+  .pg .r span:nth-child(2) { width: 110px; color: #6b665d; }
+  .pg .r span:nth-child(3) { flex: 1; }
+  .pg .r span:nth-child(4) { width: 110px; text-align: right; }
+  .pg pre.hd { font-size: 11px; color: #8a8478; border-bottom: 1px solid #1b1a17; margin-bottom: 4px; }
+  .pg .r.hd { font-size: 10px; color: #8a8478; letter-spacing: .08em; border-bottom: 1px solid #1b1a17; height: 24px; line-height: 24px; }
+  .pg .r.hd span { font-family: Arial, sans-serif !important; color: #8a8478 !important; }
+  .pg .f { margin-top: 18px; display: flex; justify-content: space-between; font-size: 13px; }
+  .pg .f b { font-size: 15px; }
+
+  #source { position: absolute; left: 1200px; top: 0; width: 680px; }
+
+  /* cursor / button */
+  #cursor { position: absolute; left: 0; top: 0; width: 18px; height: 24px; z-index: 50; pointer-events: none; }
+  .btn { position: absolute; left: 376px; top: 64px; z-index: 5; font: 11.5px/1 ui-monospace, Consolas, monospace;
+    background: var(--ink); color: #fff; padding: 6px 10px; border: none; }
+  .btn.down { background: var(--accent); }
+
+  /* right: progress then viewer */
+  #stage { position: relative; height: 440px; background: #e9e5dc; overflow: hidden; }
+  #run { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; padding: 0 44px; gap: 14px; }
+  #run .lbl { font: 12px/1 ui-monospace, Consolas, monospace; color: var(--muted); }
+  #run .big { font: 600 46px/1 ui-monospace, Consolas, monospace; letter-spacing: -.03em; color: var(--ink); }
+  #run .big small { font-size: 22px; color: var(--muted); font-weight: 400; letter-spacing: -.01em; }
+  #bar { height: 10px; border: 1px solid var(--ink); background: #fff; }
+  #bar i { display: block; height: 100%; width: 0; background: var(--ink); }
+  #run .meta { display: flex; justify-content: space-between; font: 12px/1 ui-monospace, Consolas, monospace; color: var(--muted); }
+  #run .meta b { color: var(--ink); font-weight: 600; }
+  #ticks { display: flex; gap: 2px; height: 26px; align-items: flex-end; }
+  #ticks i { flex: 1; background: #d8d2c6; height: 100%; }
+  #ticks i.on { background: var(--ink); }
+  #ticks i.cur { background: var(--accent); }
+
+  #viewer { position: absolute; inset: 0; opacity: 0; }
+  .pbox { position: absolute; top: 14px; left: 50%; background: #fff; box-shadow: 0 1px 0 rgba(0,0,0,.08), 0 6px 18px rgba(40,30,10,.12); transform-origin: 0 0; }
+  .pbox canvas { display: block; position: absolute; left: 0; top: 0; }
+  .pbox .textLayer ::selection, .pbox .textLayer span::selection { background: rgba(232, 89, 12, .32); color: transparent; }
+  .pbox .textLayer .endOfContent { display: none; }
+  #pager { position: absolute; left: 12px; top: 12px; z-index: 6; font: 11.5px/1 ui-monospace, Consolas, monospace; background: #fff; border: 1px solid var(--ink); padding: 6px 8px; }
+  #pager b { color: var(--accent); }
+  #copied { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); font: 11.5px/1 ui-monospace, Consolas, monospace;
+    background: #fff; border: 1px solid var(--ink); padding: 7px 10px; opacity: 0; white-space: nowrap; z-index: 6; box-shadow: 3px 3px 0 var(--ink); }
+</style>
+</head>
+<body>
+  <div class="top">
+    <div><b>dompdf.js</b> &nbsp;DOM → PDF, in the browser</div>
+    <div class="steps"><span data-s="0">html</span><span data-s="1">export 10,000 pages</span><span data-s="2">select text</span></div>
+  </div>
+
+  <section class="win" id="left">
+    <div class="bar"><i></i><i></i><i></i><span class="t">localhost:5173/ledger</span></div>
+    <div id="preview"><div class="stack" id="stack"></div><div id="scroll"><i></i></div><div id="domcount">10,000 &lt;section&gt; · 1 page each</div></div>
+  </section>
+  <button class="btn" id="btn">dompdf(el) ↓</button>
+
+  <section class="win" id="right">
+    <div class="bar"><i></i><i></i><i></i><span class="t">ledger.pdf</span><span class="r" id="stats">—</span></div>
+    <div id="stage">
+      <div id="run">
+        <div class="lbl" id="runlbl">waiting</div>
+        <div class="big" id="count">0 <small>/ 10,000 pages</small></div>
+        <div id="bar"><i></i></div>
+        <div id="ticks"></div>
+        <div class="meta"><span id="elapsed">0.0 s</span><span id="speed">&nbsp;</span></div>
+      </div>
+      <div id="viewer">
+        <div id="pager">page <b id="pnum">1</b> / 10,000</div>
+        <div class="pbox" id="pbA"></div>
+        <div class="pbox" id="pbB"></div>
+        <div id="copied"></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="caption"><span id="cap"></span><code id="capcode"></code></div>
+  <svg id="cursor" viewBox="0 0 18 24"><path d="M1 1 L1 19 L5.5 15 L8.5 22 L11.5 20.8 L8.6 14 L14.5 14 Z" fill="#1b1a17" stroke="#fff" stroke-width="1.2" stroke-linejoin="round"/></svg>
+
+  <div id="source"></div>
+
+<script src="/dist/dompdf.js"></script>
+<script type="module">
+  import * as pdfjsLib from '/node_modules/pdfjs-dist/build/pdf.mjs';
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '/node_modules/pdfjs-dist/build/pdf.worker.mjs';
+
+  const $ = (s) => document.querySelector(s);
+  const PAGES = Number(new URLSearchParams(location.search).get('pages')) || 10000;
+  const ROWS = 26;
+  const TARGET = Math.min(7342, Math.round(PAGES * 0.7342));   // page we open after export
+  const PICK_ROW = 11;   // row we select on that page
+  const clients = ['Halden & Pike Ltd.', 'Mercer Logistics', 'Kestrel Analytics', 'Oakline Studio', 'Brandt & Söhne', 'Iris Biotech', 'Norrland Freight', 'Calder Foods', 'Vantage Optics', 'Pellucid Labs', 'Ashgrove Retail', 'Tidewater Ports'];
+  const fmt = (n) => n.toLocaleString('en-US');
+
+  function rnd(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
+  function rowData(page, row) {
+    const r = rnd(page * 131 + row * 7919 + 17);
+    const id = `INV-${String(page).padStart(5, '0')}-${String(row + 1).padStart(2, '0')}`;
+    const day = new Date(Date.UTC(2026, 0, 1) + Math.floor((page / PAGES) * 364) * 864e5);
+    const date = day.toISOString().slice(0, 10);
+    const client = clients[Math.floor(r() * clients.length)];
+    const amt = 120 + Math.floor(r() * 980000) / 100;
+    return { id, date, client, amt };
+  }
+  const money = (n) => '€' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const rowLine = (d) => d.id.padEnd(16) + d.date.padEnd(13) + d.client.padEnd(22) + money(d.amt).padStart(11);
+  function pageHTML(page) {
+    let total = 0; const lines = [];
+    for (let i = 0; i < ROWS; i++) {
+      const d = rowData(page, i); total += d.amt;
+      lines.push(rowLine(d));
+    }
+    const rows = `<pre>${lines.join('\n').replace(/&/g, '&amp;')}</pre>`;
+    return `<div class="h"><b>Northwind Ledger · FY2026</b><span>page ${fmt(page)} / ${fmt(PAGES)}</span></div>`
+      + `<div class="sub"><span>ACCOUNTS RECEIVABLE</span><span>EUR · GENERATED IN BROWSER</span></div>`
+      + `<pre class="hd">${'INVOICE'.padEnd(16)}${'DATE'.padEnd(13)}${'CLIENT'.padEnd(22)}${'AMOUNT'.padStart(11)}</pre>`
+      + rows
+      + `<div class="f"><span>Page total</span><b>€${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b></div>`;
+  }
+
+  // ---- left preview: first pages of the same content, scaled to fit
+  const stack = $('#stack');
+  for (const p of [1, 2]) { const d = document.createElement('section'); d.className = 'pg'; d.innerHTML = pageHTML(p); stack.appendChild(d); }
+  stack.style.transform = 'scale(0.6)';
+
+  // ticks under the progress bar
+  for (let i = 0; i < 40; i++) $('#ticks').appendChild(document.createElement('i'));
+
+  const state = {};
+
+  async function renderInto(box, pdf, n, displayW) {
+    const page = await pdf.getPage(n);
+    const base = page.getViewport({ scale: 1 });
+    const scale = displayW / base.width;
+    const vp = page.getViewport({ scale });
+    const cv = document.createElement('canvas');
+    const dpr = 2;
+    cv.width = Math.round(vp.width * dpr); cv.height = Math.round(vp.height * dpr);
+    cv.style.width = vp.width + 'px'; cv.style.height = vp.height + 'px';
+    await page.render({ canvas: cv, canvasContext: cv.getContext('2d'), viewport: page.getViewport({ scale: scale * dpr }) }).promise;
+    // downsample to 1x for crisp GIF frames
+    const lo = document.createElement('canvas');
+    lo.width = Math.round(vp.width); lo.height = Math.round(vp.height);
+    lo.style.width = vp.width + 'px'; lo.style.height = vp.height + 'px';
+    await page.render({ canvas: lo, canvasContext: lo.getContext('2d'), viewport: vp }).promise;
+    box.innerHTML = '';
+    box.appendChild(lo);
+    const tl = document.createElement('div'); tl.className = 'textLayer'; box.appendChild(tl);
+    box.style.width = vp.width + 'px'; box.style.height = vp.height + 'px';
+    box.style.setProperty('--scale-factor', String(scale));
+    box.style.setProperty('--total-scale-factor', String(scale));
+    await new pdfjsLib.TextLayer({ textContentSource: page.streamTextContent(), container: tl, viewport: vp }).render();
+    const text = (await page.getTextContent()).items.map((i) => i.str).join(' ');
+    return { vp, text };
+  }
+
+  async function prepare() {
+    // Build the real export source: 10,000 sections, one A4 content box each.
+    const src = $('#source');
+    const t0 = performance.now();
+    const chunks = [];
+    for (let p = 1; p <= PAGES; p++) chunks.push(`<section class="pg"${p === PAGES ? ' style="height:920px"' : ''}>${pageHTML(p)}</section>`);
+    src.innerHTML = chunks.join('');
+    const buildMs = performance.now() - t0;
+    if (location.search.includes('bench')) console.log('dom built', Math.round(buildMs), 'height', src.offsetHeight, 'sec scrollH', src.firstElementChild.scrollHeight, 'breaks', JSON.stringify(window.dompdf.computePageBreaks(src, { format: 'a4', pagination: true, marginPt: 35.625 }).slice(0, 5)));
+    await new Promise((r) => requestAnimationFrame(() => r()));
+
+    const events = [];
+    const start = performance.now();
+    const blob = await window.dompdf(src, {
+      format: 'a4', pagination: true, compress: true, marginPt: 35.625, backgroundColor: '#ffffff',
+      onProgress: (p) => {
+        const e = { t: performance.now() - start, stage: p.stage, cur: p.currentPage || 0, total: p.totalPages || 0 };
+        events.push(e);
+        if (location.search.includes('bench') && (e.stage !== 'rendering' || e.cur % 1000 === 0)) console.log('progress', JSON.stringify(e));
+      },
+    });
+    if (location.search.includes('bench')) console.log('export done', Math.round(performance.now() - start));
+    const totalMs = performance.now() - start;
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const size = bytes.length;
+    src.innerHTML = ''; // free the DOM before pdf.js loads the result
+
+    const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+    if (location.search.includes('bench')) console.log('pdf loaded', pdf.numPages, Math.round(performance.now() - start));
+    const a = await renderInto($('#pbA'), pdf, 1, 292);
+    const b = await renderInto($('#pbB'), pdf, TARGET, 292);
+    const firstRender = events.find((e) => e.stage === 'rendering');
+    const renderStart = firstRender ? firstRender.t : totalMs * 0.4;
+
+    Object.assign(state, { events, renderStart, totalMs, size, pages: pdf.numPages, vp: b.vp, ready: true });
+    return {
+      buildMs: Math.round(buildMs), exportMs: Math.round(totalMs), size, pages: pdf.numPages,
+      firstEvents: events.slice(0, 4), lastEvents: events.slice(-2), events: events.length,
+      targetHasRow: b.text.includes(rowData(TARGET, PICK_ROW).id),
+    };
+  }
+
+  // ---------------- timeline ----------------
+  const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+  const ease = (x) => { x = clamp(x); return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+  const seg = (t, a, b) => ease((t - a) / (b - a));
+  const lerp = (a, b, k) => a + (b - a) * k;
+
+  // Export phase in the GIF: [E0, E1]. Real time is mapped linearly onto it.
+  const E0 = 2.5, E1 = 7.5;
+  const T = { total: 13.5 };
+
+  function progressAt(realMs) {
+    if (realMs >= state.totalMs) return { cur: state.pages, stage: 'done', pct: 100 };
+    if (realMs < state.renderStart) {
+      const k = clamp(realMs / Math.max(1, state.renderStart));
+      return { cur: 0, stage: 'collecting', pct: k * 20 };
+    }
+    const rk = clamp((realMs - state.renderStart) / Math.max(1, state.totalMs - state.renderStart));
+    return { cur: Math.round(rk * state.pages), stage: 'rendering', pct: 20 + rk * 80 };
+  }
+
+  function rowSpans() {
+    const id = rowData(TARGET, PICK_ROW).id;
+    const spans = [...document.querySelectorAll('#pbB .textLayer span')];
+    const anchor = spans.find((s) => s.textContent.includes(id));
+    if (!anchor) return [];
+    const top = anchor.getBoundingClientRect().top;
+    return spans.filter((s) => Math.abs(s.getBoundingClientRect().top - top) < 3 && s.textContent.trim());
+  }
+
+  function selectSpans(spans, k) {
+    const sel = window.getSelection(); sel.removeAllRanges();
+    if (!spans.length || k <= 0) return;
+    const total = spans.reduce((n, s) => n + s.textContent.length, 0);
+    let want = Math.max(1, Math.round(total * k));
+    const r = document.createRange(); r.setStart(spans[0].firstChild, 0);
+    for (const s of spans) { const len = s.textContent.length; if (want <= len) { r.setEnd(s.firstChild, want); break; } want -= len; r.setEnd(s.firstChild, len); }
+    sel.addRange(r);
+  }
+
+  function setStep(i) { document.querySelectorAll('.steps span').forEach((s) => s.classList.toggle('on', +s.dataset.s === i)); }
+  function setCap(a, b) { $('#cap').textContent = a; $('#capcode').textContent = b; }
+
+  function seek(t) {
+    const btn = $('#btn');
+    const br = btn.getBoundingClientRect();
+    const bx = br.left + br.width * .55, by = br.top + br.height * .6;
+    const step = t < 2.2 ? 0 : t < 9.0 ? 1 : 2;
+    setStep(step);
+    if (step === 0) setCap('One HTML page holding 10,000 A4 pages of rows.', 'el.children.length // 10000');
+    else if (t < 7.5) setCap('One call. Every page is laid out and written in a worker.', 'await dompdf(el, { pagination: true })');
+    else if (step === 1) setCap('10,000 vector pages compiled in the browser.', `${fmt(state.pages)} pages · ${(state.size / 1048576).toFixed(1)} MB`);
+    else setCap('Page 7,342 is still real text: select it, copy it, search it.', 'no screenshots, no headless Chrome');
+
+    // cursor
+    let cx = 200, cy = 330, down = false;
+    const m1 = seg(t, 0.9, 2.2); cx = lerp(200, bx, m1); cy = lerp(330, by, m1);
+    down = t > 2.25 && t < 2.45; btn.classList.toggle('down', down);
+
+    // left preview gently scrolls; thumb shows how long the document is
+    const scrollK = seg(t, 0, 2.0) * 0.0 + (t > E0 ? clamp((t - E0) / (E1 - E0)) : 0);
+    $('#scroll i').style.top = `calc(${(scrollK * 100).toFixed(2)}% - ${(scrollK * 3).toFixed(2)}px)`;
+
+    // export progress, replayed from the real export timing
+    const k = clamp((t - E0) / (E1 - E0));
+    const realMs = k * state.totalMs;
+    const { cur, stage, pct } = t < E0 ? { cur: 0, stage: 'idle', pct: 0 } : progressAt(realMs);
+    const shown = t >= E1 ? state.pages : cur;
+    $('#count').innerHTML = `${fmt(shown)} <small>/ ${fmt(PAGES)} pages</small>`;
+    $('#bar i').style.width = (t >= E1 ? 100 : pct).toFixed(2) + '%';
+    const ticks = $('#ticks').children, on = Math.floor((t >= E1 ? 1 : pct / 100) * ticks.length);
+    for (let i = 0; i < ticks.length; i++) { ticks[i].className = i < on ? 'on' : (i === on && pct > 0 && t < E1 ? 'cur' : ''); }
+    $('#runlbl').textContent = t < E0 ? 'waiting' : stage === 'collecting' ? 'snapshot DOM…' : stage === 'countingPages' ? 'paginating…' : t < E1 ? 'writing pages in Rust/WASM…' : 'done';
+    $('#elapsed').innerHTML = t < E0 ? '0.0 s' : `<b>${(Math.min(realMs, state.totalMs) / 1000).toFixed(1)} s</b> elapsed`;
+    const speedup = state.totalMs / ((E1 - E0) * 1000);
+    $('#speed').textContent = t >= E0 && speedup > 1.15 ? `playback ${speedup.toFixed(1)}× faster` : '\u00a0';
+    $('#stats').textContent = t < E1 ? '—' : `${fmt(state.pages)} pages · ${(state.size / 1048576).toFixed(1)} MB · ${(state.totalMs / 1000).toFixed(1)} s`;
+
+    // viewer
+    const vIn = seg(t, 7.9, 8.4);
+    $('#run').style.opacity = 1 - vIn;
+    $('#viewer').style.opacity = vIn;
+    const pbA = $('#pbA'), pbB = $('#pbB');
+    const w = state.vp.width;
+    for (const pb of [pbA, pbB]) pb.style.left = `calc(50% - ${w / 2}px)`;
+    // page 1 → page 7,342 flip
+    const flip = seg(t, 8.8, 9.6);
+    const pn = Math.round(lerp(1, TARGET, flip));
+    $('#pnum').textContent = fmt(pn);
+    pbA.style.opacity = 1 - flip; pbB.style.opacity = flip;
+    pbA.style.transform = `translateY(${-flip * 30}px)`; pbB.style.transform = `translateY(${(1 - flip) * 30}px)`;
+
+    // select a row on page 7,342
+    const spans = state.vp ? rowSpans() : [];
+    let selK = 0;
+    if (spans.length) {
+      const a = spans[0].getBoundingClientRect(), b = spans[spans.length - 1].getBoundingClientRect();
+      const s0 = { x: a.left - 2, y: a.top + a.height * .55 }, s1 = { x: b.right + 1, y: b.top + b.height * .55 };
+      if (t >= 8.4) { const m = seg(t, 9.6, 10.4); cx = lerp(bx, s0.x, m); cy = lerp(by, s0.y, m); }
+      if (t >= 10.5) { selK = seg(t, 10.5, 11.5); cx = lerp(s0.x, s1.x, selK); cy = lerp(s0.y, s1.y, selK); down = t < 11.6; }
+      const d = rowData(TARGET, PICK_ROW);
+      $('#copied').textContent = `copied: "${d.id}  ${d.date}  ${d.client}  ${money(d.amt)}"`;
+    }
+    selectSpans(spans, selK);
+    $('#copied').style.opacity = t > 11.7 ? 1 : 0;
+
+    const c = $('#cursor');
+    c.style.transform = `translate(${cx}px, ${cy}px) scale(${down ? .9 : 1})`;
+  }
+
+  window.scene = { prepare, seek, T, state };
+</script>
+</body>
+</html>

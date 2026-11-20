@@ -34,7 +34,7 @@ const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1040, height: 600 }, deviceScaleFactor: 1 });
 page.on('console', (m) => m.type() === 'error' && console.error('[page]', m.text()));
 page.on('pageerror', (e) => console.error('[page]', e.message));
-await page.goto(`http://localhost:${port}/scripts/readme-gif/scene.html`);
+await page.goto(`http://localhost:${port}/scripts/readme-gif/scene-10k.html`);
 await page.waitForFunction(() => window.scene && window.dompdf);
 await page.evaluate(() => document.fonts.ready);
 const info = await page.evaluate(() => window.scene.prepare());
@@ -44,7 +44,7 @@ const total = await page.evaluate(() => window.scene.T.total);
 if (preview) {
   const dir = path.join(root, 'tmp', 'readme-gif');
   fs.mkdirSync(dir, { recursive: true });
-  for (const t of [1, 2.3, 3.2, 4.8, 6.9, 9.5]) {
+  for (const t of [1.0, 3.6, 5.8, 7.6, 8.6, 12.2]) {
     await page.evaluate((t) => window.scene.seek(t), t);
     await page.screenshot({ path: path.join(dir, `t${t}.png`) });
   }
