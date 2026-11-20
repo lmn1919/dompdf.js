@@ -5,7 +5,9 @@
 [文档](https://dompdfjs.lisky.com.cn/docs.html) | [在线演示](https://dompdfjs.lisky.com.cn/)| [pdf编辑器](https://pdfmake.lisky.com.cn/editor) | [English](./README.md)
 
 <p align="center">
-  <img src="./assets/demo.gif" alt="dompdf.js 将 HTML 发票导出为可选中文本的矢量 PDF" width="880" />
+  <img src="./assets/demo.gif" alt="dompdf.js 在浏览器中将 10,000 页 HTML 导出为可选中文本的矢量 PDF" width="880" />
+  <br />
+  <sub>浏览器真实录制：在 Web Worker + Rust/WASM 中导出 10,000 页 A4 矢量 PDF（16.9 MB，实际耗时 39.5 s，进度条为加速回放），并在第 7,342 页直接选中与复制矢量文本。</sub>
 </p>
 
 ---

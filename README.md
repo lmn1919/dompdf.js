@@ -5,7 +5,9 @@ Pure-frontend DOM-to-PDF engine powered by TypeScript, Web Workers, Rust, and We
 [Documentation](https://dompdfjs.lisky.com.cn/docs.html) | [Live Demo](https://dompdfjs.lisky.com.cn/) | [PDF Editor](https://pdfmake.lisky.com.cn/editor) | [中文文档](./README_CN.md)
 
 <p align="center">
-  <img src="./assets/demo.gif" alt="dompdf.js exporting an HTML invoice to a vector PDF with selectable text" width="880" />
+  <img src="./assets/demo.gif" alt="dompdf.js exporting 10,000 pages of HTML into a vector PDF with selectable text" width="880" />
+  <br />
+  <sub>Real browser recording: exporting 10,000 A4 pages (16.9 MB, 39.5 s actual export time, accelerated playback) in a Web Worker + Rust/WASM, then selecting real vector text on page 7,342.</sub>
 </p>
 
 ---
