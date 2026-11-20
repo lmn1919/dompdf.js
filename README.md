@@ -4,6 +4,10 @@ Pure-frontend DOM-to-PDF engine powered by TypeScript, Web Workers, Rust, and We
 
 [Documentation](https://dompdfjs.lisky.com.cn/docs.html) | [Live Demo](https://dompdfjs.lisky.com.cn/) | [PDF Editor](https://pdfmake.lisky.com.cn/editor) | [中文文档](./README_CN.md)
 
+<p align="center">
+  <img src="./assets/demo.gif" alt="dompdf.js exporting an HTML invoice to a vector PDF with selectable text" width="880" />
+</p>
+
 ---
 
 ## Features
@@ -69,10 +73,6 @@ Covered topics:
 - **[dompdf.js Studio](https://dompdfjs.lisky.com.cn/)**: Live HTML/CSS editing and real-time dual-pane PDF preview workbench.
 - **[Documentation Center](https://dompdfjs.lisky.com.cn/docs.html)**: Comprehensive bilingual API manual and code examples.
 - **[PDF Editor](https://pdfmake.lisky.com.cn/editor)**: Online PDF editor powered by dompdf.js.
-
-## Community
-
-<img src="./assets/wechatqrcode.jpg" alt="dompdf.js WeChat Community QR Code" width="300" />
 
 ## Contributing
 

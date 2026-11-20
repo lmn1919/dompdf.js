@@ -4,6 +4,10 @@
 
 [文档](https://dompdfjs.lisky.com.cn/docs.html) | [在线演示](https://dompdfjs.lisky.com.cn/)| [pdf编辑器](https://pdfmake.lisky.com.cn/editor) | [English](./README.md)
 
+<p align="center">
+  <img src="./assets/demo.gif" alt="dompdf.js 将 HTML 发票导出为可选中文本的矢量 PDF" width="880" />
+</p>
+
 ---
 
 ## 核心特性
