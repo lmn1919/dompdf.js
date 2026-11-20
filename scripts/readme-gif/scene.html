@@ -1,0 +1,389 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>dompdf.js — README demo scene</title>
+<link rel="stylesheet" href="/node_modules/pdfjs-dist/web/pdf_viewer.css" />
+<style>
+  :root {
+    --paper: #efebe3;
+    --ink: #1b1a17;
+    --muted: #7a756b;
+    --line: #d8d2c6;
+    --accent: #e8590c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1040px; height: 600px; overflow: hidden; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    position: relative;
+  }
+
+  /* ---------- frame chrome ---------- */
+  .top {
+    position: absolute; left: 32px; right: 32px; top: 22px; height: 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    font: 12px/1 ui-monospace, "SFMono-Regular", Consolas, monospace;
+    color: var(--muted); letter-spacing: .02em;
+  }
+  .top b { color: var(--ink); font-weight: 600; }
+  .steps { display: flex; gap: 18px; }
+  .steps span { transition: none; }
+  .steps span.on { color: var(--ink); }
+  .steps span.on::before { content: "■ "; color: var(--accent); }
+  .steps span::before { content: "□ "; }
+
+  .win {
+    position: absolute; top: 60px; height: 470px;
+    background: #fff; border: 1px solid var(--ink);
+    box-shadow: 6px 6px 0 var(--ink);
+    overflow: hidden;
+  }
+  .win .bar {
+    height: 30px; border-bottom: 1px solid var(--ink);
+    display: flex; align-items: center; padding: 0 12px; gap: 10px;
+    font: 11.5px/1 ui-monospace, Consolas, monospace; color: var(--muted);
+    background: #faf8f4;
+  }
+  .win .bar i { width: 9px; height: 9px; border: 1px solid var(--ink); border-radius: 50%; display: inline-block; }
+  .win .bar .t { margin-left: 6px; color: var(--ink); }
+  .win .bar .r { margin-left: auto; }
+  #left { left: 32px; width: 486px; }
+  #right { left: 548px; width: 460px; }
+
+  .caption {
+    position: absolute; left: 32px; right: 32px; bottom: 20px; height: 32px;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 17px; letter-spacing: -.01em;
+  }
+  .caption code {
+    font: 13px/1 ui-monospace, Consolas, monospace; color: var(--muted);
+  }
+
+  /* ---------- the HTML document being exported ---------- */
+  #doc-wrap { height: 440px; overflow: hidden; }
+  #doc {
+    width: 486px; padding: 20px 30px 12px; background: #fff; color: #1b1a17;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+  #doc .hd { display: flex; justify-content: space-between; align-items: flex-start; }
+  #doc .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; }
+  #doc .brand svg { display: block; }
+  #doc .meta { text-align: right; font-size: 10px; color: #6b665d; line-height: 1.5; }
+  #doc h1 { font-size: 26px; letter-spacing: -.02em; margin: 14px 0 2px; font-weight: 700; }
+  #doc .sub { font-size: 11px; color: #6b665d; }
+  #doc .parties { display: flex; gap: 28px; margin: 12px 0 10px; font-size: 10.5px; line-height: 1.5; }
+  #doc .parties div span { display: block; font-size: 9px; letter-spacing: .08em; color: #8a8478; margin-bottom: 2px; }
+  #doc table { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+  #doc th { text-align: left; font-size: 9px; letter-spacing: .08em; color: #8a8478; font-weight: 400; padding: 6px 0; border-bottom: 1.5px solid #1b1a17; }
+  #doc td { padding: 5px 0; border-bottom: 1px solid #e4dfd5; }
+  #doc td.n, #doc th.n { text-align: right; }
+  #doc .tot { display: flex; justify-content: flex-end; margin-top: 6px; }
+  #doc .tot table { width: 190px; }
+  #doc .tot td { border: none; padding: 3px 0; }
+  #doc .tot tr.g td { border-top: 1.5px solid #1b1a17; padding-top: 7px; font-weight: 700; font-size: 13px; }
+  #doc .chart { margin-top: 6px; display: flex; align-items: flex-end; gap: 14px; }
+  #doc .chart .lbl { font-size: 9px; color: #8a8478; letter-spacing: .08em; width: 90px; line-height: 1.5; }
+  #doc .stamp {
+    margin-left: auto; border: 1.5px solid #e8590c; color: #e8590c; font-weight: 700;
+    font-size: 11px; letter-spacing: .14em; padding: 5px 9px;
+  }
+
+  /* ---------- cursor / button ---------- */
+  #cursor { position: absolute; left: 0; top: 0; width: 18px; height: 24px; z-index: 50; pointer-events: none; }
+  .btn {
+    position: absolute; left: 418px; top: 64px; z-index: 5;
+    font: 11.5px/1 ui-monospace, Consolas, monospace;
+    background: var(--ink); color: #fff; padding: 6px 10px; border: none;
+  }
+  .btn.down { background: var(--accent); }
+
+  /* ---------- right pane ---------- */
+  #stage { position: relative; height: 440px; background: #e9e5dc; overflow: hidden; }
+  #empty {
+    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+    font: 12px/1.4 ui-monospace, Consolas, monospace; color: var(--muted);
+  }
+  #prog { width: 220px; height: 6px; border: 1px solid var(--ink); background: #fff; }
+  #prog i { display: block; height: 100%; width: 0; background: var(--ink); }
+  #pagebox {
+    position: absolute; left: 50%; top: 18px; transform-origin: 0 0;
+    background: #fff; box-shadow: 0 1px 0 rgba(0,0,0,.08), 0 6px 18px rgba(40,30,10,.12);
+    opacity: 0;
+  }
+  #pagebox canvas { display: block; position: absolute; left: 0; top: 0; }
+  #pagebox .textLayer { opacity: 1; }
+  #pagebox .textLayer ::selection { background: rgba(232, 89, 12, .32); color: transparent; }
+  #pagebox .textLayer span::selection { background: rgba(232, 89, 12, .32); color: transparent; }
+  #pagebox .textLayer .endOfContent { display: none; }
+  #zoomlabel {
+    position: absolute; right: 10px; top: 10px; font: 11px/1 ui-monospace, Consolas, monospace;
+    background: var(--ink); color: #fff; padding: 5px 7px; opacity: 0;
+  }
+  #copied {
+    position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
+    font: 11.5px/1 ui-monospace, Consolas, monospace; background: #fff; border: 1px solid var(--ink);
+    padding: 6px 9px; opacity: 0; white-space: nowrap; z-index: 6;
+  }
+</style>
+</head>
+<body>
+  <div class="top">
+    <div><b>dompdf.js</b> &nbsp;DOM → PDF, in the browser</div>
+    <div class="steps"><span data-s="0">html</span><span data-s="1">export</span><span data-s="2">select text</span><span data-s="3">zoom</span></div>
+  </div>
+
+  <section class="win" id="left">
+    <div class="bar"><i></i><i></i><i></i><span class="t">localhost:5173/invoice</span></div>
+    <div id="doc-wrap">
+      <div id="doc">
+        <div class="hd">
+          <div class="brand">
+            <svg width="22" height="22" viewBox="0 0 22 22"><rect x="1" y="1" width="20" height="20" fill="#1b1a17"/><path d="M6 15 L11 6 L16 15 Z" fill="#e8590c"/></svg>
+            Northwind Studio
+          </div>
+          <div class="meta">Invoice No. 2026-0418<br/>Issued 18 Nov 2026<br/>Due 18 Dec 2026</div>
+        </div>
+        <h1>Invoice</h1>
+        <div class="sub">Brand system &amp; marketing site, phase two</div>
+        <div class="parties">
+          <div><span>BILLED TO</span>Halden &amp; Pike Ltd.<br/>14 Mercer Street, London</div>
+          <div><span>FROM</span>Northwind Studio<br/>Kreuzberg, Berlin</div>
+        </div>
+        <table>
+          <thead><tr><th>DESCRIPTION</th><th class="n">QTY</th><th class="n">RATE</th><th class="n">AMOUNT</th></tr></thead>
+          <tbody>
+            <tr><td>Design system audit</td><td class="n">1</td><td class="n">€2,400</td><td class="n">€2,400.00</td></tr>
+            <tr><td>Component library, 38 parts</td><td class="n">38</td><td class="n">€120</td><td class="n">€4,560.00</td></tr>
+            <tr><td>Marketing site build</td><td class="n">1</td><td class="n">€6,800</td><td class="n">€6,800.00</td></tr>
+            <tr><td>Copy editing, EN/DE</td><td class="n">12</td><td class="n">€85</td><td class="n">€1,020.00</td></tr>
+          </tbody>
+        </table>
+        <div class="tot">
+          <table>
+            <tr><td>Subtotal</td><td class="n">€14,780.00</td></tr>
+            <tr><td>VAT 19%</td><td class="n">€2,808.20</td></tr>
+            <tr class="g"><td>Total due</td><td class="n">€17,588.20</td></tr>
+          </table>
+        </div>
+        <div class="chart">
+          <div class="lbl">HOURS BY<br/>WEEK</div>
+          <svg width="150" height="44" viewBox="0 0 150 44">
+            <g fill="#1b1a17">
+              <rect x="0" y="20" width="14" height="24"/><rect x="20" y="10" width="14" height="34"/>
+              <rect x="40" y="16" width="14" height="28"/><rect x="60" y="4" width="14" height="40"/>
+              <rect x="80" y="22" width="14" height="22"/><rect x="100" y="12" width="14" height="32"/>
+            </g>
+            <rect x="120" y="0" width="14" height="44" fill="#e8590c"/>
+          </svg>
+          <div class="stamp">APPROVED</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <button class="btn" id="btn">dompdf(el) ↓</button>
+
+  <section class="win" id="right">
+    <div class="bar"><i></i><i></i><i></i><span class="t">invoice.pdf</span><span class="r" id="stats">—</span></div>
+    <div id="stage">
+      <div id="empty"><div id="emptytxt">no output yet</div><div id="prog"><i></i></div></div>
+      <div id="pagebox"><canvas id="cvlo"></canvas><canvas id="cv"></canvas><div class="textLayer" id="tl"></div></div>
+      <div id="copied">copied: “Total due €17,588.20”</div>
+      <div id="zoomlabel">400%</div>
+    </div>
+  </section>
+
+  <div class="caption"><span id="cap"></span><code id="capcode"></code></div>
+
+  <svg id="cursor" viewBox="0 0 18 24"><path d="M1 1 L1 19 L5.5 15 L8.5 22 L11.5 20.8 L8.6 14 L14.5 14 Z" fill="#1b1a17" stroke="#fff" stroke-width="1.2" stroke-linejoin="round"/></svg>
+
+<script src="/dist/dompdf.js"></script>
+<script type="module">
+  import * as pdfjsLib from '/node_modules/pdfjs-dist/build/pdf.mjs';
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '/node_modules/pdfjs-dist/build/pdf.worker.mjs';
+
+  const $ = (s) => document.querySelector(s);
+  const DISPLAY_W = 400;          // page width on screen (CSS px)
+  const BACKING = 5;              // canvas oversampling so zoom stays crisp
+  const state = { ready: false };
+
+  // Real export, done once up front. The timeline below only replays it.
+  async function prepare() {
+    const el = $('#doc');
+    const t0 = performance.now();
+    const blob = await window.dompdf(el, { format: [el.offsetWidth * 0.75, el.offsetHeight * 0.75], backgroundColor: '#ffffff' });
+    const ms = Math.round(performance.now() - t0);
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+
+    const pdf = await pdfjsLib.getDocument({ data: bytes.slice() }).promise;
+    const page = await pdf.getPage(1);
+    const base = page.getViewport({ scale: 1 });
+    const scale = DISPLAY_W / base.width;
+    const vp = page.getViewport({ scale });
+    const hi = page.getViewport({ scale: scale * BACKING });
+
+    const cv = $('#cv');
+    cv.width = Math.round(hi.width); cv.height = Math.round(hi.height);
+    cv.style.width = vp.width + 'px'; cv.style.height = vp.height + 'px';
+    await page.render({ canvas: cv, canvasContext: cv.getContext('2d'), viewport: hi }).promise;
+    // 1x copy for the un-zoomed view; downsampling the 5x canvas aliases badly
+    const lo = $('#cvlo');
+    lo.width = Math.round(vp.width); lo.height = Math.round(vp.height);
+    lo.style.width = vp.width + 'px'; lo.style.height = vp.height + 'px';
+    await page.render({ canvas: lo, canvasContext: lo.getContext('2d'), viewport: vp }).promise;
+
+    const box = $('#pagebox');
+    box.style.width = vp.width + 'px'; box.style.height = vp.height + 'px';
+    box.style.setProperty('--scale-factor', String(scale));
+    box.style.setProperty('--total-scale-factor', String(scale));
+    const tl = new pdfjsLib.TextLayer({ textContentSource: page.streamTextContent(), container: $('#tl'), viewport: vp });
+    await tl.render();
+
+    const text = (await page.getTextContent()).items.map((i) => i.str).join(' ');
+    state.stats = `${(bytes.length / 1024).toFixed(0)} KB · ${pdf.numPages} page · vector`;
+    state.ms = ms;
+    state.text = text;
+    state.vp = vp;
+    state.ready = true;
+    return { docH: el.offsetHeight, ms, size: bytes.length, pages: pdf.numPages, hasText: /Total due/.test(text) };
+  }
+
+  // ---------- timeline helpers ----------
+  const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+  const ease = (x) => { x = clamp(x); return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+  const seg = (t, a, b) => ease((t - a) / (b - a));
+  const lerp = (a, b, k) => a + (b - a) * k;
+
+  function spanRect(match) {
+    const spans = [...document.querySelectorAll('#tl span')];
+    return spans.filter((s) => match(s.textContent));
+  }
+
+  function selectSpans(spans, k) {
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    if (!spans.length || k <= 0) return;
+    // grow selection char by char across the matched spans
+    const total = spans.reduce((n, s) => n + s.textContent.length, 0);
+    let want = Math.max(1, Math.round(total * k));
+    const r = document.createRange();
+    r.setStart(spans[0].firstChild, 0);
+    for (const s of spans) {
+      const len = s.textContent.length;
+      if (want <= len) { r.setEnd(s.firstChild, want); break; }
+      want -= len; r.setEnd(s.firstChild, len);
+    }
+    sel.addRange(r);
+  }
+
+  function cursorAt(x, y, down = false) {
+    const c = $('#cursor');
+    c.style.transform = `translate(${x}px, ${y}px) scale(${down ? .9 : 1})`;
+  }
+
+  function setStep(i) { document.querySelectorAll('.steps span').forEach((s) => s.classList.toggle('on', +s.dataset.s === i)); }
+  function setCap(a, b) { $('#cap').textContent = a; $('#capcode').textContent = b; }
+
+  // Timeline in seconds. Returns nothing; pure function of t.
+  const T = { total: 11.6 };
+  function seek(t) {
+    const btn = $('#btn');
+    const box = $('#pagebox');
+    const stage = $('#stage').getBoundingClientRect();
+    const sx = stage.left, sy = stage.top;
+    const btnR = btn.getBoundingClientRect();
+    const bx = btnR.left + btnR.width * .55, by = btnR.top + btnR.height * .6;
+
+    // targets in the PDF: the "Total due" row
+    const totalSpans = spanRect((s) => /Total due|17,588\.20/.test(s));
+    const boxR0 = { w: state.vp.width, h: state.vp.height };
+
+    // --- 0.0–2.2 : the HTML page
+    // --- 2.2–4.4 : click + export
+    // --- 4.4–7.6 : select text
+    // --- 7.6–11.6: zoom
+    let step = 0;
+    if (t >= 2.0) step = 1;
+    if (t >= 4.6) step = 2;
+    if (t >= 7.8) step = 3;
+    setStep(step);
+
+    if (step === 0) setCap('This is a regular HTML page.', '<div id="invoice">…</div>');
+    else if (step === 1) setCap('One call. Snapshot in a worker, PDF written in Rust/WASM.', 'await dompdf(el)');
+    else if (step === 2) setCap('The text is real text, so you can select, search and copy it.', 'no screenshots, no jsPDF');
+    else setCap('Everything is vector, so zooming in stays sharp.', 'no server, no headless Chrome');
+
+    // cursor path
+    const rest = { x: 300, y: 330 };
+    let cx = rest.x, cy = rest.y, down = false;
+    const m1 = seg(t, 0.8, 2.2);
+    cx = lerp(rest.x, bx, m1); cy = lerp(rest.y, by, m1);
+    down = t > 2.25 && t < 2.45;
+    btn.classList.toggle('down', down);
+
+    // export progress
+    const p = clamp((t - 2.4) / 1.5);
+    $('#prog i').style.width = (p * 100).toFixed(1) + '%';
+    $('#emptytxt').textContent = t < 2.4 ? 'no output yet' : p < 1 ? (p < .45 ? 'snapshot DOM…' : 'writing PDF…') : 'done';
+    $('#empty').style.opacity = t < 3.9 ? 1 : 1 - seg(t, 3.9, 4.2);
+    $('#stats').textContent = t < 4.0 ? '—' : state.stats;
+
+    // page appears
+    const appear = seg(t, 4.0, 4.5);
+    let zoom = 1, ox = -boxR0.w / 2, oy = 0;
+
+    // selection: drag across the "Total due" row
+    let selK = 0;
+    let selStart = null, selEnd = null;
+    if (totalSpans.length) {
+      const first = totalSpans[0].getBoundingClientRect();
+      const last = totalSpans[totalSpans.length - 1].getBoundingClientRect();
+      selStart = { x: first.left - 2, y: first.top + first.height * .55 };
+      selEnd = { x: last.right + 1, y: last.top + last.height * .55 };
+    }
+
+    if (t >= 4.4 && selStart) {
+      const k = seg(t, 4.5, 5.5);
+      cx = lerp(bx, selStart.x, k); cy = lerp(by, selStart.y, k);
+      if (t >= 5.6) {
+        selK = seg(t, 5.6, 6.6);
+        cx = lerp(selStart.x, selEnd.x, selK); cy = lerp(selStart.y, selEnd.y, selK);
+        down = t < 6.7;
+      }
+    }
+    if (t >= 7.6) {
+      // move cursor out of the way, zoom in on the totals
+      const k = seg(t, 7.6, 8.2);
+      cx = lerp(selEnd ? selEnd.x : cx, 1060, k); cy = lerp(selEnd ? selEnd.y : cy, 470, k);
+    }
+    selectSpans(totalSpans, t >= 7.6 ? 0 : selK);
+    $('#copied').style.opacity = t > 6.8 && t < 7.6 ? 1 : 0;
+
+    // zoom on the logo + heading area
+    const zk = seg(t, 7.9, 9.0) * (1 - seg(t, 10.6, 11.4));
+    zoom = lerp(1, 3.2, zk);
+    $('#cv').style.visibility = zoom > 1.04 ? 'visible' : 'hidden';
+    // focus point in page coords (fraction): the brand mark, top-left
+    const fx = 0.215, fy = 0.14;
+    const stageW = stage.width, stageH = stage.height;
+    const focusPx = { x: fx * boxR0.w, y: fy * boxR0.h };
+    // position so that focus point moves to stage centre as zoom grows
+    const baseLeft = stageW / 2 + ox, baseTop = 18;
+    const tgtLeft = stageW / 2 - focusPx.x * zoom, tgtTop = stageH / 2 - focusPx.y * zoom;
+    const left = lerp(baseLeft, tgtLeft, zk), top = lerp(baseTop, tgtTop, zk);
+    box.style.left = '0px'; box.style.top = '0px';
+    box.style.transform = `translate(${left}px, ${top + (1 - appear) * 14}px) scale(${zoom})`;
+    box.style.opacity = appear;
+    $('#zoomlabel').style.opacity = zk > 0.02 ? 1 : 0;
+    $('#zoomlabel').textContent = 'zoom ' + zoom.toFixed(1) + 'x';
+
+    cursorAt(cx, cy, down);
+  }
+
+  window.scene = { prepare, seek, T, state };
+</script>
+</body>
+</html>
